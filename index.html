@@ -10,6 +10,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Provedor Tycoon">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<script src="vendor/leaflet/leaflet.js" defer></script>
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Provedor Tycoon</title>
@@ -323,6 +325,22 @@ button,.lot,.bzone,input,select{touch-action:manipulation}
 @media (min-width:821px){.update-bar{bottom:24px}}
 .offline-pill{display:none;background:#5b3a00;color:#ffe08a;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;letter-spacing:.04em}
 body.is-offline .offline-pill{display:inline-block}
+/* Mapa real */
+.view-toggle{display:inline-flex;background:#e8eee6;border-radius:10px;padding:3px;gap:2px}
+.view-toggle button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;color:var(--muted)}
+.view-toggle button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.realmap{width:100%;height:min(72vh,620px);min-height:340px;border-radius:14px;overflow:hidden;background:#dfe7dc;z-index:0}
+.real-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:10px}
+.real-tools .grp{display:flex;flex-wrap:wrap;gap:6px}
+.plan-box{margin-top:10px;border-radius:12px;padding:10px 12px;background:var(--gold-soft);color:#5a3d05;font-size:13.5px}
+.plan-box b{color:var(--ink)}
+.real-empty{display:grid;place-items:center;text-align:center;gap:8px;padding:28px 16px;border-radius:14px;background:#eef2ec;min-height:240px}
+.bairro-tip{background:rgba(30,42,48,.86);color:#fff;border:0;border-radius:999px;padding:2px 8px;font-weight:800;font-size:11px;box-shadow:none;font-family:var(--body)}
+.bairro-tip::before{display:none}
+.mk{display:grid;place-items:center}
+.mk svg{width:100%;height:100%;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+.leaflet-container{font-family:var(--body)}
+.geo-note{font-size:12px;color:var(--muted);margin-top:6px}
 /* Celular */
 @media (max-width:820px){
   .top{position:sticky;top:0;gap:8px;padding-block:calc(8px + env(safe-area-inset-top,0px)) 8px}
@@ -361,6 +379,7 @@ body.is-offline .offline-pill{display:inline-block}
   input,select,textarea{font-size:16px!important}
 }
 body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))}
+@media (max-width:820px){.realmap{height:62vh;min-height:300px;border-radius:10px}.view-toggle button{padding:8px 12px}}
 @media (max-width:380px){.blabel{font-size:8px}.stat{min-width:76px}}
 </style>
 </head>
@@ -383,8 +402,9 @@ body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))
     <div class="card">
       <div class="map-head" id="mapHead"></div>
       <div id="crisisBar"></div><div id="sedeBar"></div>
-      <div class="map-wrap"><div class="map" id="map"></div></div>
-      <div class="legend">
+      <div class="map-wrap" id="gridWrap"><div class="map" id="map"></div></div>
+      <div id="realWrap" hidden><div class="realmap" id="realMap"></div><div id="realTools"></div></div>
+      <div class="legend" id="gridLegend">
         <span><i class="sw" style="background:var(--grass)"></i>Sem sinal</span>
         <span><i class="sw" style="background:var(--grass-cov)"></i>Área com sinal</span>
         <span><i class="sw" style="background:var(--signal);border-radius:50%"></i>Cliente</span>
@@ -530,7 +550,7 @@ function makeFam(r){
   return {name:`${pick(r,FIRST)} ${pick(r,SUR)}`,need,budget:Math.round(a+r()*(b-a)),color:pick(r,HOUSE_COLORS),people:1+Math.floor(r()*5)};
 }
 function makeCity(name,uf,idx){
-  const c=makeCity0(name,uf,idx);c.fiber={on:false,ctos:[]};c.campaigns=[];c.store=null;return c;
+  const c=makeCity0(name,uf,idx);c.namesAuto=true;c.geo=null;c.fiber={on:false,ctos:[]};c.campaigns=[];c.store=null;return c;
 }
 function makeCity0(name,uf,idx){
   const r=rng(hash(name.toLowerCase()+'#'+idx));
@@ -961,7 +981,7 @@ const storeSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="17" w
 const lotSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="9" y="12" width="22" height="16" rx="2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-dasharray="3 3"/><path d="M20 16v8M16 20h8" stroke="#fff" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/></svg>`;
 
 /* ===================== Render ===================== */
-function renderAll(){if(!S)return;renderTop();renderMap();renderBuilding();renderProducts();renderMissions();renderReport();renderLog();}
+function renderAll(){if(!S)return;renderTop();renderMap();renderReal();renderBuilding();renderProducts();renderMissions();renderReport();renderLog();}
 function renderSaveDot(){const d=$('#saveDot');if(d)d.className='save-dot '+(cloud.status==='cloud'?'cloud':cloud.status==='erro'?'err':'');}
 function renderTop(){
   const c=city();
@@ -988,7 +1008,7 @@ function renderMap(){
   const og=c.outorgaPaid?'<span class="chip ok">Outorga paga</span>':`<span class="chip bad">Sem outorga · ${brl0(c.outorga)}</span>`;
   const sel=S.cities.length>1?`<select class="input" id="citySel" style="width:auto;padding:5px 8px" aria-label="Trocar cidade">${S.cities.map((cc,i)=>`<option value="${i}" ${i===S.ci?'selected':''}>${esc(cc.name)}</option>`).join('')}</select>`:'';
   $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · rede 10.${c.idx+1}.0.0/24</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
-   <div class="map-meta">${sel}<span class="chip">Cobertura ${houses.length?Math.round(covered/houses.length*100):0}%</span><span class="chip">Clientes ${cl}/${houses.length}</span>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
+   <div class="map-meta"><div class="view-toggle" role="group" aria-label="Visão do mapa"><button data-view="grid" aria-pressed="${mapView==='grid'}">Quadras</button><button data-view="real" aria-pressed="${mapView==='real'}">Mapa real</button></div>${sel}<span class="chip">Cobertura ${houses.length?Math.round(covered/houses.length*100):0}%</span><span class="chip">Clientes ${cl}/${houses.length}</span>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   $('#crisisBar').innerHTML=cr?`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}</div></div>`:'';
   $('#sedeBar').innerHTML=sedeMode?`<div class="sede-bar"><p><b>Onde fica a sede?</b> Toque num bairro do mapa. Selecionado: <b>${esc(c.bairros[selBairro])}</b></p>
@@ -1115,12 +1135,19 @@ function showStart(){
    <div class="field"><label for="stCompany">Nome do provedor</label><input class="input" id="stCompany" maxlength="28" value="SinalBom Telecom"></div>
    <div class="row2"><div class="field"><label for="stCity">Cidade</label><input class="input" id="stCity" maxlength="32" placeholder="Ex.: Alamora"></div>
    <div class="field"><label for="stUf">Estado</label><select class="input" id="stUf">${UFS.map(u=>`<option ${u==='SP'?'selected':''}>${u}</option>`).join('')}</select></div></div>
+   <button class="btn small ghost" id="stGps" type="button">📍 Usar minha localização</button><p class="geo-note" id="stGeoNote">Com internet, o jogo busca o mapa e os bairros reais da cidade.</p>
    <div class="foot"><button class="btn ghost" id="stImport">Importar JSON</button><button class="btn primary" id="stGo">Começar</button></div>`,m=>{
+    m.querySelector('#stGps').onclick=async()=>{
+      const note=m.querySelector('#stGeoNote');note.textContent='Pegando sua localização…';
+      try{const pos=await getPosition();note.textContent='Procurando a cidade…';const r=await reverseCity(pos.lat,pos.lon);
+        if(r.name){m.querySelector('#stCity').value=r.name;if(r.uf)m.querySelector('#stUf').value=r.uf;note.textContent=`Encontrado: ${r.name}${r.uf?'/'+r.uf:''}.`;}else note.textContent='Não achei a cidade. Digite o nome.';
+      }catch(e){note.textContent=e&&e.code===1?'Permissão de localização negada. Digite a cidade.':'Não deu para usar o GPS agora. Digite a cidade.';}
+    };
     m.querySelector('#stGo').onclick=()=>{
       const co=m.querySelector('#stCompany').value.trim()||'SinalBom Telecom';
       const ci=m.querySelector('#stCity').value.trim();
       if(!ci){m.querySelector('#stCity').focus();toast('Digite o nome da sua cidade.');return;}
-      newGame(co,ci,m.querySelector('#stUf').value);selBairro=4;closeModal();setTab('map');toast('Agora escolha o bairro da sede no mapa.');
+      newGame(co,ci,m.querySelector('#stUf').value);geoLoad(S.cities[0],{rename:true});selBairro=4;closeModal();setTab('map');toast('Agora escolha o bairro da sede no mapa.');
     };
     m.querySelector('#stImport').onclick=()=>$('#importFile').click();
   });
@@ -1159,7 +1186,7 @@ function openBairros(){
     <div id="aiBox"></div>
     <div class="bairro-grid">${c.bairros.map((b,i)=>`<div class="field"><label for="bn${i}">${DIRS[i]}</label><input class="input" id="bn${i}" maxlength="26" value="${esc(b)}"></div>`).join('')}</div>
     <div class="foot"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="bnSave">Salvar nomes</button></div>`,async m=>{
-    m.querySelector('#bnSave').onclick=()=>{for(let i=0;i<9;i++){const v=m.querySelector('#bn'+i).value.trim();if(v)c.bairros[i]=v;}save(true);closeModal();toast('Bairros atualizados.');};
+    m.querySelector('#bnSave').onclick=()=>{for(let i=0;i<9;i++){const v=m.querySelector('#bn'+i).value.trim();if(v&&v!==c.bairros[i]){c.bairros[i]=v;c.namesAuto=false;if(c.geo&&c.geo.bairros[i])c.geo.bairros[i].name=v;}}save(true);closeModal();toast('Bairros atualizados.');};
     let sample=null;try{sample=window.claude&&window.claude.use?await window.claude.use('sample'):null;}catch(e){}
     const box=m.querySelector('#aiBox');
     if(!sample||!box||!box.isConnected)return;
@@ -1235,7 +1262,7 @@ function openNewCity(){
       if(!n){toast('Digite o nome da cidade.');return;}
       if(used.has(n.toLowerCase())){toast('Você já está nessa cidade.');return;}
       if(!spend(NEWCITY_COST))return;
-      S.cities.push(makeCity(n,m.querySelector('#ncUf').value,S.cities.length));S.ci=S.cities.length-1;addXp(80);log(`Expansão: chegamos em ${n}.`);event(`Expansão para ${n}`);checkMissions();save(true);
+      S.cities.push(makeCity(n,m.querySelector('#ncUf').value,S.cities.length));S.ci=S.cities.length-1;geoLoad(city(),{rename:true});addXp(80);log(`Expansão: chegamos em ${n}.`);event(`Expansão para ${n}`);checkMissions();save(true);
       openOutorga(S.ci);
     };
   });
@@ -1716,11 +1743,12 @@ function openCpeConfig(c,lot,deal){
 }
 
 /* ===================== Eventos ===================== */
-function setTab(tab){document.body.dataset.tab=tab;document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));}
+function setTab(tab){document.body.dataset.tab=tab;if(tab==='map'&&typeof renderReal==='function'&&S)setTimeout(()=>{LSig='';renderReal();},0);document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));}
 document.addEventListener('click',e=>{
   if(!S)return;
   if(e.target.closest('[data-close]')){closeModal();return;}
   if(e.target===$('#modalWrap')&&$('#modal').querySelector('.x')){closeModal();return;}
+  const vw=e.target.closest('[data-view]');if(vw){setView(vw.dataset.view);return;}
   const bz=e.target.closest('[data-bairro]');if(bz){selBairro=+bz.dataset.bairro;renderMap();return;}
   const lotB=e.target.closest('[data-lot]');if(lotB){onLot(+lotB.dataset.lot);return;}
   const sp=e.target.closest('[data-speed]');if(sp){S.speed=+sp.dataset.speed;save(false);renderTop();loop();return;}
@@ -1752,6 +1780,201 @@ document.addEventListener('change',e=>{if(e.target.id==='citySel'&&S){S.ci=+e.ta
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen&&$('#modal').querySelector('.x'))closeModal();});
 
 
+
+/* ===================== Mapa real (OpenStreetMap) ===================== */
+const NOMI='https://nominatim.openstreetmap.org';
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const PEOPLE_PER_HOME=2.8;
+let mapView=(()=>{try{return localStorage.getItem('pt-view')||'grid';}catch(e){return 'grid';}})();
+let LM=null,LLayers=null,LSig='',planMarker=null,meMarker=null,geoBusy=new Set();
+async function fetchJson(url,opts={},ms=25000){
+  const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
+  try{const r=await fetch(url,{...opts,signal:ac.signal,headers:{'Accept':'application/json',...(opts.headers||{})}});if(!r.ok)throw new Error('http '+r.status);return await r.json();}
+  finally{clearTimeout(t);}
+}
+function getPosition(){return new Promise((res,rej)=>{if(!navigator.geolocation)return rej({code:0});navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lon:p.coords.longitude}),rej,{enableHighAccuracy:false,timeout:15000,maximumAge:600000});});}
+function ufFrom(addr){const iso=(addr&&addr['ISO3166-2-lvl4'])||'';return iso.startsWith('BR-')?iso.slice(3):'';}
+async function reverseCity(lat,lon){
+  const r=await fetchJson(`${NOMI}/reverse?format=jsonv2&zoom=10&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lon}`);
+  const a=r.address||{};return {name:a.city||a.town||a.village||a.municipality||'',uf:ufFrom(a)};
+}
+async function geocodeCity(name,uf){
+  const q=encodeURIComponent(`${name}${uf?', '+uf:''}, Brasil`);
+  const list=await fetchJson(`${NOMI}/search?format=jsonv2&countrycodes=br&limit=6&addressdetails=1&extratags=1&accept-language=pt-BR&q=${q}`);
+  if(!list.length)return null;
+  const good=list.find(r=>r.osm_type==='relation'&&(r.type==='administrative'||r.addresstype==='municipality'||r.addresstype==='city'||r.addresstype==='town'))||list.find(r=>['city','town','village','municipality'].includes(r.addresstype))||list[0];
+  const a=good.address||{};
+  return {lat:+good.lat,lon:+good.lon,osmType:good.osm_type,osmId:good.osm_id,bbox:(good.boundingbox||[]).map(Number),pop:parseInt(((good.extratags||{}).population||'').replace(/\D/g,''))||0,name:a.city||a.town||a.village||a.municipality||good.name,uf:ufFrom(a)};
+}
+async function overpass(q){
+  let last;for(const url of OVERPASS){try{return await fetchJson(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},30000);}catch(e){last=e;}}
+  throw last;
+}
+async function fetchBairros(g){
+  const filt='[place~"^(suburb|neighbourhood|quarter)$"][name];out body 300;';
+  const q=g.osmType==='relation'?`[out:json][timeout:25];area(${3600000000+Number(g.osmId)})->.a;node(area.a)${filt}`:`[out:json][timeout:25];node(around:7000,${g.lat},${g.lon})${filt}`;
+  const r=await overpass(q);
+  const seen=new Set();
+  return (r.elements||[]).filter(e=>e.tags&&e.tags.name).map(e=>({name:e.tags.name,lat:e.lat,lon:e.lon})).filter(b=>{const k=b.name.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;});
+}
+async function fetchBuildingCounts(points,radius){
+  const q='[out:json][timeout:25];'+points.map(p=>`way["building"](around:${radius},${p.lat.toFixed(6)},${p.lon.toFixed(6)});out count;`).join('');
+  const r=await overpass(q);
+  return (r.elements||[]).filter(e=>e.type==='count').map(e=>+((e.tags||{}).ways||(e.tags||{}).total||0));
+}
+const mPerLat=111320;
+function mPerLon(lat){return 111320*Math.cos(lat*Math.PI/180);}
+function geoToGrid(geo,lat,lon){const dx=(lon-geo.lon)*mPerLon(geo.lat),dy=(lat-geo.lat)*mPerLat;const lm=geo.side/9;return {x:4.5+dx/lm,y:4.5-dy/lm};}
+function gridToGeo(geo,x,y){const lm=geo.side/9;return {lat:geo.lat+(4.5-y)*lm/mPerLat,lon:geo.lon+(x-4.5)*lm/mPerLon(geo.lat)};}
+function lotGeo(c,l){return gridToGeo(c.geo,l.x+0.5,l.y+0.5);}
+function buildGeo(c,g,raw,counts){
+  // escolhe os 9 bairros mais próximos do centro
+  const dist=b=>Math.hypot((b.lon-g.lon)*mPerLon(g.lat),(b.lat-g.lat)*mPerLat);
+  let list=raw.map(b=>({...b,d:dist(b)})).sort((a,b)=>a.d-b.d).slice(0,9);
+  const far=list.length?Math.max(...list.map(b=>b.d)):0;
+  const side=clamp(far*2.3,2400,14000);
+  const geo={lat:g.lat,lon:g.lon,side,source:'osm',bairros:[]};
+  // posiciona cada bairro em um bloco 3x3 (o mais central fica no centro)
+  const slots=new Array(9).fill(null);
+  list.forEach((b,i)=>{
+    const p=geoToGrid(geo,b.lat,b.lon);let bx=clamp(Math.floor(p.x/3),0,2),by=clamp(Math.floor(p.y/3),0,2);let k=by*3+bx;
+    if(i===0)k=4;
+    if(slots[k]){let best=-1,bd=1e9;for(let j=0;j<9;j++){if(slots[j])continue;const cx=(j%3)*3+1.5,cy=Math.floor(j/3)*3+1.5;const d=Math.hypot(cx-p.x,cy-p.y);if(d<bd){bd=d;best=j;}}k=best;}
+    if(k>=0)slots[k]={name:b.name,lat:b.lat,lon:b.lon,real:true,idx:i};
+  });
+  for(let j=0;j<9;j++){if(!slots[j]){const gg=gridToGeo(geo,(j%3)*3+1.5,Math.floor(j/3)*3+1.5);slots[j]={name:c.bairros[j],lat:gg.lat,lon:gg.lon,real:false};}}
+  // domicílios: população da cidade / pessoas por casa, repartida pelos prédios mapeados (ou por igual)
+  const pop=g.pop||c.pop;const homes=Math.round(pop/PEOPLE_PER_HOME);
+  let w=slots.map(()=>1);
+  if(counts&&counts.length===9&&counts.reduce((a,b)=>a+b,0)>=60)w=counts.map(v=>Math.max(v,5));
+  const W=w.reduce((a,b)=>a+b,0);
+  slots.forEach((b,j)=>{b.hh=Math.max(20,Math.round(homes*w[j]/W));b.buildings=counts?counts[j]||0:null;});
+  geo.bairros=slots;geo.homes=homes;geo.pop=pop;geo.loadedAt=Date.now();geo.weighted=w!==null&&counts&&counts.reduce((a,b)=>a+b,0)>=60;
+  return geo;
+}
+async function geoLoad(c,opts={}){
+  if(!c||geoBusy.has(c))return;
+  if(!navigator.onLine){c.geoError='offline';renderReal();return;}
+  geoBusy.add(c);c.geoError=null;renderReal();
+  try{
+    const g=await geocodeCity(c.name,c.uf);
+    if(!g){c.geoError='notfound';return;}
+    let raw=[];try{raw=await fetchBairros(g);}catch(e){raw=[];}
+    const tmp=buildGeo(c,g,raw,null);
+    let counts=null;try{counts=await fetchBuildingCounts(tmp.bairros,550);}catch(e){counts=null;}
+    const geo=buildGeo(c,g,raw,counts);
+    c.geo=geo;
+    if((opts.rename||c.namesAuto)&&c.namesAuto!==false){geo.bairros.forEach((b,j)=>{c.bairros[j]=b.name;});c.namesAuto=true;}
+    if(g.pop){c.pop=g.pop;if(!c.outorgaPaid)c.outorga=Math.round(clamp(g.pop*0.3,2000,60000)/100)*100;}
+    const realN=geo.bairros.filter(b=>b.real).length;
+    log(`Mapa real de ${c.name} carregado: ${realN} bairro(s) do OpenStreetMap, cerca de ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
+    toast(`Mapa de ${c.name} carregado (${realN} bairros reais).`);
+    save(true);
+  }catch(e){c.geoError='fail';}
+  finally{geoBusy.delete(c);LSig='';renderAll();}
+}
+function setView(v){mapView=v;try{localStorage.setItem('pt-view',v);}catch(e){}LSig='';renderMap();renderReal();}
+function frac(d,R,rb){return clamp((R+rb-d)/(2*rb),0,1);}
+function bairroGrid(c,j){const b=c.geo.bairros[j];const p=geoToGrid(c.geo,b.lat,b.lon);return {x:clamp(p.x,0.3,8.7),y:clamp(p.y,0.3,8.7)};}
+function coverageAt(c,gx,gy,ignoreExisting){
+  // domicílios alcançados por uma torre no ponto (gx,gy) do tabuleiro, só a parte que ainda não tem sinal
+  let total=0,parts=[];const rb=1.5;
+  c.geo.bairros.forEach((b,j)=>{
+    const bp=bairroGrid(c,j);let f=frac(Math.hypot(bp.x-gx,bp.y-gy),RANGE,rb);
+    if(f<=0)return;
+    if(!ignoreExisting){let have=0;for(const t of c.towers){if(t.off)continue;have=Math.max(have,frac(Math.hypot(bp.x-(t.x+.5),bp.y-(t.y+.5)),RANGE,rb));}f=Math.max(0,f-have);}
+    if(f>0){const n=Math.round(b.hh*f);total+=n;parts.push([b.name,n]);}
+  });
+  return {total,parts:parts.sort((a,b)=>b[1]-a[1])};
+}
+function freeLots(c){return c.lots.filter(l=>l.t==='empty'||(l.t==='sede'&&!towerAt(c,l)));}
+function bestSpot(c){let best=null;for(const l of freeLots(c)){const r=coverageAt(c,l.x+.5,l.y+.5,false);if(!best||r.total>best.r.total)best={l,r};}return best;}
+function nearestFreeLot(c,gx,gy){let best=null,bd=1e9;for(const l of freeLots(c)){const d=Math.hypot(l.x+.5-gx,l.y+.5-gy);if(d<bd){bd=d;best=l;}}return best?{l:best,d:bd}:null;}
+function mkIcon(svg,size){return L.divIcon({className:'mk',html:svg,iconSize:[size,size],iconAnchor:[size/2,size*0.9]});}
+function initLeaflet(){
+  if(LM||!window.L)return;
+  LM=L.map('realMap',{zoomControl:true,attributionControl:true,zoomSnap:0.25,zoomDelta:0.5});
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(LM);
+  LLayers=L.layerGroup().addTo(LM);
+}
+function renderReal(){
+  if(!S)return;
+  const grid=mapView!=='real'||S.phase==='sede';
+  $('#gridWrap').hidden=!grid;$('#gridLegend').hidden=!grid;$('#realWrap').hidden=grid;
+  const sb=$('#sedeBar');if(sb&&!grid&&S.phase==='sede'){/* a escolha da sede fica no tabuleiro */}
+  if(grid)return;
+  const c=city(),tools=$('#realTools');
+  if(!c.geo){
+    const busy=geoBusy.has(c);
+    $('#realMap').hidden=true;
+    tools.innerHTML=`<div class="real-empty"><b>${busy?`Buscando ${esc(c.name)} no mapa…`:c.geoError==='offline'?'Sem internet agora':c.geoError==='notfound'?`Não encontrei ${esc(c.name)}${c.uf?'/'+esc(c.uf):''} no mapa`:'Mapa real ainda não carregado'}</b><p class="muted" style="margin:0;max-width:420px">${busy?'Carregando bairros e estimando domicílios pelo OpenStreetMap.':c.geoError==='notfound'?'Confira o nome da cidade e o estado.':'O mapa real usa o OpenStreetMap e precisa de internet. O jogo nas quadras continua funcionando.'}</p>${busy?'':`<button class="btn primary small" data-act="geoLoad">Carregar mapa real</button>`}</div>`;
+    return;
+  }
+  $('#realMap').hidden=false;
+  if(!window.L){tools.innerHTML='<div class="real-empty"><b>Carregando o mapa…</b></div>';setTimeout(renderReal,400);return;}
+  initLeaflet();
+  LM.invalidateSize(false);
+  if(LM.getSize().x===0){LSig='';renderPlanBox(c);return;}
+  const sig=JSON.stringify([c.idx,c.geo.loadedAt,c.towers.map(t=>[t.x,t.y,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,cityClients(c)]);
+  if(sig!==LSig){
+    const first=!LSig||!LSig.startsWith('['+c.idx+',');
+    LSig=sig;drawReal(c,first);
+  }
+  renderPlanBox(c);
+}
+function drawReal(c,fit){
+  LLayers.clearLayers();
+  const lm=c.geo.side/9,rb=1.5*lm;
+  c.geo.bairros.forEach((b,j)=>{
+    const lots=c.lots.filter(l=>bairroOf(l)===j),subs=lots.filter(isSub).length,fib=c.fiber.ctos.includes(j);
+    const cov=c.towers.some(t=>!t.off&&Math.hypot(t.x+.5-bairroGrid(c,j).x,t.y+.5-bairroGrid(c,j).y)<RANGE)||fib;
+    L.circle([b.lat,b.lon],{radius:rb,color:fib?'#f0a81a':cov?'#0f9a8d':'#5b6a6f',weight:fib?3:1.5,fillColor:cov?'#7dcfae':'#a3cf78',fillOpacity:.22,dashArray:b.real?null:'4 4'})
+      .bindTooltip(`${esc(c.bairros[j])}`,{permanent:true,direction:'center',className:'bairro-tip'})
+      .bindPopup(`<b>${esc(c.bairros[j])}</b><br>≈ ${b.hh.toLocaleString('pt-BR')} domicílios${b.real?'':' (posição estimada)'}<br>${subs} assinante(s) no jogo${fib?'<br>Fibra: caixa CTO instalada':''}`)
+      .addTo(LLayers);
+  });
+  for(const t of c.towers){
+    const g=lotGeo(c,{x:t.x,y:t.y}),over=towerLoad(c,t)>cap();
+    L.circle([g.lat,g.lon],{radius:RANGE*lm,color:t.off?'#888':over?'#cf3b3b':'#0f9a8d',weight:2,fillOpacity:t.off?0.03:0.08,dashArray:t.off?'6 6':null,interactive:false}).addTo(LLayers);
+    L.marker([g.lat,g.lon],{icon:mkIcon(towerSvg,34),title:t.ssid}).bindPopup(`<b>Torre ${esc(t.ssid)}</b><br>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes<br>Alcance ≈ ${(RANGE*lm/1000).toFixed(1)} km`).addTo(LLayers);
+  }
+  if(S.sede&&S.sede.ci===c.idx){const g=lotGeo(c,{x:S.sede.x,y:S.sede.y});L.marker([g.lat,g.lon],{icon:mkIcon(sedeSvg(false),34),title:'Sede'}).bindPopup(`<b>Sede da ${esc(S.company)}</b>`).addTo(LLayers);}
+  if(c.store){const g=lotGeo(c,c.store);L.marker([g.lat,g.lon],{icon:mkIcon(storeSvg,30),title:'Loja filial'}).bindPopup('<b>Loja filial</b>').addTo(LLayers);}
+  if(fit){const dLat=rb/mPerLat,dLon=rb/mPerLon(c.geo.lat);const lats=c.geo.bairros.map(b=>b.lat),lons=c.geo.bairros.map(b=>b.lon);LM.fitBounds([[Math.min(...lats)-dLat,Math.min(...lons)-dLon],[Math.max(...lats)+dLat,Math.max(...lons)+dLon]],{padding:[8,8]});}
+  if(planMarker&&planMarker._city!==c.idx)clearPlan();
+}
+function clearPlan(){if(planMarker){if(planMarker._ring)planMarker._ring.remove();planMarker.remove();planMarker=null;}}
+function renderPlanBox(c){
+  const tools=$('#realTools');
+  let box='';
+  if(planMarker){
+    const p=planMarker.getLatLng(),gp=geoToGrid(c.geo,p.lat,p.lng),r=coverageAt(c,gp.x,gp.y,false),nf=nearestFreeLot(c,gp.x,gp.y);
+    const outside=gp.x<0||gp.x>9||gp.y<0||gp.y>9;
+    box=`<div class="plan-box">${outside?'<b>Fora da área de jogo desta cidade.</b> Arraste o marcador para perto dos bairros.':`Ponto planejado alcança <b>≈ ${r.total.toLocaleString('pt-BR')} domicílios sem sinal</b>${r.parts.length?` em ${r.parts.slice(0,4).map(x=>`${esc(x[0])} (${x[1].toLocaleString('pt-BR')})`).join(', ')}`:''}.${nf&&nf.d>1.2?' O terreno livre mais próximo fica um pouco afastado; a torre vai para lá.':''}`}</div>`;
+  }
+  const can=!signupBlock(c);
+  tools.innerHTML=`<div class="real-tools"><div class="grp"><button class="btn small ${planMarker?'':'primary'}" data-act="planTower">${planMarker?'Recolocar marcador':'Planejar torre'}</button><button class="btn small" data-act="bestSpot">Melhor ponto</button>${planMarker?`<button class="btn small primary" data-act="installPlanned" ${can?'':'disabled'}>Instalar torre aqui</button>`:''}</div><div class="grp"><button class="btn small ghost" data-act="gpsMe">📍 Onde estou</button><button class="btn small ghost" data-act="geoLoad" title="Atualizar dados do mapa">Atualizar mapa</button></div></div>${box}
+    <p class="geo-note">Domicílios estimados pela população da cidade${c.geo.weighted?' e pelos prédios mapeados em cada bairro':''} (OpenStreetMap). ${can?'Arraste o marcador laranja para planejar a cobertura.':'Para instalar torres, termine sede, outorga e documentação.'}</p>`;
+}
+function placePlan(c,lat,lon){
+  if(!LM)return;
+  clearPlan();
+  planMarker=L.marker([lat,lon],{draggable:true,icon:mkIcon(`<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="11" fill="#f0661a" stroke="#fff" stroke-width="3"/><path d="M20 13v14M13 20h14" stroke="#fff" stroke-width="3"/></svg>`,36),zIndexOffset:1000}).addTo(LM);
+  planMarker._city=c.idx;
+  const ring=L.circle([lat,lon],{radius:RANGE*c.geo.side/9,color:'#f0661a',weight:2,dashArray:'6 6',fillOpacity:.06,interactive:false}).addTo(LM);
+  planMarker._ring=ring;
+  planMarker.on('drag',()=>{ring.setLatLng(planMarker.getLatLng());renderPlanBox(c);});
+  renderPlanBox(c);
+}
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]');if(!a||!S)return;
+  const act=a.dataset.act,c=city();
+  if(act==='geoLoad'){geoLoad(c,{rename:c.namesAuto});}
+  else if(act==='planTower'){if(!LM)return;const ctr=LM.getCenter();placePlan(c,ctr.lat,ctr.lng);}
+  else if(act==='bestSpot'){const b=bestSpot(c);if(!b){toast('Sem terreno livre nesta cidade.');return;}const g=lotGeo(c,b.l);placePlan(c,g.lat,g.lon);LM.panTo([g.lat,g.lon]);toast(b.r.total?`Melhor ponto: ≈ ${b.r.total.toLocaleString('pt-BR')} domicílios novos.`:'A cidade já está bem coberta.');}
+  else if(act==='installPlanned'){if(!planMarker)return;const p=planMarker.getLatLng(),gp=geoToGrid(c.geo,p.lat,p.lng),nf=nearestFreeLot(c,gp.x,gp.y);if(!nf){toast('Sem terreno livre nesta cidade.');return;}clearPlan();towerOffer(c,nf.l,nf.l.t==='sede');}
+  else if(act==='gpsMe'){getPosition().then(pos=>{if(!LM)return;if(meMarker)meMarker.remove();meMarker=L.circleMarker([pos.lat,pos.lon],{radius:8,color:'#fff',weight:3,fillColor:'#2f6fed',fillOpacity:1}).addTo(LM).bindPopup('Você está aqui');LM.setView([pos.lat,pos.lon],15);}).catch(()=>toast('Não deu para pegar sua localização.'));}
+});
 /* ===================== App instalável e offline ===================== */
 let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;});
