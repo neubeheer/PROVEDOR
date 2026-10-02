@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v25`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v26`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Layout pensado para celular deitado; em pé aparece aviso para girar.
 - Visual de jogo (último bloco `<style>` do `index.html`): fundo azul de mar, HUD em pílulas com ícones SVG (`HUD_ICO`), botões com contorno escuro, fonte Lilita One. Inspirado em jogos tycoon de celular.
@@ -23,7 +23,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - Campanha de meses grátis (Recuperação): `graceHtml`, `GRACE`, uma por mês (`S.graceM`); o cliente ganha `l.disc` 100% e `l.grace` (não atrasa até lá).
 - O laço do jogo (`loop`) pega erros de `tick()` e mostra na tela (`reportErr`): um erro nunca mais para o relógio. Os painéis da barra não pausam o jogo; os outros modais pausam.
 - Não há mais exportar/importar JSON nem save no navegador.
-- Desempenho: `renderAll` só monta as colunas escondidas do painel aberto (`renderPanelSrc`); o mapa real redesenha no máximo a cada 1,5 s (`LDrawAt`). Com ~5 mil clientes, um dia de jogo leva ~10 ms.
+- Desempenho: `renderAll` só monta as colunas escondidas do painel aberto (`renderPanelSrc`); o mapa real redesenha no máximo a cada 1,5 s (`LDrawAt`). Com ~5 mil clientes, um dia de jogo leva ~10 ms. O relógio não desenha a tela direto: `renderSoon` desenha no máximo a cada 0,8 s, e o mapa redesenha a cada 5 s quando o pedido vem do relógio (`TICKR`) ou 1,5 s quando vem de uma ação. O tamanho do mapa é medido por `ResizeObserver`. Os vendedores calculam as quadras vendáveis uma vez por rodada (`vendorAttempt(V)`), e `RC` lembra a contagem de clientes durante um desenho.
 
 ## Mapa e dados
 - Leaflet (`vendor/leaflet`) + OpenStreetMap.
@@ -40,7 +40,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Pendências de configuração (em 2026-10-02)
 - [x] `supabase/schema.sql` rodado: as tabelas `saves` e `presenca` existem (conferido em 2026-10-02).
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
-- [ ] Publicar a v25 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v26 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda). Em 2026-10-02 o link ainda respondia a versão antiga (`?regioes=1` dava erro).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 

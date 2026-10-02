@@ -1265,7 +1265,8 @@ function knock(c,l){
 const pays=l=>l.st==='client'||l.st==='cancelReq';
 function priceNow(l){return l.disc&&monthOf(S.day)<=l.disc.until?Math.round(l.price*(1-l.disc.pct)*100)/100:l.price;}
 function towerLoad(c,t){return famsOf(c).filter(l=>(pays(l)||l.st==='late')&&l.tid===t.id&&l.tech!=='fiber').length;}
-function cityClients(c){return famsOf(c).filter(isSub).length;}
+let RC=null;
+function cityClients(c){if(RC&&RC.has(c))return RC.get(c);const n=famsOf(c).filter(isSub).length;if(RC)RC.set(c,n);return n;}
 function lateCount(){return S.cities.reduce((s,c)=>s+famsOf(c).filter(l=>l.st==='late'||l.st==='suspended').length,0);}
 const SHIELDS={nat:{name:'Proteção contra desastres naturais',short:'Desastres naturais',cost:80,desc:'Tempestades e descargas elétricas não afetam a rede.'},geo:{name:'Proteção geopolítica e econômica',short:'Geopolítica',cost:100,desc:'Alta do dólar, falta de chips e crise econômica não afetam a empresa.'}};
 const shieldOn=k=>!!(S.shield&&S.shield[k]>=monthOf(S.day));
@@ -1330,12 +1331,12 @@ function tick(){
   for(const d of DOCS){const st=S.docs[d.id];if(st&&!st.done&&st.until<=S.day){st.done=true;addXp(15);log(`${d.name}: pronto.`);event(`${d.name} pronto`);toast(`${d.name} pronto!`);save(true);}}
   for(const c of S.cities)for(const l of famsOf(c)){if(l.st==='refused'&&l.until<=S.day)l.st='none';if(l.st==='cancelReq'&&l.reqUntil<=S.day)cancelClient(c,l,REASONS[l.reason]||'pedido não atendido');}
   const v=capOf('comercial',3);
-  if(v>0&&S.day%4===0){for(let i=0;i<v;i++)vendorAttempt();}
+  if(v>0&&S.day%4===0){const V={};for(let i=0;i<v;i++)vendorAttempt(V);}
   if(S.day%5===0)syncRivals();
   if(S.day%30===0)monthEnd();
   S.peak=Math.max(S.peak,allClients());
   checkMissions();
-  save(false);renderAll();
+  save(false);renderSoon();
 }
 function monthEnd(){
   const m=monthOf(S.day);
@@ -1718,13 +1719,17 @@ function activate(c,lot,deal,ip){
   lot.st='client';lot.plan=deal.plan;lot.combo=deal.combo;lot.price=deal.price;lot.tid=deal.tid;lot.ip=ip;delete lot.deal;
   if(!c.used.includes(ip))c.used.push(ip);
   applyEntryPromo(lot);
-  S.signed++;S.cur.novos++;addXp(20);S.peak=Math.max(S.peak,allClients());
+  S.signed++;S.cur.novos++;addXp(20);
 }
-function attemptSale(c,who,sure){
+function attemptSale(c,who,sure,pre){
+  let q;
+  if(pre){let rr=Math.random()*pre.tot,k=0;for(;k<pre.qs.length-1;k++){rr-=pre.fr[k];if(rr<=0&&pre.fr[k]>0)break;}if(!(pre.fr[k]>0))k=pre.fr.findIndex(x=>x>0);if(k<0)return false;q=pre.qs[k];pre.fr[k]--;pre.tot--;}
+  else{
   if(saleBlock(c))return false;
   const qs=quadras(c).filter(l=>quadraFree(l)>0&&regionOk(c,l)&&sellable(c,l));
   if(!qs.length)return false;
-  let tot=qs.reduce((s,l)=>s+quadraFree(l),0),rr=Math.random()*tot,q=qs[0];for(const l of qs){rr-=quadraFree(l);if(rr<=0){q=l;break;}}
+  let tot=qs.reduce((s,l)=>s+quadraFree(l),0),rr=Math.random()*tot;q=qs[0];for(const l of qs){rr-=quadraFree(l);if(rr<=0){q=l;break;}}
+  }
   const lot=knock(c,q);if(!lot)return false;
   const o=bestOffer(c,lot,salesTech());if(!o)return false;
   if(sure||Math.random()<o.p){
@@ -1739,7 +1744,10 @@ function attemptSale(c,who,sure){
   }
   lot.st='refused';lot.until=S.day+45;return false;
 }
-function vendorAttempt(){const cs=S.cities.filter(c=>!saleBlock(c)&&quadras(c).some(l=>quadraFree(l)>0&&regionOk(c,l)&&sellable(c,l)));if(cs.length)attemptSale(cs[Math.floor(Math.random()*cs.length)],'vendedor');}
+/* V guarda as quadras vendáveis da rodada de visitas; só é refeito quando uma venda fecha (a rede pode lotar). */
+function vendorAttempt(V){V=V||{};
+  if(V.n!==S.signed){V.n=S.signed;V.cs=[];for(const c of S.cities){if(saleBlock(c))continue;const qs=[],fr=[];for(const l of quadras(c)){const f=quadraFree(l);if(f>0&&regionOk(c,l)&&sellable(c,l)){qs.push(l);fr.push(f);}}if(qs.length)V.cs.push({qs,fr,c,tot:fr.reduce((a,b)=>a+b,0)});}}
+  const cs=V.cs.filter(x=>x.tot>0);if(cs.length){const x=cs[Math.floor(Math.random()*cs.length)];attemptSale(x.c,'vendedor',false,x);}}
 function planLabel(planId,combo){const pl=planById(planId);return pl.name+(combo.length?' + '+combo.map(k=>COMBOS[k].short).join(' + '):'');}
 
 /* ===================== Missões ===================== */
@@ -1814,7 +1822,12 @@ const HUD_ICO={
 /* ===================== Render ===================== */
 function fixNet(){for(const c of S.cities)if(c.idx>0&&c.ilink==null){const t=cityTraffic(c)*1.2;if(famsOf(c).some(isSub)){let i=0;while(i<CITY_LINKS.length-1&&CITY_LINKS[i].g<t)i++;c.ilink=i;}else c.ilink=-1;}
   for(const c of S.cities)if(c.net==null){const st=netSteps(c),u=netUsed(c);let k=0;while(k<st.length-1&&st[k].cap<u+5)k++;c.net=k;}if(S.link==null||S.link<0){const t=trafficGbps()*1.2;let i=0;while(i<LINKS.length-1&&LINKS[i].g<t)i++;S.link=i;}}
-function renderAll(){if(!S)return;fixNet();renderTop();renderTut();renderMap();renderReal();renderGoals();if(modalOpen&&PANEL){renderPanelSrc(PANEL);refreshPanel();}}
+/* O dia de jogo pede a tela no máximo a cada 0,8 s, no próximo quadro (em 4× seriam 4 desenhos por segundo).
+   Ações do jogador continuam chamando renderAll na hora. TICKR marca o desenho pedido pelo relógio. */
+let RS_T=null,RS_AT=0,TICKR=false;
+function renderSoon(){if(RS_T)return;const wait=Math.max(0,800-(Date.now()-RS_AT));RS_T=setTimeout(()=>requestAnimationFrame(()=>{RS_T=null;RS_AT=Date.now();TICKR=true;try{renderAll();}finally{TICKR=false;}}),wait);}
+function renderAll(){if(!S)return;RC=new Map();try{renderAll0();}finally{RC=null;}}
+function renderAll0(){fixNet();renderTop();renderTut();renderMap();renderReal();renderGoals();if(modalOpen&&PANEL){renderPanelSrc(PANEL);refreshPanel();}}
 /* As colunas escondidas (fonte dos painéis) só são montadas quando o painel correspondente está aberto. */
 function renderPanelSrc(k){if(k==='building')renderBuilding();else if(k==='plans')renderProducts();else if(k==='missions')renderMissions();else if(k==='report')renderReport();else if(k==='log')renderLog();}
 function renderSaveDot(){const d=$('#saveDot');if(d)d.className='save-dot '+(cloud.status==='cloud'?'cloud':cloud.status==='erro'?'err':'');}
@@ -2206,7 +2219,7 @@ function openPanel(k){if(!S||!PANELS[k])return;renderPanelSrc(k);const [eb,t]=PA
 /* Os painéis da barra não pausam o jogo. Para não trocar um botão no meio do toque, a atualização espera o dedo sair da tela e acontece no máximo a cada 0,7 s. */
 let panelAt=0,panelT=null,panelDown=false;
 document.addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('#panelBody'))panelDown=true;},true);
-document.addEventListener('pointerup',()=>{if(panelDown){panelDown=false;setTimeout(refreshPanel,60);}},true);
+for(const ev of ['pointerup','pointercancel'])document.addEventListener(ev,()=>{if(panelDown){panelDown=false;setTimeout(refreshPanel,60);}},true);
 function refreshPanel(){if(!PANEL)return;const b=document.getElementById('panelBody');if(!b||!modalOpen){PANEL=null;return;}
   const wait=700-(Date.now()-panelAt);if(panelDown||wait>0){clearTimeout(panelT);panelT=setTimeout(refreshPanel,Math.max(wait,120));return;}
   panelAt=Date.now();b.innerHTML=panelHtml(PANEL);}
@@ -3498,6 +3511,7 @@ function qnZoom(){if(!LM||!LQN)return;if(LM.getZoom()>=15){if(!LM.hasLayer(LQN))
 function initLeaflet(){
   if(LM||!window.L)return;
   LM=L.map('realMap',{zoomControl:true,attributionControl:true,zoomSnap:0.25,zoomDelta:0.5});
+  if(window.ResizeObserver)new ResizeObserver(()=>{if(!LM)return;LM.invalidateSize(false);if(LM.getSize().x&&!LSig)renderReal();}).observe($('#realMap'));
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(LM);
   LLayers=L.layerGroup().addTo(LM);LDraft=L.layerGroup().addTo(LM);
   LM.on('click',onMapClick);
@@ -3588,11 +3602,11 @@ function renderReal(){
   }
   $('#realMap').hidden=false;
   if(!window.L){tools.innerHTML='<div class="real-empty"><b>Carregando o mapa…</b></div>';setTimeout(renderReal,400);return;}
-  initLeaflet();LM.invalidateSize(false);
+  initLeaflet();
   if(LM.getSize().x===0){LSig='';return;}
   const sig=JSON.stringify([RIVAL.at,c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,famsOf(c).map(f=>f.st[0]+(f.tid||'')).join(''),c.lots.map(l=>l.t[0]).join(''),S.phase,c.blocksAt||0]);
-  if(sig!==LSig){const first=!LSig||!LSig.includes(','+c.idx+','+c.geo.loadedAt+',');const wait=1500-(Date.now()-LDrawAt);
-    if(first||wait<=0){LSig=sig;LDrawAt=Date.now();drawReal(c,first);}else if(!LDrawT)LDrawT=setTimeout(()=>{LDrawT=null;renderReal();},wait);}
+  if(sig!==LSig){const first=!LSig||!LSig.includes(','+c.idx+','+c.geo.loadedAt+',');const wait=(TICKR?5000:1500)-(Date.now()-LDrawAt);
+    if(first||wait<=0){clearTimeout(LDrawT);LDrawT=null;LSig=sig;LDrawAt=Date.now();drawReal(c,first);}else if(!LDrawT||!TICKR){clearTimeout(LDrawT);LDrawT=setTimeout(()=>{LDrawT=null;renderReal();},wait);}}
   if(!$('#draftPanel')||tools.dataset.phase!==S.phase){
     tools.dataset.phase=S.phase;
     tools.innerHTML=`<div class="real-tools"><div class="grp">${S.phase==='sede'?'':`<button class="btn small primary" data-act="newTower">+ Nova torre</button>`}<button class="btn small ghost" data-act="gpsMe">📍 Onde estou</button></div><div class="grp"><button class="btn small ghost" data-act="geoLoad">Atualizar mapa</button></div></div><div id="draftPanel"></div><p class="geo-note" id="geoNote"></p>`;
