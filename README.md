@@ -89,6 +89,17 @@ Sem configurar nada, o jogo salva só no aparelho. Para ter **tela de login e pr
 
 O progresso fica sempre no aparelho (funciona offline) e, com conta, também no Supabase. Ao entrar em outro aparelho, vale o progresso mais recente.
 
+## Concorrência entre jogadores
+
+Jogadores logados que atendem a mesma cidade disputam os mesmos domicílios:
+- Junto com o salvamento na nuvem, cada jogador publica um resumo por cidade na tabela `presenca` do Supabase: assinantes, ticket médio, rádio e fibra, reputação, atendimento (capacidade do Call Center) e campanhas de marketing.
+- Os clientes dão uma nota para cada empresa (reputação 35%, atendimento 25%, fibra 20%, campanhas e preço). Onde o rival já tem clientes, vender fica mais difícil.
+- No fechamento do mês, com nota menor que a do rival, parte dos seus clientes pede para trocar (a Retenção pode segurar). Com nota maior, clientes dele vêm para você por portabilidade.
+- O chip **Concorrentes** no mapa abre a comparação, com dicas do que melhorar. Só entram rivais que salvaram nos últimos 30 dias.
+- No mapa real, as torres dos rivais aparecem em roxo com o leque tracejado, e as caixas CTO deles como pontos roxos. Tocar mostra de quem é.
+
+Para ligar, rode de novo o `supabase/schema.sql` no SQL Editor (ele cria a tabela `presenca` e não apaga nada). **Menu → Testar conexões** mostra se as tabelas `saves` e `presenca` respondem.
+
 ## Banco de quadras no Google Drive
 
 As quadras de cada cidade ficam como arquivos JSON numa pasta do seu Google Drive. Um Apps Script publica um link aberto que entrega as quadras para o jogo, então o tabuleiro abre na hora, sem esperar o OpenStreetMap. A pasta continua privada: só o script lê e grava nela.

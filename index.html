@@ -989,6 +989,12 @@ async function connTest(){
   if(!u){r[3]=row(false,'Banco de quadras (Drive)','quadrasUrl vazio no config.js.');draw(r);return;}
   try{const j=await fetchJson(u+(u.includes('?')?'&':'?')+'lista=1',{},15000);r[3]=row(!!(j&&j.ok),'Banco de quadras (Drive)',j&&j.ok?`Link respondendo: ${(j.chaves||[]).length} cidade(s) no Drive.`:'O link respondeu, mas com erro: '+esc(JSON.stringify(j).slice(0,120)));}
   catch(e){r[3]=row(false,'Banco de quadras (Drive)','O link não respondeu. Confira se a implantação é "Qualquer pessoa" e se está na versão mais nova.');}
+  if(SB.session&&SB.session.user){
+    for(const [t,label] of [['saves','Tabela saves (progresso)'],['presenca','Tabela presenca (concorrência)']]){
+      try{const q=await sbFetch('/rest/v1/'+t+'?select=user_id&limit=1');r.push(row(q.ok,label,q.ok?'Existe e responde.':q.status===404?'Não existe: rode o supabase/schema.sql no SQL Editor.':'Erro http '+q.status+'.'));}
+      catch(e){r.push(row(false,label,'Sem resposta.'));}
+    }
+  }
   if(modalOpen)draw(r);
 }
 function openLogin(fromStart){
@@ -1027,7 +1033,7 @@ async function flushCloud(){
   if(!cloud.ref||!cloud.dirty||!S)return;
   if(cloud.busy){clearTimeout(cloud.t);cloud.t=setTimeout(flushCloud,1500);return;}
   cloud.busy=true;cloud.dirty=false;
-  try{await cloud.ref.set({json:JSON.stringify(S),savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';driveRegions();}
+  try{await cloud.ref.set({json:JSON.stringify(S),savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';driveRegions();syncRivals();}
   catch(e){cloud.dirty=true;cloud.status='erro';}
   cloud.busy=false;renderSaveDot();
 }
@@ -1056,6 +1062,86 @@ async function initCloud(){
   }catch(e){cloud.status='local';renderSaveDot();}
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&S&&cloud.ref){cloud.dirty=true;flushCloud();}});
+
+/* ===================== Concorrência entre jogadores (tabela presenca no Supabase) =====================
+   Cada jogador logado publica um resumo por cidade (assinantes, preço médio, tecnologia, reputação, atendimento, marketing)
+   e lê o resumo dos outros nas cidades que também atende. Quem divide a cidade divide os domicílios:
+   vender fica mais difícil onde o rival já tem clientes, e todo mês os clientes comparam as empresas e podem trocar. */
+const rivalTowerSvg='<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#8a3ffc" stroke="#fff" stroke-width="3"/><path d="M20 10 15 31M20 10l5 21M16.7 25h6.6M18 18.5h4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>';
+const RIVAL={rows:new Map(),at:0,busy:false,ok:false,err:'',memo:new Map()};
+try{const raw=JSON.parse(localStorage.getItem('pt-rivais')||'null');if(raw&&raw.rows)RIVAL.rows=new Map(raw.rows);}catch(e){}
+function citySupport(){const cl=allClients();if(!built('callcenter'))return cl>8?0.2:0.6;const t=team('callcenter'),k=((t.voz||0)*40+(t.texto||0)*50)*effOf('callcenter');return cl?clamp(k/cl,0,1):1;}
+/* Infraestrutura que os rivais veem no mapa: torres com o leque e as caixas CTO (até 80 de cada). */
+function myInfra(c){if(!c.geo)return {t:[],o:[]};const lm=c.geo.side/9,r5=v=>Math.round(v*1e5)/1e5;
+  const t=c.towers.slice(0,80).map(x=>{const g=towerGeo(c,x);return {la:r5(g.lat),lo:r5(g.lon),az:x.az||0,bm:x.beam||360,m:Math.round(tRange(x)*lm),off:x.off?1:0};});
+  const o=((c.fiber&&c.fiber.on&&c.fiber.ctos)||[]).slice(0,80).map(j=>{const b=c.geo.bairros[j];return b?{la:r5(b.lat),lo:r5(b.lon),n:String(c.bairros[j]||'').slice(0,40)}:null;}).filter(Boolean);
+  return {t,o};}
+function myCityStats(c){const subs=famsOf(c).filter(isSub),n=subs.length,fib=subs.filter(l=>l.tech==='fiber').length;
+  const price=n?subs.reduce((s,l)=>s+(l.price||0),0)/n:pp(PLANS[1]);
+  return {clients:n,homes:cityHomes(c),radio:n-fib,fiber:fib,price:Math.round(price*100)/100,rep:Math.round(S.rep),support:Math.round(citySupport()*100)/100,mkt:Math.round(cityBoost(c)*100)/100};}
+/* Nota de 0 a 1 que o cliente dá para uma empresa: reputação, atendimento, fibra, campanhas e preço. */
+function provScore(x){const n=Math.max(1,(+x.radio||0)+(+x.fiber||0));
+  return (+x.rep||50)/100*0.35+clamp(+x.support||0,0,1)*0.25+((+x.fiber||0)/n)*0.2+Math.min(0.25,+x.mkt||0)*0.8+clamp((130-(+x.price||100))/100,0,1)*0.2;}
+function rivalsOf(c){return (c&&c.ibgeCode&&RIVAL.rows.get(c.ibgeCode))||[];}
+/* occ: fatia da cidade que já é dos rivais · edge: quanto os rivais são melhores que você (negativo = você é melhor) */
+function rivalPressure(c){
+  const rs=rivalsOf(c);if(!rs.length)return {occ:0,edge:0,rs,me:null};
+  const key=S.day+'|'+c.idx+'|'+RIVAL.at,hit=RIVAL.memo.get(key);if(hit)return hit;
+  const homes=Math.max(1,cityHomes(c)),me=provScore(myCityStats(c));let occ=0,edge=0;
+  for(const r of rs){const sh=Math.min(1,(+r.clients||0)/homes);occ+=sh;edge+=sh*(provScore(r)-me);}
+  const out={occ:Math.min(0.95,occ),edge:occ?edge/occ:0,rs,me};
+  if(RIVAL.memo.size>40)RIVAL.memo.clear();RIVAL.memo.set(key,out);return out;
+}
+async function syncRivals(force){
+  if(!S||!sbOn()||!SB.session||!SB.session.user||RIVAL.busy||!navigator.onLine)return;
+  const now=Date.now();if(!force&&now-RIVAL.at<120000)return;
+  RIVAL.busy=true;
+  try{
+    const uid=SB.session.user.id,iso=new Date().toISOString();
+    const mine=S.cities.filter(c=>c.ibgeCode&&cityLicensed(c)).map(c=>({user_id:uid,city_code:c.ibgeCode,city_name:c.name,uf:c.uf||'',company:S.company,...myCityStats(c),infra:myInfra(c),updated_at:iso}));
+    if(mine.length){const r=await sbFetch('/rest/v1/presenca',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(mine)});if(!r.ok)throw new Error(r.status===404?'tabela presenca não existe: rode o supabase/schema.sql':'http '+r.status);}
+    const codes=[...new Set(S.cities.map(c=>c.ibgeCode).filter(Boolean))];
+    if(codes.length){
+      const since=new Date(now-30*864e5).toISOString();
+      const r=await sbFetch(`/rest/v1/presenca?select=user_id,city_code,company,clients,homes,radio,fiber,price,rep,support,mkt,infra,updated_at&city_code=in.(${codes.join(',')})&user_id=neq.${uid}&updated_at=gte.${encodeURIComponent(since)}`);
+      if(!r.ok)throw new Error('http '+r.status);
+      const m=new Map();for(const x of await r.json()){if(!m.has(x.city_code))m.set(x.city_code,[]);m.get(x.city_code).push(x);}
+      RIVAL.rows=m;try{localStorage.setItem('pt-rivais',JSON.stringify({at:now,rows:[...m]}));}catch(e){}
+    }
+    RIVAL.at=now;RIVAL.ok=true;RIVAL.err='';RIVAL.memo.clear();
+  }catch(e){RIVAL.err=String(e.message||e);RIVAL.at=now;}
+  RIVAL.busy=false;if(S)renderMap();
+}
+/* Fechamento do mês: clientes comparam as empresas. Se o rival é melhor, parte pede para sair (a Retenção pode segurar);
+   se você é melhor, parte dos clientes do rival vem para você (portabilidade). */
+function rivalMonth(){
+  let lost=0,won=0;
+  for(const c of S.cities){
+    const rp=rivalPressure(c);if(!rp.occ)continue;
+    if(rp.edge>0){const pr=Math.min(0.5,rp.edge)*0.06*Math.min(1,rp.occ*4);
+      for(const l of famsOf(c))if(l.st==='client'&&Math.random()<pr){l.rival=(rp.rs.slice().sort((a,b)=>provScore(b)-provScore(a))[0]||{}).company||'';requestCancel(c,l,'conc');lost++;}}
+    else if(rp.edge<0){const pool=rp.rs.reduce((s,r)=>s+(+r.clients||0),0);let n=0;for(let i=0;i<pool;i++)if(Math.random()<Math.min(0.5,-rp.edge)*0.06)n++;
+      for(let i=0;i<n;i++)if(attemptSale(c,'conc',true))won++;}
+  }
+  S.cur.paraConc=(S.cur.paraConc||0)+lost;S.cur.daConc=(S.cur.daConc||0)+won;
+  if(lost)event(`${lost} cliente(s) pediram para ir para a concorrência`);
+  if(won)event(`${won} cliente(s) vieram da concorrência`);
+}
+function openRivals(){
+  const c=city(),rp=rivalPressure(c),meS=myCityStats(c),me=provScore(meS),homes=Math.max(1,cityHomes(c));
+  const logged=sbOn()&&SB.session&&SB.session.user;
+  const row=(name,x,sc,mine)=>{const n=Math.max(1,(+x.radio||0)+(+x.fiber||0));return `<div class="role-row" style="${mine?'border-color:var(--signal)':''}"><div><b>${esc(name)}${mine?' (você)':''}</b><small>${(+x.clients||0).toLocaleString('pt-BR')} assinantes · ${Math.round((+x.clients||0)/homes*100)}% da cidade · ticket ${brl(+x.price||0)} · ${Math.round((+x.fiber||0)/n*100)}% fibra · reputação ${Math.round(+x.rep||0)} · atendimento ${Math.round((+x.support||0)*100)}%${+x.mkt?' · marketing +'+Math.round(x.mkt*100)+'%':''}</small><div class="goal-bar" style="margin-top:6px"><i style="width:${Math.round(sc*100)}%"></i></div></div><b style="min-width:52px;text-align:right">${Math.round(sc*100)}</b></div>`;};
+  const best=rp.rs.slice().sort((a,b)=>provScore(b)-provScore(a))[0];
+  const tips=[];if(best){if((+best.price||0)<meS.price-5)tips.push('o rival cobra menos: veja os preços em Planos');if((+best.support||0)>citySupport()+0.1)tips.push('o atendimento dele é melhor: reforce o Call Center');if((+best.rep||0)>S.rep+5)tips.push('a reputação dele é maior');if((+best.fiber||0)/Math.max(1,(+best.radio||0)+(+best.fiber||0))>(meS.fiber/Math.max(1,meS.clients))+0.2)tips.push('ele tem mais clientes na fibra');if((+best.mkt||0)>cityBoost(c))tips.push('ele está com campanha de marketing na cidade');}
+  openModal(head('Concorrência',esc(c.name))+(!logged?'<div class="notice warn">Entre na sua conta para ver e disputar com outros jogadores. A concorrência só existe entre jogadores logados.</div>':'')+
+    (RIVAL.err?`<div class="notice bad">Não deu para atualizar a concorrência: ${esc(RIVAL.err)}.</div>`:'')+
+    `<p class="muted" style="font-size:13px">Quem atende a mesma cidade divide os mesmos domicílios. Os clientes dão uma nota para cada empresa (reputação, atendimento, fibra, campanhas e preço). Com nota menor que a do rival, parte dos seus clientes pede para trocar todo mês; com nota maior, você ganha clientes dele.</p>`+
+    row(S.company,meS,me,true)+(rp.rs.length?rp.rs.map(r=>row(r.company||'Provedor sem nome',r,provScore(r),false)).join(''):'<div class="notice">Nenhum outro jogador atende esta cidade agora.</div>')+
+    (tips.length?`<div class="notice warn"><b>Para ganhar a disputa:</b> ${tips.join('; ')}.</div>`:rp.rs.length?'<div class="notice ok">Você está na frente na nota dos clientes.</div>':'')+
+    `<div class="foot"><span class="muted" style="font-size:12.5px">${RIVAL.at?'Atualizado às '+new Date(RIVAL.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Ainda não atualizado'} · este mês: ${S.cur.paraConc||0} saíram, ${S.cur.daConc||0} chegaram</span>${logged?'<button class="btn small" id="rvSync">Atualizar agora</button>':'<button class="btn small primary" data-act="login">Entrar</button>'}</div>`,m=>{
+    const b=m.querySelector('#rvSync');if(b)b.onclick=async()=>{b.disabled=true;b.textContent='Atualizando…';await syncRivals(true);openRivals();};
+  });
+}
 
 /* ===================== Consultas ===================== */
 const city=()=>S.cities[S.ci];
@@ -1200,6 +1286,7 @@ function tick(){
   for(const c of S.cities)for(const l of famsOf(c)){if(l.st==='refused'&&l.until<=S.day)l.st='none';if(l.st==='cancelReq'&&l.reqUntil<=S.day)cancelClient(c,l,REASONS[l.reason]||'pedido não atendido');}
   const v=capOf('comercial',3);
   if(v>0&&S.day%4===0){for(let i=0;i<v;i++)vendorAttempt();}
+  if(S.day%5===0)syncRivals();
   if(S.day%30===0)monthEnd();
   S.peak=Math.max(S.peak,allClients());
   checkMissions();
@@ -1261,6 +1348,8 @@ function monthEnd(){
   }
   // setor de migração e upgrade: ligações para a base
   migrationCalls();
+  // concorrência entre jogadores
+  rivalMonth();
   // lojas: atendimento de balcão
   for(const c of S.cities)if(c.store){for(let i=0;i<2;i++)attemptSale(c,'loja');}
   // servidores de cache e reclamações
@@ -1560,6 +1649,7 @@ function chance(c,lot,planId,combo){
   if(!fib&&cov&&towerLoad(c,cov.t)>=cap())p-=0.15;
   if(effect('crise'))p-=0.1;if(effect('boom'))p+=0.1;
   p+=cityBoost(c);
+  {const rp=rivalPressure(c);if(rp.occ)p*=1-rp.occ*clamp(0.55+rp.edge,0.15,0.95);}
   return {p:clamp(p,0.03,0.92),price};
 }
 function plansAt(c,lot,tech='both'){return [...(tech!=='fiber'&&coverOf(c,lot)?PLANS:[]),...(tech!=='radio'&&fiberAt(c,lot)?fiberPlans():[])];}
@@ -1580,21 +1670,21 @@ function activate(c,lot,deal,ip){
   if(!c.used.includes(ip))c.used.push(ip);
   S.signed++;S.cur.novos++;addXp(20);S.peak=Math.max(S.peak,allClients());
 }
-function attemptSale(c,who){
+function attemptSale(c,who,sure){
   if(saleBlock(c))return false;
   const qs=quadras(c).filter(l=>quadraFree(l)>0&&regionOk(c,l)&&sellable(c,l));
   if(!qs.length)return false;
   let tot=qs.reduce((s,l)=>s+quadraFree(l),0),rr=Math.random()*tot,q=qs[0];for(const l of qs){rr-=quadraFree(l);if(rr<=0){q=l;break;}}
   const lot=knock(c,q);if(!lot)return false;
   const o=bestOffer(c,lot,salesTech());if(!o)return false;
-  if(Math.random()<o.p){
+  if(sure||Math.random()<o.p){
     const fib=isFiberPlan(o.plan);
     const cost=(fib?ONU_COST:cpeFor())+(opsOf('tecnico')>0?0:THIRD_COST);
     if(S.money<cost)return false;
     if(fib)spend(ONU_COST);else takeCpe();
     if(!opsOf('tecnico'))spend(THIRD_COST);
     activate(c,lot,{plan:o.plan,combo:o.combo,price:o.price,tid:fib?null:coverOf(c,lot).t.id},nextIp(c));
-    log(`${who==='loja'?'Loja':who==='carreata'?'Carreata':'Vendedor'} fechou com ${lot.fam.name} (${c.name}): ${planLabel(o.plan,o.combo)}.`);save(true);
+    log(`${who==='loja'?'Loja':who==='carreata'?'Carreata':who==='conc'?'Portabilidade: veio da concorrência':'Vendedor'} fechou com ${lot.fam.name} (${c.name}): ${planLabel(o.plan,o.combo)}.`);save(true);
     return true;
   }
   lot.st='refused';lot.until=S.day+45;return false;
@@ -1709,7 +1799,7 @@ function renderMap(){
   const il=c.idx>0?(c.ilink>=0?(()=>{const u=cityTraffic(c)/CITY_LINKS[c.ilink].g;return `<button class="chip ${u>1?'bad':u>0.85?'warn':''}" data-act="net" style="border:0;cursor:pointer">Interligação ${gb(CITY_LINKS[c.ilink].g)} · ${Math.round(u*100)}%</button>`;})():'<button class="chip bad" data-act="net" style="border:0;cursor:pointer">Sem interligação</button>'):'';
   const sel=S.cities.length>1?`<select class="input" id="citySel" style="width:auto;padding:5px 8px" aria-label="Trocar cidade">${S.cities.map((cc,i)=>`<option value="${i}" ${i===S.ci?'selected':''}>${esc(cc.name)}</option>`).join('')}</select>`:'';
   $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
-   <div class="map-meta">${c.geo?'':`<button class="btn small primary" data-act="geoLoad" ${geoBusy.has(c)?'disabled':''}>${geoBusy.has(c)?'Carregando mapa…':'Carregar mapa real'}</button>`}${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
+   <div class="map-meta">${c.geo?'':`<button class="btn small primary" data-act="geoLoad" ${geoBusy.has(c)?'disabled':''}>${geoBusy.has(c)?'Carregando mapa…':'Carregar mapa real'}</button>`}${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${(()=>{const rp=rivalPressure(c);return rp.rs.length?`<button class="chip ${rp.edge>0.03?'bad':rp.edge<-0.03?'ok':'warn'}" data-act="rivals" style="cursor:pointer">Concorrentes ${rp.rs.length} · ${Math.round(rp.occ*100)}% da cidade</button>`:(sbOn()&&SB.session&&SB.session.user&&!sedeMode?'<button class="chip" data-act="rivals" style="cursor:pointer">Sem concorrentes</button>':'');})()}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
   $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
@@ -2956,6 +3046,7 @@ document.addEventListener('click',e=>{
   if(act==='menu')openMenu();
   else if(act==='levels')openLevels();
   else if(act==='bank')openBank();
+  else if(act==='rivals'){if(LM)LM.closePopup();openRivals();}
   else if(act==='team')openTeam(a.dataset.f);
   else if(act==='servers')openServers();
   else if(act==='marketing')openMarketing();
@@ -3276,7 +3367,7 @@ function renderReal(){
   if(!window.L){tools.innerHTML='<div class="real-empty"><b>Carregando o mapa…</b></div>';setTimeout(renderReal,400);return;}
   initLeaflet();LM.invalidateSize(false);
   if(LM.getSize().x===0){LSig='';return;}
-  const sig=JSON.stringify([c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,famsOf(c).map(f=>f.st[0]+(f.tid||'')).join(''),c.lots.map(l=>l.t[0]).join(''),S.phase,c.blocksAt||0]);
+  const sig=JSON.stringify([RIVAL.at,c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,famsOf(c).map(f=>f.st[0]+(f.tid||'')).join(''),c.lots.map(l=>l.t[0]).join(''),S.phase,c.blocksAt||0]);
   if(sig!==LSig){const first=!LSig||!LSig.startsWith('['+c.idx+','+c.geo.loadedAt);LSig=sig;drawReal(c,first);}
   if(!$('#draftPanel')||tools.dataset.phase!==S.phase){
     tools.dataset.phase=S.phase;
@@ -3322,6 +3413,15 @@ function drawReal(c,fit){
     const fs=l.fams||[],subs=fs.filter(isSub),sh=l.dom?subs.length/l.dom:0,cov=coverOf(c,l)||fiberAt(c,l),late=fs.some(f=>f.st==='late'||f.st==='suspended');
     L.circleMarker([g.lat,g.lon],{radius:4+Math.round(sh*9),color:'#fff',weight:1.5,fillColor:late?'#cf3b3b':subs.some(f=>f.tech==='fiber')?'#e5a21e':subs.length?'#0f9a8d':cov?'#7dcfae':'#9aa59a',fillOpacity:subs.length?1:.8})
       .on('click',ev=>{if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev);return;}L.popup().setLatLng(ev.latlng).setContent(`<b>Quadra em ${esc(c.bairros[bairroOf(l)])}</b><br>${(l.dom||0).toLocaleString('pt-BR')} domicílios · ${subs.length} cliente(s) (${Math.round(sh*100)}%)<br>${cov?'Com sinal':'Sem sinal'}<br><button class="btn small primary" data-act="openQuadra" data-q="${quadras(c).indexOf(l)}" style="margin-top:6px">Abrir quadra</button>`).openOn(LM);}).addTo(LLayers);
+  }
+  // concorrência: torres e caixas CTO dos outros jogadores (roxo, tracejado)
+  for(const r of rivalsOf(c)){const inf=r.infra||{},nm=esc(r.company||'Concorrente');
+    for(const t of (inf.t||[]).slice(0,80)){if(!(Math.abs(t.la)<=90&&Math.abs(t.lo)<=180))continue;const m=clamp(+t.m||0,50,8000);
+      const st={color:'#8a3ffc',weight:1.5,dashArray:'5 6',fillColor:'#8a3ffc',fillOpacity:t.off?0.02:0.06,interactive:false};
+      if(t.bm&&t.bm<360)L.polygon(sectorLatLngs(t.la,t.lo,t.az||0,t.bm,m),st).addTo(LLayers);else L.circle([t.la,t.lo],{...st,radius:m}).addTo(LLayers);
+      L.marker([t.la,t.lo],{icon:mkIcon(rivalTowerSvg,26),title:'Torre de '+(r.company||'concorrente')}).bindPopup(`<b>Torre da concorrência</b><br>${nm}<br>${t.off?'Desligada':'No ar'} · ${t.bm&&t.bm<360?'setorial '+t.bm+'°':'omni'} · alcance ≈ ${(m/1000).toFixed(1).replace('.',',')} km<br><button class="btn small" data-act="rivals" style="margin-top:6px">Ver concorrência</button>`).addTo(LLayers);}
+    for(const o of (inf.o||[]).slice(0,80)){if(!(Math.abs(o.la)<=90&&Math.abs(o.lo)<=180))continue;
+      L.circleMarker([o.la,o.lo],{radius:7,color:'#fff',weight:2,fillColor:'#8a3ffc',fillOpacity:1}).bindPopup(`<b>Caixa CTO da concorrência</b><br>${nm}${o.n?' · '+esc(o.n):''}<br>Fibra do rival neste bairro.<br><button class="btn small" data-act="rivals" style="margin-top:6px">Ver concorrência</button>`).addTo(LLayers);}
   }
   // torres com leque
   for(const t of c.towers){
