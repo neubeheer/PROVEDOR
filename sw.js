@@ -1,6 +1,6 @@
 /* Service worker do Provedor Tycoon: deixa o jogo abrir sem internet.
    Ao publicar uma versão nova, aumente o número em VERSION para os jogadores receberem a atualização. */
-const VERSION = 'v9';
+const VERSION = 'v11';
 const APP_CACHE = `provedor-app-${VERSION}`;
 const FONT_CACHE = 'provedor-fonts';
 const APP_FILES = [
@@ -12,6 +12,7 @@ const APP_FILES = [
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png',
   './icons/favicon-32.png',
+  './config.js',
   './vendor/leaflet/leaflet.js',
   './vendor/leaflet/leaflet.css',
   './vendor/leaflet/images/marker-icon.png',
@@ -56,6 +57,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin !== self.location.origin) return;
+
+  // config.js: sempre tenta a versão nova (é onde fica a configuração do Supabase)
+  if (url.pathname.endsWith('/config.js')) {
+    event.respondWith(fetch(req).then((res) => { if (res.ok) caches.open(APP_CACHE).then((c) => c.put(req, res.clone())); return res; }).catch(() => caches.match(req)));
+    return;
+  }
 
   // Página do jogo: tenta a internet primeiro (pega versões novas) e cai para a cópia offline.
   if (req.mode === 'navigate') {

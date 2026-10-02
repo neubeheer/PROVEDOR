@@ -54,6 +54,71 @@ A 1ª e a 2ª expansão só pedem o nível 4. A **3ª expansão exige 1.000 assi
 - **Metas (a partir de 5.000 assinantes):** vendas, instalação, atendimento, retenção, cobrança, marketing (CAC) e ticket médio. Cada meta pode ser conservadora, moderada ou agressiva. Bateu: PLR para a equipe e mais rendimento no mês seguinte. Errou uma meta moderada ou agressiva: o setor rende menos no mês seguinte.
 - **Plano de carreira (RH):** implantado uma vez no RH; depois cada setor promove operadores a pleno e sênior. Promovidos ganham mais, rendem mais e pedem menos demissão.
 
+## Celular deitado
+
+O jogo foi pensado para o celular na horizontal: mapa grande à esquerda, prédio ou missões à direita e os botões Prédio, Mapa e Missões numa barra lateral. Em pé, aparece um aviso para girar o celular (dá para continuar em pé). Instalado como app, ele abre deitado; no Android, **Menu → Tela cheia** esconde a barra do navegador.
+
+Tocar na **sede** (no Mapa real ou no tabuleiro) abre o prédio com todos os andares.
+
+## Diamantes e selos
+
+- **Diamantes:** todo jogo começa com 50. Você ganha 5 a cada nível e 1 a cada missão. Troque por selos (1 = 10 selos) ou por dinheiro (1 = R$ 500).
+- **Selos:** viram dinheiro na hora ou **automaticamente** todo fechamento de mês (com uma reserva que você escolhe). Também pagam a **configuração automática** dos rádios: 3 selos na torre e 2 na casa do cliente.
+
+## Eventos e Ouvidoria
+
+- Crises e eventos (tempestades, raios, dólar, falta de chips, crise econômica) só começam a partir do **nível 9**.
+- **Ouvidoria (nível 11):** recebe as reclamações do mês e mostra o que melhorar (atendimento, link, sinal, instalação, preço, cobrança, cache), com atalho para resolver. Reclamação sem resposta pode virar multa da Anatel.
+
+## Cidades grandes
+
+Em cidades com mais de 50 mil habitantes, a outorga pode ser comprada **por região de cerca de 20 mil habitantes** (ou para a cidade inteira, descontando o que já foi pago). Só as quadras das regiões licenciadas vendem; as outras aparecem apagadas no tabuleiro.
+
+Toda cidade da expansão precisa de uma **interligação** (o backbone até a cidade): começa com um enlace de rádio de 300 Mega e pode subir até 40 Gigas. Ela aparece no chip **Rede** do mapa; estourada, deixa os clientes daquela cidade lentos.
+
+## Conta e salvamento online (Supabase)
+
+Sem configurar nada, o jogo salva só no aparelho. Para ter **tela de login e progresso online**:
+
+1. Crie um projeto grátis em [supabase.com](https://supabase.com).
+2. No projeto, abra **SQL Editor**, cole o conteúdo de `supabase/schema.sql` e clique em **Run**.
+3. Em **Authentication → Providers**, deixe **Email** ligado. (Para testar sem confirmar e-mail, desligue *Confirm email*.)
+4. Em **Project Settings → API**, copie a **Project URL** e a chave **anon public** para o arquivo `config.js`.
+
+O progresso fica sempre no aparelho (funciona offline) e, com conta, também no Supabase. Ao entrar em outro aparelho, vale o progresso mais recente.
+
+## Banco de quadras no Google Drive
+
+As quadras de cada cidade ficam como arquivos JSON numa pasta do seu Google Drive. Um Apps Script publica um link aberto que entrega as quadras para o jogo, então o tabuleiro abre na hora, sem esperar o OpenStreetMap. A pasta continua privada: só o script lê e grava nela.
+
+**Instalar (uma vez):**
+1. Abra [script.google.com](https://script.google.com) com a conta Google que vai guardar as quadras e clique em **Novo projeto**. Dê o nome *Provedor Tycoon - quadras*.
+2. Apague o que vier no editor e cole todo o conteúdo de `apps-script/Code.gs`. Salve.
+3. Na engrenagem **Configurações do projeto**, em **Propriedades do script**, adicione:
+   - `SUPABASE_URL`: a mesma Project URL do `config.js`;
+   - `SUPABASE_ANON_KEY`: a mesma chave anon do `config.js`.
+4. Volte ao editor, escolha a função **configurar** e clique em **Executar**. Autorize o acesso ao Drive quando o Google pedir. No registro aparecem a pasta criada e a **SENHA_DO_ROBO**.
+5. Clique em **Implantar → Nova implantação**, tipo **App da Web**: *Executar como*: **eu**; *Quem pode acessar*: **Qualquer pessoa**. Copie o link que termina em `/exec`.
+6. Cole esse link em `quadrasUrl` no `config.js`.
+
+**Como funciona:**
+- O jogo pede as quadras da cidade ao link. Se a cidade já está no Drive, o tabuleiro abre na hora; se não, desenha pelo OpenStreetMap e manda o resultado para o script.
+- Só grava quem está logado: o script confere o login no Supabase antes de salvar, recusa arquivo malformado ou grande demais e não deixa jogador sobrescrever uma cidade que já existe.
+- Cada jogador busca uma cidade uma vez só; depois as quadras ficam no progresso dele.
+
+**A senha do robô:** o robô do GitHub não é um jogador e não tem login no Supabase. Para o script saber que é ele, os dois compartilham uma senha: a `SENHA_DO_ROBO`, gerada pela função **configurar** e guardada nas Propriedades do script. O robô manda essa senha junto com as quadras; com ela, o script aceita gravar e também atualizar cidades. Ela nunca vai para o `config.js` nem para o jogo, só para os segredos do GitHub. Se vazar, rode **trocarSenhaDoRobo** no Apps Script e atualize o segredo no GitHub.
+
+### Pré-carregar as quadras do Brasil
+
+O workflow **Banco de quadras (Google Drive)** desenha as quadras de cada município e grava no Drive:
+1. No GitHub: *Settings → Secrets and variables → Actions → New repository secret*. Crie:
+   - `QUADRAS_URL`: o link `/exec` do Apps Script;
+   - `QUADRAS_SENHA`: a `SENHA_DO_ROBO` que apareceu no registro do Apps Script.
+2. Em **Actions → Banco de quadras (Google Drive) → Run workflow**, escolha o estado (ex.: `SP`) ou `BR` e o limite de cidades.
+3. Ele também roda sozinho todo dia, processando 150 cidades do país que ainda não estão no Drive.
+
+O Brasil inteiro tem 5.570 municípios e deve ocupar perto de 1 GB no Drive (a conta grátis tem 15 GB, divididos com Gmail e Fotos). O robô respeita os limites do OpenStreetMap, então completar o país leva algumas semanas de rodadas diárias; rode por estado para adiantar os que você mais usa.
+
 ## Proteções com selos
 
 Na tela de **Selos** dá para comprar 1 ano (12 meses) de proteção:
@@ -163,6 +228,10 @@ O GPS só funciona em `https://` ou em `localhost`.
 | `data/bairros/` | Bairros oficiais do IBGE por cidade (gerados pelo script) |
 | `scripts/ibge_bairros.py` | Converte a malha de bairros do IBGE para o jogo |
 | `.github/workflows/` | Botão no GitHub que roda o script |
+| `config.js` | Supabase (login e progresso) e link do banco de quadras (opcional) |
+| `apps-script/Code.gs` | Apps Script do banco de quadras no Google Drive |
+| `supabase/schema.sql` | Tabela de progresso e regras de acesso do Supabase |
+| `scripts/quadras_cache.py` | Robô que desenha as quadras das cidades e grava no Drive |
 | `vendor/leaflet/` | Biblioteca do mapa (Leaflet 1.9.4, licença BSD-2) |
 | `.nojekyll` | Faz o GitHub Pages publicar os arquivos como estão |
 

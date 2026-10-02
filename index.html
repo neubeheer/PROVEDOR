@@ -12,6 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <script src="vendor/leaflet/leaflet.js" defer></script>
+<script src="config.js"></script>
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Provedor Tycoon</title>
@@ -210,6 +211,8 @@ div.lot{cursor:default}
 .lot.cancelReq::before{content:"!";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:5px;font-size:11px;font-weight:900;display:grid;place-items:center;color:#fff;z-index:1;background:#8a3ffc;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{transform:scale(1.18)}}
 .stat.coin b{color:#ffe08a}
+.dia-ico{display:inline-block;width:12px;height:12px;vertical-align:-1px;margin-right:4px;background:linear-gradient(135deg,#bdf4ff,#3fb7e8 55%,#1679b8);clip-path:polygon(50% 100%,0 35%,22% 0,78% 0,100% 35%)}
+.sede-modal .building{max-width:420px;margin:0 auto}
 .coin-ico{display:inline-block;width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,#e5a21e 60%,#b87a0c);vertical-align:-1px;margin-right:4px}
 .loan-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
 .loan-row small{color:var(--muted);display:block}
@@ -350,7 +353,7 @@ input[type=range]{width:100%;accent-color:#3ddc97}
 .start-hero h2{font-family:var(--display);font-weight:400;font-size:26px;line-height:1}
 .steps{margin:0 0 14px;padding-left:20px;font-size:14px;color:var(--muted)}
 .steps li{margin-bottom:3px}
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;z-index:60;max-width:calc(100% - 32px);box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:14px}
+.toast{pointer-events:none;position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;z-index:60;max-width:calc(100% - 32px);box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:14px}
 @media (max-width:1100px){
   .layout{grid-template-columns:270px minmax(0,1fr)}
   .pane-side{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
@@ -456,6 +459,80 @@ body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))
 @media (max-width:820px){.realmap{height:62vh;min-height:300px;border-radius:10px}.view-toggle button{padding:8px 12px}}
 @media (max-width:380px){.blabel{font-size:8px}.stat{min-width:76px}}
 </style>
+<style>
+/* ============ Celular deitado (paisagem): mapa grande + painel lateral, estilo jogo tycoon ============ */
+.rail-ico{display:none}
+#rotateHint{display:none}
+@media (orientation:portrait) and (max-width:600px) and (pointer:coarse){
+  body:not(.portrait-ok) #rotateHint{display:flex;position:fixed;inset:0;z-index:90;background:rgba(22,32,38,.94);color:#fff;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+  #rotateHint svg{width:84px;height:84px;animation:rot 2.2s ease-in-out infinite}
+  #rotateHint b{font-size:19px}
+  #rotateHint p{margin:0;color:#c9d6d8;max-width:300px}
+  @keyframes rot{0%,20%{transform:rotate(0)}55%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+}
+@media (orientation:landscape) and (max-height:560px){
+  html,body{height:100%;overflow:hidden}
+  body{font-size:14px}
+  .top{position:fixed;top:0;left:0;right:0;height:calc(50px + env(safe-area-inset-top,0px));padding:calc(4px + env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right,0px)) 4px calc(72px + env(safe-area-inset-left,0px));flex-wrap:nowrap;gap:8px;z-index:40;align-items:center}
+  .brand div{display:none}
+  .brand-mark{display:none}
+  .stats{flex:1;display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:6px;width:auto;margin:0;padding:0;scrollbar-width:none}
+  .stats::-webkit-scrollbar{display:none}
+  .stat,.speed,.icon-btn{flex:0 0 auto}
+  .stat{min-width:0;padding:2px 9px;border-radius:9px;height:42px;justify-content:center}
+  .stat span{font-size:9px}
+  .stat b{font-size:13.5px}
+  .stat .bar{height:3px;margin-top:2px}
+  .stat-sub{display:none}
+  .speed{padding:2px;height:42px;align-items:center}
+  .speed button{padding:6px 9px;font-size:12px}
+  .icon-btn{height:42px;padding:0 12px;font-size:13px}
+  .tabs{display:flex!important;flex-direction:column;position:fixed;left:0;top:0;bottom:0;right:auto;width:calc(64px + env(safe-area-inset-left,0px));padding:calc(8px + env(safe-area-inset-top,0px)) 6px 8px calc(6px + env(safe-area-inset-left,0px));gap:8px;background:var(--ink);z-index:45;justify-content:center}
+  .tabs button{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 2px;border-radius:12px;font-size:10.5px;font-weight:800;border:0;background:transparent;color:#c3d0d2;cursor:pointer}
+  .tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
+  .rail-ico{display:block;width:24px;height:24px}
+  .layout{position:fixed;top:calc(50px + env(safe-area-inset-top,0px));left:calc(64px + env(safe-area-inset-left,0px));right:0;bottom:0;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(300px,40%);gap:8px;padding:8px max(8px,env(safe-area-inset-right,0px)) max(8px,env(safe-area-inset-bottom,0px)) 8px;max-width:none;margin:0;align-items:stretch}
+  body[data-tab="map"] .layout{grid-template-columns:minmax(0,1fr)}
+  .pane{display:none!important}
+  .pane-map{display:flex!important;flex-direction:column;min-height:0;overflow:auto;overscroll-behavior:contain}
+  body[data-tab="building"] .pane-building,body[data-tab="side"] .pane-side{display:flex!important;flex-direction:column;gap:8px;min-height:0;overflow:auto;overscroll-behavior:contain;grid-template-columns:none}
+  .card{padding:10px;border-radius:12px}
+  .pane-map>.card{display:flex;flex-direction:column;gap:6px;padding:8px}
+  .map-head{margin:0;gap:6px;flex-wrap:nowrap;align-items:center}
+  .map-head .eyebrow{display:none}
+  .map-head h2{font-size:15px;white-space:nowrap}
+  .map-meta{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .map-meta::-webkit-scrollbar{display:none}
+  .map-meta>*{flex:0 0 auto}
+  .view-toggle button{padding:6px 10px}
+  .tut{padding:6px 10px;margin:0;gap:8px;align-items:center}.tut .tut-n{width:26px;height:26px;font-size:13px}.tut .tut-body{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tut .tut-body b{font-size:13px;margin:0}.tut .tut-body p{display:none}.tut .tut-dots{display:none}.tut .tut-act{margin:0}.tut .btn.small{min-height:30px;padding:4px 10px}
+  .sede-bar p{font-size:12.5px}.sede-bar .btn.small{min-height:30px;padding:4px 10px}
+  .crisis,.sede-bar{margin:0;padding:6px 10px;font-size:12.5px}
+  .map-wrap{max-width:none;width:100%}
+  .map{width:min(100%,calc(100dvh - 150px - env(safe-area-inset-top,0px)));margin:0 auto}
+  .map.svgmode,.map.lockmode{width:100%;height:calc(100dvh - 150px - env(safe-area-inset-top,0px));aspect-ratio:auto}
+  .realmap{height:calc(100dvh - 165px - env(safe-area-inset-top,0px));min-height:180px;border-radius:10px}
+  .real-tools{margin-top:6px}
+  .geo-note{display:none}
+  .legend{display:none}
+  .draft-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .modal-wrap{place-items:center;padding:8px max(8px,env(safe-area-inset-right,0px)) 8px calc(72px + env(safe-area-inset-left,0px))}
+  .modal{width:min(760px,100%);max-height:calc(100dvh - 16px);border-radius:16px;padding:14px 16px}
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .choice{flex-wrap:nowrap}
+  .toast{bottom:calc(10px + env(safe-area-inset-bottom,0px));left:calc(50% + 32px)}
+  body.modal-open .toast{top:calc(56px + env(safe-area-inset-top,0px))}
+  .update-bar{bottom:12px}
+  .opts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dev-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .fam dl{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .qnote{left:auto;right:52px;bottom:6px;padding:3px;background:transparent}.qnote span{display:none}.qnote .btn{min-height:30px;padding:4px 10px;font-size:12px}
+  .pane-map{order:1;grid-column:1!important;grid-row:1!important}.pane-building,.pane-side{order:2;grid-column:2!important;grid-row:1!important}
+  .layout{grid-template-rows:minmax(0,1fr)}
+  .building .floor-desc{font-size:12.5px}
+}
+</style>
 </head>
 <body>
 
@@ -501,10 +578,11 @@ body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))
 </main>
 
 <nav class="tabs" role="tablist">
-  <button role="tab" data-tab="building" aria-selected="false">Prédio</button>
-  <button role="tab" data-tab="map" aria-selected="true">Mapa</button>
-  <button role="tab" data-tab="side" aria-selected="false">Missões</button>
+  <button role="tab" data-tab="building" aria-selected="false"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4h10v17M15 9h4v12M8 7h2M8 10h2M8 13h2M8 16h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Prédio</button>
+  <button role="tab" data-tab="map" aria-selected="true"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Mapa</button>
+  <button role="tab" data-tab="side" aria-selected="false"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Missões</button>
 </nav>
+<div id="rotateHint" role="dialog" aria-label="Gire o celular"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="20" y="6" width="24" height="44" rx="5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="32" cy="44" r="2" fill="#fff"/><path d="M50 30a18 18 0 0 1-8 15" fill="none" stroke="#f0661a" stroke-width="3" stroke-linecap="round"/><path d="M43 41l-1 5 5 0" fill="none" stroke="#f0661a" stroke-width="3" stroke-linecap="round"/></svg><b>Gire o celular para jogar deitado</b><p>O Provedor Tycoon foi feito para o celular na horizontal: mapa grande de um lado, prédio e missões do outro.</p><button class="btn primary" id="rotOk" type="button">Continuar em pé</button></div>
 
 <div class="modal-wrap" id="modalWrap" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" hidden></div>
@@ -516,6 +594,9 @@ const SAVE_KEY='provedor-tycoon-v2';
 const START_MONEY=20000, RANGE=2.6, CAP=64;
 const TOWER_COST=3000, CPE_COST=200, THIRD_COST=120, HIRE_COST=500, NEWCITY_COST=1500, FIBRA_LEVEL=12, EXPAND_LEVEL=4, STORE_LEVEL=8, EXPAND_KM=100;
 const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900},{g:1,name:'1 Giga',price:1500},{g:2,name:'2 Gigas',price:2600},{g:5,name:'5 Gigas',price:5500},{g:10,name:'10 Gigas',price:9000},{g:20,name:'20 Gigas',price:16000},{g:40,name:'40 Gigas',price:28000},{g:100,name:'100 Gigas',price:60000}];
+const START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
+const BIG_CITY=50000, REGION_POP=20000;
+const CITY_LINKS=[{name:'Enlace de rádio 300 Mega',g:0.3,cost:12000,price:350},{name:'Enlace de rádio 1 Giga',g:1,cost:30000,price:700},{name:'Fibra alugada 10 Gigas',g:10,cost:90000,price:3500},{name:'Backbone próprio 40 Gigas',g:40,cost:250000,price:6000}];
 const NET_FIRST=8000, NET_LAST=1000000, CAREER_COST=15000, PROMO_COST=300, GOALS_AT=5000;
 const BACKBONE_COST=100000, CTO_COST=6000, ONU_COST=250, KIT_COST=800, DISMANTLE_COST=500, STORE_COST=15000, PARTNER_CASH=25000, PARTNER_PAY=3000;
 const PLANS=[
@@ -538,11 +619,12 @@ const FLOORS=[
   {id:'tecnico',name:'Técnico',level:4,cost:3000,op:'Técnico de campo',sal:400,desc:'Instala e configura rádio e fibra do cliente sem pagar terceirizado.'},
   {id:'rh',name:'RH',level:6,cost:2000,op:'Analista de RH',sal:380,desc:'Cada analista libera +4 vagas por setor, segura pedidos de demissão e barateia contratações. Sócios entram por aqui.'},
   {id:'migracao',name:'Migração e Upgrade',level:12,cost:8000,op:'Operador de migração',sal:380,desc:'Liga para a base: migra clientes do rádio para a fibra (pode manter o mesmo preço) e oferece upgrade de plano para aumentar o ticket médio. Cada operador faz 30 ligações por mês.'},
+  {id:'ouvidoria',name:'Ouvidoria',level:11,cost:5000,op:'Ouvidor',sal:420,desc:'Recebe as reclamações dos clientes e mostra o que a empresa precisa melhorar. Cada ouvidor trata até 60 manifestações por mês; reclamação sem resposta vira queixa na Anatel e pode dar multa.'},
   {id:'noc',name:'NOC',level:10,cost:6000,op:'Analista de NOC',sal:500,desc:'Monitoramento 24h: torres aguentam 50% mais clientes. Aqui ficam os servidores de cache.'},
   {id:'logistica',annex:true,name:'Logística',level:4,cost:2500,op:'Motorista',sal:300,desc:'Galpão dos equipamentos em comodato. Cada motorista recolhe até 6 rádios por mês.'},
 ];
 const ROLE_HINT={voz:'Atende até 40 clientes',texto:'Atende até 50 clientes, salário menor',n2:'Menos cancelamentos por problema técnico',sup:'1 para cada 5 operadores',ger:'Obrigatório a partir de 8 pessoas no setor',
-  comercial:'3 portas a cada 4 dias',marketing:'Uma campanha ativa por vez',retencao:'5 pedidos de cancelamento por mês',recuperacao:'3 dívidas por mês',tecnico:'Instala sem terceirizado',migracao:'30 ligações por mês',rh:'+4 vagas por setor e menos demissões',noc:'Monitora a rede',logistica:'Recolhe 6 rádios por mês'};
+  comercial:'3 portas a cada 4 dias',marketing:'Uma campanha ativa por vez',retencao:'5 pedidos de cancelamento por mês',recuperacao:'3 dívidas por mês',tecnico:'Instala sem terceirizado',ouvidoria:'60 manifestações por mês',migracao:'30 ligações por mês',rh:'+4 vagas por setor e menos demissões',noc:'Monitora a rede',logistica:'Recolhe 6 rádios por mês'};
 const FIBER_TIERS=[
   {name:'OLT GPON básica',level:12,cost:0,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:149.9}]},
   {name:'OLT GPON 2ª geração',level:14,cost:30000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:119.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:139.9}]},
@@ -579,9 +661,9 @@ const LEVELS=[
   {l:6,items:['Retenção e RH','Combo internet + TV']},
   {l:7,items:['Bônus de caixa']},
   {l:8,items:['Marketing e Recuperação','Loja filial e carreata']},
-  {l:9,items:['Bônus de caixa']},
+  {l:9,items:['Eventos e crises começam a acontecer (tempestades, dólar, crise econômica…)']},
   {l:10,items:['NOC e servidores de cache','Combo com telefone fixo']},
-  {l:11,items:['Bônus de caixa']},
+  {l:11,items:['Ouvidoria: reclamações dos clientes e o que melhorar']},
   {l:12,items:['Fibra óptica: backbone, caixas CTO e Fibra 100 Mega','Setor de Migração e Upgrade','Desmontar torres e levar para outra cidade']},
   {l:13,items:['Bônus de caixa']},
   {l:14,items:['OLT 2ª geração: Fibra 300 Mega e preços menores']},
@@ -664,19 +746,91 @@ function migrate(st){
   st.partners=st.partners||0;st.kits=st.kits||0;st.servers=st.servers||{};st.fiberTier=st.fiberTier||0;st.migrated=st.migrated||0;st.complaints=st.complaints||0;
   for(const c of st.cities){c.fiber=c.fiber||{on:false,ctos:[]};c.campaigns=c.campaigns||[];if(c.store===undefined)c.store=null;}
   for(const [id,f] of Object.entries(st.floors||{})){if(id==='recepcao')continue;if(f.staff!=null&&!f.team){f.team=id==='callcenter'?{voz:f.staff}:{op:f.staff};delete f.staff;}if(f.built&&!f.team)f.team={};}
-  st.coins=st.coins||0;st.shield=st.shield||{};
+  st.coins=st.coins||0;st.shield=st.shield||{};if(st.diamonds==null)st.diamonds=START_DIAMONDS;
   if(!st.lv2){const old=levelOf(st.xp||0);if(old>=2){const n=old*2;st.xp=Math.max(st.xp,50*n*(n-1));}st.lv2=true;}
   if(st.tut===undefined)st.tut=(st.towersBuilt>0||st.signed>0)?{done:true}:{};st.loans=st.loans||[];st.retained=st.retained||0;st.retCap=st.retCap||0;for(const c of st.cities)for(const l of quadras(c))for(const f of (l.fams||[]))if((f.st==='client'||f.st==='late'||f.st==='suspended')&&!f.since)f.since=st.day;st.stock=st.stock||0;st.parcelas=st.parcelas||[];st.recovered=st.recovered||0;st.crisis=st.crisis||null;st.cur=Object.assign(newMonth(),st.cur||{});if(!Number.isFinite(st.cur.novos))st.cur.novos=0;for(const h of st.history||[])if(!Number.isFinite(h.novos))h.novos=0;return st;}
 function newGame(company,cityName,uf){
   S={v:2,company,phase:'sede',money:START_MONEY,xp:0,rep:50,day:1,speed:1,
      docs:{},cities:[makeCity(cityName,uf,0)],ci:0,sede:null,
      floors:{recepcao:{built:true,staff:0}},combos:{tv:false,fone:false},
-     manualInstalls:0,towersBuilt:0,signed:0,lv2:true,link:0,tut:{},shield:{},peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
+     manualInstalls:0,towersBuilt:0,signed:0,lv2:true,diamonds:START_DIAMONDS,link:0,tut:{},shield:{},peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
   log(`A ${company} nasceu em ${cityName}. Escolha o bairro da sede.`);
   save(true);
 }
 
 /* ===================== Salvamento: navegador + nuvem + JSON ===================== */
+
+/* ===================== Supabase: conta, salvamento online e cache das quadras ===================== */
+const SB={url:'',key:'',session:null};
+function sbInit(){const c=window.PT_CONFIG||{};SB.url=String(c.supabaseUrl||'').trim().replace(/\/+$/,'');SB.key=String(c.supabaseAnonKey||'').trim();try{SB.session=JSON.parse(localStorage.getItem('pt-sb')||'null');}catch(e){SB.session=null;}}
+const sbOn=()=>!!(SB.url&&SB.key);
+function sbStore(sess){SB.session=sess;try{sess?localStorage.setItem('pt-sb',JSON.stringify(sess)):localStorage.removeItem('pt-sb');}catch(e){}}
+function sbSess(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),user:{id:j.user&&j.user.id,email:j.user&&j.user.email}};}
+async function sbRefresh(){
+  if(!SB.session||!SB.session.refresh_token)return false;
+  try{const r=await fetch(SB.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:SB.session.refresh_token})});
+    if(!r.ok){if(r.status===400||r.status===401)sbStore(null);return false;}sbStore(sbSess(await r.json()));return true;}catch(e){return false;}
+}
+async function sbFetch(path,opts={},useUser=true,ms=15000){
+  if(useUser&&SB.session&&SB.session.expires_at*1000<Date.now()+60000)await sbRefresh();
+  const go=()=>{const tok=useUser&&SB.session?SB.session.access_token:SB.key;const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
+    return fetch(SB.url+path,{...opts,signal:ac.signal,headers:{apikey:SB.key,Authorization:'Bearer '+tok,'Content-Type':'application/json',...(opts.headers||{})}}).finally(()=>clearTimeout(t));};
+  let r=await go();if(r.status===401&&useUser&&SB.session&&await sbRefresh())r=await go();return r;
+}
+async function sbLogin(email,pass,signup){
+  const r=await fetch(SB.url+(signup?'/auth/v1/signup':'/auth/v1/token?grant_type=password'),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){const m=String(j.error_description||j.msg||j.message||j.error||'');throw new Error(/invalid login/i.test(m)?'E-mail ou senha incorretos.':/already/i.test(m)?'Esse e-mail já tem conta. Use Entrar.':/password/i.test(m)?'A senha precisa de pelo menos 6 caracteres.':/confirm/i.test(m)?'Confirme o e-mail antes de entrar (veja sua caixa de entrada).':m||'Não deu para entrar agora.');}
+  if(!j.access_token)return {confirm:true};
+  sbStore(sbSess(j));return {ok:true};
+}
+async function sbLogout(){try{await sbFetch('/auth/v1/logout',{method:'POST'});}catch(e){}sbStore(null);cloud.ref=null;cloud.status='local';renderSaveDot();}
+function sbSaveRef(){
+  const uid=SB.session.user.id;
+  return {
+    async get(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=data,saved_at`);if(!r.ok)throw new Error('http '+r.status);const rows=await r.json();return {exists:rows.length>0,data:()=>({json:JSON.stringify(rows[0].data)})};},
+    async set(o){const body=`{"user_id":${JSON.stringify(uid)},"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${o.json}}`;
+      const r=await sbFetch('/rest/v1/saves',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body},true,30000);if(!r.ok)throw new Error('http '+r.status);},
+  };
+}
+function cityKeys(c){const nk=`${normName(c.name)}|${(c.uf||'').toUpperCase()}`;return {code:c.ibgeCode||null,nk};}
+/* Banco de quadras no Google Drive (via Apps Script) */
+const quadrasUrl=()=>String((window.PT_CONFIG||{}).quadrasUrl||'').trim();
+async function driveGetFaces(c){
+  const u=quadrasUrl();if(!u)return null;
+  const k=cityKeys(c),qs=`${k.code?`cidade=${encodeURIComponent(k.code)}&`:''}nome=${encodeURIComponent(k.nk)}`;
+  try{const r=await fetchJson(`${u}${u.includes('?')?'&':'?'}${qs}`,{},15000);return r&&r.ok&&Array.isArray(r.faces)&&r.faces.length>=6?r.faces:null;}catch(e){return null;}
+}
+async function drivePutFaces(c,faces,R){
+  const u=quadrasUrl();if(!u||!sbOn()||!SB.session)return;
+  if(SB.session.expires_at*1000<Date.now()+60000)await sbRefresh();if(!SB.session)return;
+  const k=cityKeys(c);
+  try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({city_key:k.code||k.nk,name_key:k.nk,name:c.name,uf:c.uf||'',lat:c.geo.lat,lon:c.geo.lon,radius:R,faces,token:SB.session.access_token})});}catch(e){}
+}
+function openLogin(fromStart){
+  if(!sbOn()){toast('Salvamento online não configurado.');return;}
+  const logged=SB.session&&SB.session.user;
+  if(logged){openModal(head('Conta','Salvamento online')+`<div class="notice ok">Conectado como <b>${esc(SB.session.user.email||'')}</b>. O jogo salva neste aparelho e na sua conta: dá para continuar em outro celular ou computador.</div>
+    <div class="foot"><button class="btn" data-close>Fechar</button><button class="btn" id="lgOut">Sair da conta</button></div>`,m=>{m.querySelector('#lgOut').onclick=async()=>{await sbLogout();closeModal();toast('Você saiu da conta. O jogo continua salvo neste aparelho.');};});return;}
+  openModal(head('Conta','Entrar no Provedor Tycoon',!fromStart)+`<p>Com uma conta, o progresso fica salvo online e também no aparelho: funciona sem internet e sincroniza quando a conexão volta.</p>
+    <div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" type="email" autocomplete="email" maxlength="120"></div>
+    <div class="field"><label for="lgPass">Senha</label><input class="input" id="lgPass" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"></div>
+    <p class="geo-note" id="lgNote" aria-live="polite"></p>
+    <div class="foot" style="flex-wrap:wrap;gap:8px"><button class="btn ghost" id="lgSkip">${fromStart?'Jogar sem conta':'Agora não'}</button><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
+    const note=m.querySelector('#lgNote');
+    const run=async signup=>{const em=m.querySelector('#lgEmail').value.trim(),pw=m.querySelector('#lgPass').value;
+      if(!/^\S+@\S+\.\S+$/.test(em)){note.textContent='Digite um e-mail válido.';return;}if(pw.length<6){note.textContent='A senha precisa de pelo menos 6 caracteres.';return;}
+      if(!navigator.onLine){note.textContent='Sem internet agora. Jogue sem conta e entre depois.';return;}
+      m.querySelectorAll('button').forEach(b=>b.disabled=true);note.textContent=signup?'Criando a conta…':'Entrando…';
+      try{const r=await sbLogin(em,pw,signup);
+        if(r.confirm){note.innerHTML='Conta criada! Abra o e-mail de confirmação que enviamos e depois toque em <b>Entrar</b>.';m.querySelectorAll('button').forEach(b=>b.disabled=false);return;}
+        closeModal();toast('Conectado! O progresso agora também fica na sua conta.');await initCloud();if(!S)showStart();else renderAll();
+      }catch(e){note.textContent=e.message;m.querySelectorAll('button').forEach(b=>b.disabled=false);}};
+    m.querySelector('#lgGo').onclick=()=>run(false);m.querySelector('#lgNew').onclick=()=>run(true);
+    m.querySelector('#lgPass').onkeydown=e=>{if(e.key==='Enter')run(false);};
+    m.querySelector('#lgSkip').onclick=()=>{closeModal();if(fromStart&&!S)showStart();};
+  });
+}
 const cloud={ref:null,status:'local',last:null,dirty:false,busy:false,t:null};
 function save(important){
   if(!S)return;
@@ -697,11 +851,14 @@ function validSave(d){return !!(d&&d.v===2&&Array.isArray(d.cities)&&d.cities.le
 function loadLocal(){try{const raw=localStorage.getItem(SAVE_KEY);if(raw){const d=JSON.parse(raw);if(validSave(d))return d;}}catch(e){}return null;}
 async function initCloud(){
   try{
-    if(!window.claude||!window.claude.use)return;
-    const [db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);
-    if(!db||!user)return;
-    const uid=await user.id();if(!uid)return;
-    cloud.ref=db.doc(`data/users/${uid}/save`);
+    if(sbOn()&&SB.session&&SB.session.user){cloud.ref=sbSaveRef();}
+    else{
+      if(!window.claude||!window.claude.use)return;
+      const [db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);
+      if(!db||!user)return;
+      const uid=await user.id();if(!uid)return;
+      cloud.ref=db.doc(`data/users/${uid}/save`);
+    }
     const snap=await cloud.ref.get();
     cloud.status='cloud';
     let st=null;
@@ -750,7 +907,7 @@ const city=()=>S.cities[S.ci];
 const levelOf=xp=>{let l=1;while(xp>=50*(l+1)*l)l++;return l;};
 const xpFor=l=>50*l*(l-1);
 const docsDone=()=>DOCS.every(d=>S.docs[d.id]&&S.docs[d.id].done);
-const companyLicensed=()=>S.cities[0].outorgaPaid;
+const companyLicensed=()=>cityLicensed(S.cities[0]);
 const cnpjDone=()=>!!(S.docs.cnpj&&S.docs.cnpj.done);
 const built=id=>!!(S.floors[id]&&S.floors[id].built);
 const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
@@ -871,7 +1028,7 @@ function log(msg){S.log.unshift({d:S.day,m:msg});S.log=S.log.slice(0,60);}
 function event(msg){S.cur.eventos.push(msg);if(S.cur.eventos.length>20)S.cur.eventos.shift();}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200);}
 function addXp(n){const b=levelOf(S.xp);S.xp+=n;const a=levelOf(S.xp);
-  for(let L=b+1;L<=a;L++){const bonus=bonusFor(L);S.money+=bonus;S.cur.bonus+=bonus;log(`Subiu para o nível ${L}! Bônus de ${brl0(bonus)} no caixa.`);event(`Nível ${L}: bônus de ${brl0(bonus)}`);
+  for(let L=b+1;L<=a;L++){const bonus=bonusFor(L);S.money+=bonus;S.cur.bonus+=bonus;S.diamonds=(S.diamonds||0)+5;log(`Subiu para o nível ${L}! Bônus de ${brl0(bonus)} no caixa.`);event(`Nível ${L}: bônus de ${brl0(bonus)}`);
     const lv=LEVELS.find(x=>x.l===L);toast(`Nível ${L}! +${brl0(bonus)} de bônus.${lv&&lv.items[0]!=='Bônus de caixa'?' Liberado: '+lv.items.join(', ')+'.':''}`);}}
 function spend(v){if(S.money<v){toast(`Falta caixa: precisa de ${brl0(v)}.`);return false;}S.money-=v;S.cur.inv+=v;return true;}
 
@@ -895,6 +1052,7 @@ function monthEnd(){
   const ccCap=built('callcenter')?((tcc.voz||0)*40+(tcc.texto||0)*50)*ccE:0;
   const ccOps=opsOf('callcenter');
   const prevCompl=S.complaints||0;
+  const cityU=new Map(S.cities.map(cc=>[cc,cc.idx>0&&cc.ilink>=0?cityTraffic(cc)/CITY_LINKS[cc.ilink].g:0]));
   const trNow=trafficGbps(),peakT=trNow*(1.05+Math.random()*0.15),util=peakT/linkNow().g,congP=util>1?Math.min(0.08,(util-1)*0.2):0;
   for(const c of S.cities){
     const offT=new Set(c.towers.filter(t=>t.off).map(t=>t.id));
@@ -914,7 +1072,7 @@ function monthEnd(){
         continue;
       }
       let p=0.012;if(!fib&&overT.has(l.tid))p+=0.07;if(S.rep<40)p+=0.03;if(!built('tecnico'))p+=0.01;if(built('noc'))p-=0.008;if(effect('chuva')&&!fib)p+=0.02;if(offline)p+=0.35;
-      if(fib)p-=0.008;p-=Math.min(n2,4)*0.003*ccE;p+=prevCompl*0.004+congP;
+      if(fib)p-=0.008;p-=Math.min(n2,4)*0.003*ccE;p+=prevCompl*0.004+congP-(S.ouvBonus||0);{const cu=cityU.get(c)||0;if(cu>1)p+=Math.min(0.08,(cu-1)*0.2);}
       if(Math.random()<p){requestCancel(c,l,congP&&Math.random()<0.6?'lenta':reasonFor(c,l,offline,!fib&&overT.has(l.tid)));continue;}
       if(offline)continue;
       let q=0.025;if(effect('crise'))q+=0.05;if(l.fam.need==='budget')q+=0.02;if(l.price>l.fam.budget)q+=0.03;if(S.rep<40)q+=0.01;q-=Math.min(ccOps,4)*0.004;
@@ -957,7 +1115,9 @@ function monthEnd(){
   for(const c of S.cities)c.campaigns=(c.campaigns||[]).filter(x=>x.until>m);
   const staffCost=staffPayroll();
   const towersOn=S.cities.reduce((s,c)=>s+c.towers.filter(t=>!t.off).length,0);
-  const link=linkNow().price, maint=towersOn*120*(effect('chuva')?2:1)+(effect('raios')?towersOn*400:0), content=tv*COMBOS.tv.unit+fone*COMBOS.fone.unit;
+  const ilinkCost=S.cities.reduce((t,cc)=>t+(cc.idx>0&&cc.ilink>=0?CITY_LINKS[cc.ilink].price:0),0);
+  for(const [cc,u] of cityU)if(u>1)log(`Interligação de ${cc.name} estourada (${Math.round(u*100)}%). Aumente o backbone até a cidade.`);
+  const link=linkNow().price+ilinkCost, maint=towersOn*120*(effect('chuva')?2:1)+(effect('raios')?towersOn*400:0), content=tv*COMBOS.tv.unit+fone*COMBOS.fone.unit;
   const fiberMaint=S.cities.reduce((s,c)=>s+(c.fiber&&c.fiber.on?1000+c.fiber.ctos.length*40:0),0);
   const serverCost=servers*150, storeCost=S.cities.filter(c=>c.store).length*1500;
   let loanPay=0;
@@ -965,6 +1125,7 @@ function monthEnd(){
   let coinsNow=0;
   for(const c of S.cities)for(const l of famsOf(c))if(l.st==='client'&&l.since){const mo=Math.floor((S.day-l.since)/30);if(mo>=12)coinsNow+=3;else if(mo>=6)coinsNow+=2;else if(mo>=3)coinsNow+=1;}
   S.coins+=coinsNow;S.cur.coins+=coinsNow;
+  if(S.autoCoins){const keep=S.coinKeep||0,n=Math.max(0,S.coins-keep);if(n){S.coins-=n;S.money+=n*COIN_RATE;S.cur.coinCash=(S.cur.coinCash||0)+n*COIN_RATE;log(`Conversão automática: ${n} selos viraram ${brl0(n*COIN_RATE)}.`);}}
   S.retCap=capOf('retencao',5);
   const exp=staffCost+link+maint+content+fiberMaint+serverCost+storeCost+Math.round(loanPay);
   S.money+=rev+parc-exp;
@@ -976,6 +1137,7 @@ function monthEnd(){
   const offWithClients=S.cities.reduce((s,c)=>s+c.towers.filter(t=>t.off&&famsOf(c).some(l=>isSub(l)&&l.tid===t.id)).length,0);
   dRep-=offWithClients*2;
   for(const c of S.cities){if(c.store)dRep+=1;}
+  dRep+=ouvidoriaMonth({clients,sla:clients?Math.min(1,ccCap/clients):1,util,over,compl,m});
   S.rep=clamp(S.rep+dRep,0,100);
   // rotatividade (RH)
   let quits=0;const where=[];
@@ -999,7 +1161,7 @@ function monthEnd(){
   let news='';
   if(!S.crisis||m>=S.crisis.until){
     if(S.crisis&&m>=S.crisis.until){log(`Fim do evento: ${CRISES.find(x=>x.id===S.crisis.id).name}.`);S.crisis=null;}
-    if(m>=2&&Math.random()<0.2){const ev=CRISES[Math.floor(Math.random()*CRISES.length)];
+    if(levelOf(S.xp)>=EVENTS_LEVEL&&Math.random()<0.2){const ev=CRISES[Math.floor(Math.random()*CRISES.length)];
       if(ev.kind&&shieldOn(ev.kind)){event(`Proteção evitou: ${ev.name}`);log(`${SHIELDS[ev.kind].name} evitou: ${ev.name}.`);news=` Sua proteção evitou: ${ev.name}.`;}
       else{S.crisis={id:ev.id,until:m+ev.months};event(`Começou: ${ev.name}`);log(`Evento: ${ev.name}. ${ev.desc}`);news=` ${ev.name}!`;}}
   }
@@ -1021,7 +1183,7 @@ function netPrefix(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length
 function netCap(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length-1)].cap;}
 function netUsed(c){return famsOf(c).filter(f=>isSub(f)||f.st==='pending').length;}
 const netFull=c=>netUsed(c)>=netCap(c);
-function saleBlock(c){return signupBlock(c)||(needsBlocks(c)?'quadras':null)||(netFull(c)?'rede':null);}
+function saleBlock(c){return signupBlock(c)||(needsBlocks(c)?'quadras':null)||(needIlink(c)?'ilink':null)||(netFull(c)?'rede':null);}
 function ipStr(c,off){return `10.${c.idx+1}.${off>>8}.${off&255}`;}
 function radioFiber(c){let r=0,f=0;for(const l of famsOf(c))if(isSub(l)){if(l.tech==='fiber')f++;else r++;}return {r,f};}
 function openNet(ci){
@@ -1031,7 +1193,8 @@ function openNet(ci){
     <div class="share" aria-hidden="true"><i style="width:${pct}%;${pct>=90?'background:var(--danger)':''}"></i></div>
     <p class="muted" style="font-size:13px">Cada caixa de expansão traz um bloco de IP maior (máscara menor), portas novas na OLT e caixas de atendimento nas ruas. Com a rede cheia, ninguém novo consegue assinar nesta cidade. A última caixa cobre todos os domicílios.</p>
     ${netFull(c)?'<div class="notice bad">Rede cheia: compre a próxima caixa para voltar a vender.</div>':''}
-    <div class="choice-list">${rows}</div>`,m=>{
+    <div class="choice-list">${rows}</div>${ilinkHtml(c)}`,m=>{
+    m.querySelectorAll('[data-ilink]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ilink,x=CITY_LINKS[i];if(!spend(x.cost))return;c.ilink=i;addXp(40);log(`Interligação até ${c.name}: ${x.name} (${brl0(x.price)}/mês).`);event(`Interligação: ${x.name}`);checkMissions();save(true);renderAll();openNet(c.idx);});
     m.querySelectorAll('[data-netbuy]').forEach(b=>b.onclick=()=>{const i=+b.dataset.netbuy,x=st[i];if(i!==(c.net||0)+1||!spend(x.cost))return;c.net=i;addXp(i===st.length-1?200:40);log(`${c.name}: caixa ${i} instalada, rede /${x.p} com até ${x.cap.toLocaleString('pt-BR')} assinantes.`);event(`Rede de ${c.name} ampliada para /${x.p}`);checkMissions();save(true);openNet(c.idx);});
   });
 }
@@ -1177,10 +1340,48 @@ function renderGoals(){
     <p class="muted" style="font-size:12.5px;margin:0 0 6px">Bateu a meta: a equipe do setor ganha PLR (${PLR.map(brl0).join(' / ')} por pessoa) e rende mais no mês seguinte. Errou uma meta moderada ou agressiva: o setor rende menos no mês seguinte.${last?` Mês passado: ${last.list.filter(x=>x.ok).length} de ${last.list.length} batidas.`:''}</p>${rows}`;
 }
 document.addEventListener('change',e=>{const sel=e.target.closest&&e.target.closest('[data-goal]');if(!sel||!S||!S.goals)return;const g=GOALS.find(x=>x.id===sel.dataset.goal),lv=+sel.value;S.goals.lvl[g.id]=lv;if(lv>=0)S.goals.tgt[g.id]=goalTarget(g,lv);else delete S.goals.tgt[g.id];save(false);renderGoals();});
+
+/* ===================== Cidades grandes: outorga por região (~20 mil habitantes) ===================== */
+const isBig=c=>(c.pop||0)>=BIG_CITY;
+function cityRegions(c){
+  if(!isBig(c)||!hasBlocks(c))return null;
+  if(c.regions&&c.regionsAt===c.blocksAt)return c.regions;
+  const target=REGION_POP/PEOPLE_PER_HOME,groups=new Map();
+  for(const q of c.blocks){const b=bairroOf(q);if(!groups.has(b))groups.set(b,[]);groups.get(b).push(q);}
+  const regions=[];
+  for(const b of [...groups.keys()].sort((a,z)=>a-z)){
+    const qs=groups.get(b),homes=qs.reduce((t,q)=>t+(q.dom||0),0),nR=Math.max(1,Math.ceil(homes/(target*1.25)));
+    const cx=qs.reduce((t,q)=>t+q.x,0)/qs.length,cy=qs.reduce((t,q)=>t+q.y,0)/qs.length;
+    qs.sort((a,z)=>Math.atan2(a.y-cy,a.x-cx)-Math.atan2(z.y-cy,z.x-cx));
+    let acc=0,k=0,start=regions.length;for(let i=0;i<nR;i++)regions.push({name:c.bairros[b]+(nR>1?` · parte ${i+1}`:''),b,homes:0,n:0});
+    for(const q of qs){const idx=start+Math.min(nR-1,Math.floor(acc/(homes/nR||1)));q.r=idx;regions[idx].homes+=q.dom||0;regions[idx].n++;acc+=q.dom||0;}
+  }
+  regions.forEach(r=>{r.pop=Math.round(r.homes*PEOPLE_PER_HOME);r.price=outorgaFor(Math.max(5000,r.pop));});
+  c.regions=regions;c.regionsAt=c.blocksAt;return regions;
+}
+const cityLicensed=c=>!!(c&&(c.outorgaPaid||((c.regionsPaid||[]).length>0)));
+function regionOk(c,q){if(c.outorgaPaid)return true;if(!c.regionsPaid||!c.regionsPaid.length)return false;cityRegions(c);return q.r!=null&&c.regionsPaid.includes(q.r);}
+function payRegion(c,i){const rs=cityRegions(c);if(!rs||!rs[i])return;c.regionsPaid=c.regionsPaid||[];if(c.regionsPaid.includes(i))return;if(!spend(rs[i].price))return;
+  c.regionsPaid.push(i);c.regionsSpent=(c.regionsSpent||0)+rs[i].price;addXp(30);log(`Outorga da região ${rs[i].name} (${c.name}) paga: ≈ ${rs[i].pop.toLocaleString('pt-BR')} habitantes.`);event(`Outorga: ${rs[i].name}`);
+  if(c.regionsPaid.length>=rs.length){c.outorgaPaid=true;log(`Todas as regiões de ${c.name} licenciadas: outorga da cidade completa.`);}
+  checkMissions();save(true);}
+function wholeCityPrice(c){return Math.max(Math.round(c.outorga*0.2/100)*100,c.outorga-(c.regionsSpent||0));}
+
+/* ===================== Interligação até as cidades da expansão ===================== */
+const needIlink=c=>c.idx>0&&!(c.ilink>=0);
+function cityTraffic(c){let mb=0;for(const l of famsOf(c))if(pays(l)||l.st==='late')mb+=planById(l.plan).mb||10;return mb*0.025*(1+monthOf(S.day)*0.004)*(1-cacheRed())/1000;}
+function ilinkHtml(c){
+  if(c.idx===0)return '';
+  const cur=c.ilink>=0?CITY_LINKS[c.ilink]:null,tr=cityTraffic(c),u=cur?tr/cur.g:0;
+  return `<h3 style="font-size:15px;margin:14px 0 6px">Interligação até ${esc(c.name)}</h3>
+    <p class="muted" style="font-size:13px;margin:0 0 6px">O backbone que liga a sua rede a esta cidade. Comece com um enlace pequeno e aumente conforme o tráfego cresce. ${cur?`Hoje: ${gb(tr)} de ${gb(cur.g)} (${Math.round(u*100)}%).`:'<b>Sem interligação, ninguém nesta cidade consegue assinar.</b>'}</p>
+    ${cur&&u>1?'<div class="notice bad">Interligação estourada: os clientes desta cidade ficam lentos no pico e cancelam mais.</div>':''}
+    <div class="choice-list">${CITY_LINKS.map((x,i)=>`<div class="choice"><div><b>${x.name}</b><small>${brl0(x.cost)} para construir · ${brl0(x.price)}/mês · até ${gb(x.g)}</small></div>${i===c.ilink?'<span class="chip ok">Ativa</span>':i<(c.ilink??-1)?'<span class="chip">Menor</span>':`<button class="btn small ${i===(c.ilink??-1)+1?'primary':''}" data-ilink="${i}">Construir</button>`}</div>`).join('')}</div>`;
+}
 function signupBlock(c){
   if(!S.sede)return 'sede';
   if(!cnpjDone())return 'cnpj';
-  if(!c.outorgaPaid)return 'outorga';
+  if(!cityLicensed(c))return 'outorga';
   if(!docsDone())return 'docs';
   return null;
 }
@@ -1218,7 +1419,7 @@ function activate(c,lot,deal,ip){
 }
 function attemptSale(c,who){
   if(saleBlock(c))return false;
-  const qs=quadras(c).filter(l=>quadraFree(l)>0&&(coverOf(c,l)||fiberAt(c,l)));
+  const qs=quadras(c).filter(l=>quadraFree(l)>0&&regionOk(c,l)&&(coverOf(c,l)||fiberAt(c,l)));
   if(!qs.length)return false;
   let tot=qs.reduce((s,l)=>s+quadraFree(l),0),rr=Math.random()*tot,q=qs[0];for(const l of qs){rr-=quadraFree(l);if(rr<=0){q=l;break;}}
   const lot=knock(c,q);if(!lot)return false;
@@ -1235,7 +1436,7 @@ function attemptSale(c,who){
   }
   lot.st='refused';lot.until=S.day+45;return false;
 }
-function vendorAttempt(){const cs=S.cities.filter(c=>!saleBlock(c)&&quadras(c).some(l=>quadraFree(l)>0&&(coverOf(c,l)||fiberAt(c,l))));if(cs.length)attemptSale(cs[Math.floor(Math.random()*cs.length)],'vendedor');}
+function vendorAttempt(){const cs=S.cities.filter(c=>!saleBlock(c)&&quadras(c).some(l=>quadraFree(l)>0&&regionOk(c,l)&&(coverOf(c,l)||fiberAt(c,l))));if(cs.length)attemptSale(cs[Math.floor(Math.random()*cs.length)],'vendedor');}
 function planLabel(planId,combo){const pl=planById(planId);return pl.name+(combo.length?' + '+combo.map(k=>COMBOS[k].short).join(' + '):'');}
 
 /* ===================== Missões ===================== */
@@ -1245,7 +1446,7 @@ function missionList(){
   return [
     {id:'sede',t:'Declarar a sede',d:'Escolha no mapa o bairro do prédio. A recepção é grátis.',done:!!S.sede,act:'focusMap',btn:'Ir para o mapa'},
     {id:'cnpj',t:'Abrir a empresa',d:'Contrato social e CNPJ na Receita Federal.',done:cnpjDone(),act:'docs',btn:'Documentos'},
-    {id:'outorga',t:`Comprar a outorga de ${c.name}`,d:'A licença da Anatel para operar na cidade. Sem ela, nada é montado.',done:c.outorgaPaid,act:'outorga',btn:'Comprar outorga'},
+    {id:'outorga',t:`Comprar a outorga de ${c.name}`,d:'A licença da Anatel para operar na cidade. Sem ela, nada é montado.',done:cityLicensed(c),act:'outorga',btn:'Comprar outorga'},
     {id:'docs',t:'Licenciamento',d:'Alvará da prefeitura. Libera a instalação de torres.',done:docsDone(),act:'docs',btn:'Ver documentos'},
     {id:'torre',t:'Primeira torre',d:'No Mapa real, toque em + Nova torre e configure o rádio.',done:S.towersBuilt>=1,act:'focusMap',btn:'Ir para o mapa'},
     {id:'c3',t:'3 primeiros clientes',d:'Toque numa quadra com sinal e bata nas portas.',done:S.signed>=3,act:'focusMap',btn:'Ir para o mapa'},
@@ -1275,12 +1476,13 @@ function missionList(){
     {id:'migsetor',t:'Montar Migração e Upgrade',d:`Nível ${lvOf('migracao')}. Ligações para migrar a base para fibra e subir o ticket médio.`,done:built('migracao'),need:lvOf('migracao'),act:'goBuilding',btn:'Ir para o prédio'},
     {id:'carreira',t:'Plano de carreira',d:'No RH, implante o plano de carreira e promova alguém a pleno.',done:!!(S.career&&S.career.on)&&FLOORS.some(f=>careerOf(f.id).pl+careerOf(f.id).sr>0),need:lvOf('rh')},
     {id:'link10',t:'Link de 10 Gigas',d:'Rede grande pede link grande.',done:(S.link||0)>=5},
+    {id:'ouv',t:'Montar a Ouvidoria',d:`Nível ${OUV_LEVEL}. Trate as reclamações antes que virem multa da Anatel.`,done:built('ouvidoria'),need:OUV_LEVEL,act:'goBuilding',btn:'Ir para o prédio'},
     {id:'c5000',t:'5.000 assinantes',d:'Libera as metas de vendas, atendimento, instalação, marketing e mais.',done:S.peak>=5000},
     {id:'redefull',t:'Rede da cidade inteira',d:'Compre a última caixa de expansão de uma cidade.',done:S.cities.some(c=>(c.net||0)>=netSteps(c).length-1)},
     {id:'kit',t:'Levar uma torre para outra cidade',d:'Desmonte uma torre sem clientes de rádio e reinstale em outra cidade.',done:!!S.kitUsed,need:FIBRA_LEVEL},
   ];
 }
-function checkMissions(){for(const m of missionList()){if(m.done&&!S.mdone[m.id]){S.mdone[m.id]=monthOf(S.day);(S.cur.missoes=S.cur.missoes||[]).push(m.t);log(`Missão concluída: ${m.t}.`);}}}
+function checkMissions(){for(const m of missionList()){if(m.done&&!S.mdone[m.id]){S.mdone[m.id]=monthOf(S.day);S.diamonds=(S.diamonds||0)+1;(S.cur.missoes=S.cur.missoes||[]).push(m.t);log(`Missão concluída: ${m.t}.`);}}}
 
 /* ===================== Desenhos ===================== */
 function houseSvg(l){
@@ -1294,7 +1496,8 @@ const storeSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="17" w
 const lotSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="9" y="12" width="22" height="16" rx="2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-dasharray="3 3"/><path d="M20 16v8M16 20h8" stroke="#fff" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/></svg>`;
 
 /* ===================== Render ===================== */
-function fixNet(){for(const c of S.cities)if(c.net==null){const st=netSteps(c),u=netUsed(c);let k=0;while(k<st.length-1&&st[k].cap<u+5)k++;c.net=k;}if(S.link==null||S.link<0){const t=trafficGbps()*1.2;let i=0;while(i<LINKS.length-1&&LINKS[i].g<t)i++;S.link=i;}}
+function fixNet(){for(const c of S.cities)if(c.idx>0&&c.ilink==null){const t=cityTraffic(c)*1.2;if(famsOf(c).some(isSub)){let i=0;while(i<CITY_LINKS.length-1&&CITY_LINKS[i].g<t)i++;c.ilink=i;}else c.ilink=-1;}
+  for(const c of S.cities)if(c.net==null){const st=netSteps(c),u=netUsed(c);let k=0;while(k<st.length-1&&st[k].cap<u+5)k++;c.net=k;}if(S.link==null||S.link<0){const t=trafficGbps()*1.2;let i=0;while(i<LINKS.length-1&&LINKS[i].g<t)i++;S.link=i;}}
 function renderAll(){if(!S)return;fixNet();renderTop();renderTut();renderMap();renderReal();renderBuilding();renderProducts();renderGoals();renderMissions();renderReport();renderLog();}
 function renderSaveDot(){const d=$('#saveDot');if(d)d.className='save-dot '+(cloud.status==='cloud'?'cloud':cloud.status==='erro'?'err':'');}
 function renderTop(){
@@ -1309,6 +1512,7 @@ function renderTop(){
     <button class="stat" data-act="levels" aria-label="Ver níveis"><span>Nível ${lvl}</span><b>${S.xp} XP</b><div class="bar"><i style="width:${pct}%;background:var(--gold)"></i></div></button>
     <div class="stat"><span>Data</span><b>${S.phase==='play'?`Mês ${monthOf(S.day)} · ${dayOf(S.day)}/30`:'Antes de abrir'}</b></div>
     <button class="stat coin" data-act="coins" aria-label="Selos de fidelidade"><span>Selos</span><b><i class="coin-ico"></i>${S.coins}</b></button>
+    <button class="stat dia" data-act="diamonds" aria-label="Diamantes"><span>Diamantes</span><b><i class="dia-ico"></i>${S.diamonds||0}</b></button>
     <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
     <button class="icon-btn ${trafficGbps()>linkNow().g?'link-bad':trafficGbps()>linkNow().g*0.85?'link-warn':''}" data-act="link" aria-label="Link de internet">Link ${Math.round(trafficGbps()/linkNow().g*100)}%</button>
     <button class="icon-btn" data-act="bank" aria-label="Banco">Banco${S.loans.length?` · ${S.loans.length}`:''}</button>
@@ -1320,10 +1524,11 @@ function renderMap(){
   const houses=quadras(c);
   const homesAll=cityHomes(c),covHomes=houses.filter(l=>coverOf(c,l)||fiberAt(c,l)).reduce((s,l)=>s+(l.dom||0),0);
   const cl=cityClients(c),rf=radioFiber(c);
-  const og=c.outorgaPaid?'<span class="chip ok">Outorga paga</span>':`<span class="chip bad">Sem outorga · ${brl0(c.outorga)}</span>`;
+  const og=c.outorgaPaid?'<span class="chip ok">Outorga paga</span>':(c.regionsPaid||[]).length?`<button class="chip warn" data-act="outorga" style="border:0;cursor:pointer">Outorga: ${c.regionsPaid.length}/${(cityRegions(c)||[]).length} regiões</button>`:`<button class="chip bad" data-act="outorga" style="border:0;cursor:pointer">Sem outorga · ${isBig(c)?'por região ou cidade':brl0(c.outorga)}</button>`;
+  const il=c.idx>0?(c.ilink>=0?(()=>{const u=cityTraffic(c)/CITY_LINKS[c.ilink].g;return `<button class="chip ${u>1?'bad':u>0.85?'warn':''}" data-act="net" style="border:0;cursor:pointer">Interligação ${gb(CITY_LINKS[c.ilink].g)} · ${Math.round(u*100)}%</button>`;})():'<button class="chip bad" data-act="net" style="border:0;cursor:pointer">Sem interligação</button>'):'';
   const sel=S.cities.length>1?`<select class="input" id="citySel" style="width:auto;padding:5px 8px" aria-label="Trocar cidade">${S.cities.map((cc,i)=>`<option value="${i}" ${i===S.ci?'selected':''}>${esc(cc.name)}</option>`).join('')}</select>`:'';
   $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
-   <div class="map-meta"><div class="view-toggle" role="group" aria-label="Visão do mapa"><button data-view="grid" aria-pressed="${mapView==='grid'}">Quadras</button><button data-view="real" aria-pressed="${mapView==='real'}">Mapa real</button></div>${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
+   <div class="map-meta"><div class="view-toggle" role="group" aria-label="Visão do mapa"><button data-view="grid" aria-pressed="${mapView==='grid'}">Quadras</button><button data-view="real" aria-pressed="${mapView==='real'}">Mapa real</button></div>${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
   $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
@@ -1367,7 +1572,7 @@ function fitBoard(c){const b=boardBounds(c);const s=Math.max(b.w,b.h);QV={x:b.x+
 function mixHex(a,b,t){const pa=[1,3,5].map(i=>parseInt(a.slice(i,i+2),16)),pb=[1,3,5].map(i=>parseInt(b.slice(i,i+2),16));return '#'+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,'0')).join('');}
 function quadraLook(c,q,overT){
   const fs=q.fams||[],subs=fs.filter(isSub),sh=q.dom?subs.length/q.dom:0,cov=coverOf(c,q),fib=fiberAt(c,q);
-  let fill=cov?'#7dcfae':fib?'#cfe7a6':'#a3cf78';
+  let fill=cov?'#7dcfae':fib?'#cfe7a6':'#a3cf78';if(!c.outorgaPaid&&(c.regionsPaid||[]).length&&!regionOk(c,q))fill='#cfd5cb';
   if(subs.length){const anyFib=subs.some(f=>f.tech==='fiber');fill=mixHex(cov||fib?'#7dcfae':'#a3cf78',anyFib?'#e5a21e':'#0f9a8d',Math.min(1,.35+sh*1.6));}
   let cls='qb';if(fs.some(f=>f.st==='late'||f.st==='suspended'))cls+=' late';else if(fs.some(f=>f.st==='cancelReq'))cls+=' cancelReq';else if(fs.some(f=>f.cpe||f.st==='pending'))cls+=' cpe';
   if(overT&&subs.some(f=>overT.has(f.tid)))fill=mixHex(fill,'#cf3b3b',.35);
@@ -1429,7 +1634,7 @@ function svgPoint(svg,clientX,clientY){const r=svg.getBoundingClientRect();const
     const z=e.target.closest('[data-qz]');if(z){const v=+z.dataset.qz;if(v===0){fitBoard(city());renderMap();}else boardZoom(v>0?1.5:1/1.5);e.stopPropagation();return;}
     const c=city();
     const tw=e.target.closest('[data-tower]');if(tw){const t=c.towers.find(x=>String(x.id)===tw.dataset.tower);if(t)towerInfo(c,t);e.stopPropagation();return;}
-    if(e.target.closest('[data-sedemk]')){const i=c.lots.findIndex(l=>l.t==='sede');if(i>=0)onLot(i);e.stopPropagation();return;}
+    if(e.target.closest('[data-sedemk]')){openSede();e.stopPropagation();return;}
     if(e.target.closest('[data-storemk]')){openStore(c);e.stopPropagation();return;}
     const qb=e.target.closest('[data-q]');if(!qb)return;e.stopPropagation();
     const q=c.blocks[+qb.dataset.q];if(!q)return;
@@ -1501,12 +1706,17 @@ function rehomeFamilies(c,blocks){
 const BSTAT=new Map();
 const needsBlocks=c=>!!c&&!hasBlocks(c)&&!c.blocksNone;
 function retryBlocks(c,why){const st=BSTAT.get(c)||{n:0};st.n++;st.err=why;const wait=Math.min(60000,4000*Math.pow(2,st.n-1));st.next=Date.now()+wait;clearTimeout(st.t);st.t=setTimeout(()=>{if(S&&needsBlocks(c)&&navigator.onLine)loadBlocks(c);},wait);BSTAT.set(c,st);}
+function polyCentroid(p){const la0=p[0][0],lo0=p[0][1],kx=mPerLon(la0);let A=0,cx=0,cy=0;for(let i=0;i<p.length;i++){const x1=(p[i][1]-lo0)*kx,y1=(p[i][0]-la0)*mPerLat,j=(i+1)%p.length,x2=(p[j][1]-lo0)*kx,y2=(p[j][0]-la0)*mPerLat,cr=x1*y2-x2*y1;A+=cr;cx+=(x1+x2)*cr;cy+=(y1+y2)*cr;}if(Math.abs(A)<1e-6){const n=p.length;return [p.reduce((t,q)=>t+q[0],0)/n,p.reduce((t,q)=>t+q[1],0)/n];}return [la0+cy/(3*A)/mPerLat,lo0+cx/(3*A)/kx];}
 async function loadBlocks(c){
   if(!c||!c.geo||blockBusy.has(c)||!navigator.onLine)return;
   const st0=BSTAT.get(c);if(st0)clearTimeout(st0.t);
   blockBusy.add(c);c.geoStep='Desenhando as quadras pelas ruas…';renderMap();
   try{
     const R=Math.round(clamp(c.geo.side*0.6,2000,c.pop>200000?2500:4000));
+    const kx=mPerLon(c.geo.lat);
+    let raw=await driveGetFaces(c),src='cache';
+    if(!raw){
+    src='osm';
     const ar=`(around:${R},${c.geo.lat.toFixed(6)},${c.geo.lon.toFixed(6)})`;
     const r=await overpass(`[out:json][timeout:60];(way${ar}[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|pedestrian|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];way${ar}[railway=rail];);out geom;`,60000);
     if(r.remark&&/error|timed out|timeout/i.test(r.remark))throw new Error(r.remark);
@@ -1515,14 +1725,17 @@ async function loadBlocks(c){
       .filter(f=>f.area>=500&&f.area<=60000&&f.area/(f.per*f.per)>0.018&&Math.hypot(f.cx,f.cy)<=R*1.05)
       .sort((a,b)=>Math.hypot(a.cx,a.cy)-Math.hypot(b.cx,b.cy)).slice(0,1500);
     if(faces.length<6){c.blocksNone=true;log(`${c.name}: o OpenStreetMap não tem ruas suficientes para desenhar as quadras. Usando o tabuleiro simples.`);save(true);return;}
-    const kx=mPerLon(c.geo.lat);
-    const blocks=faces.map((f,i)=>{const la=c.geo.lat+f.cy/mPerLat,lo=c.geo.lon+f.cx/kx;const g=geoToGrid(c.geo,la,lo);
-      return {id:i,t:'house',x:+(g.x-.5).toFixed(4),y:+(g.y-.5).toFixed(4),area:Math.round(f.area),poly:simplifyRing(f.pts,1.5).map(([x,y])=>[+(c.geo.lat+y/mPerLat).toFixed(6),+(c.geo.lon+x/kx).toFixed(6)]),dom:0,fams:[]};});
+    raw=faces.map(f=>({a:Math.round(f.area),p:simplifyRing(f.pts,1.5).map(([x,y])=>[+(c.geo.lat+y/mPerLat).toFixed(6),+(c.geo.lon+x/kx).toFixed(6)])}));
+    drivePutFaces(c,raw,R);
+    }
+    const blocks=raw.map((f,i)=>{const ce=polyCentroid(f.p);const g=geoToGrid(c.geo,ce[0],ce[1]);
+      return {id:i,t:'house',x:+(g.x-.5).toFixed(4),y:+(g.y-.5).toFixed(4),area:f.a,poly:f.p,dom:0,fams:[]};});
+    c.blocksSrc=src;
     blockHomes(c,blocks);
     for(const q of blocks){q.b=blockBairro(c,q);delete q.ib;}
     const moved=rehomeFamilies(c,blocks);
     c.blocks=blocks;c.blocksAt=Date.now();delete c.blocksTried;BSTAT.delete(c);QV=null;QSig='';
-    log(`${c.name}: ${blocks.length} quadras desenhadas pelas ruas do OpenStreetMap, ${cityHomes(c).toLocaleString('pt-BR')} domicílios${moved?`, ${moved} cliente(s) e pendência(s) mantidos`:''}.`);
+    log(`${c.name}: ${blocks.length} quadras ${src==='cache'?'carregadas do banco de quadras (Drive)':'desenhadas pelas ruas do OpenStreetMap'}, ${cityHomes(c).toLocaleString('pt-BR')} domicílios${moved?`, ${moved} cliente(s) e pendência(s) mantidos`:''}.`);
     toast(`${blocks.length} quadras reais de ${c.name} no tabuleiro.`);
     save(true);
   }catch(e){c.blocksTried=Date.now();retryBlocks(c,navigator.onLine?'busy':'offline');}
@@ -1535,7 +1748,7 @@ function tutSteps(){
   return [
     {id:'sede',t:'Declare a sede',d:'Toque no mapa no ponto exato do prédio e confirme em <b>Declarar sede aqui</b>. O térreo com a recepção é grátis.',done:!!S.sede},
     {id:'cnpj',t:'Abra a empresa: contrato social e CNPJ',d:busy('contrato')||busy('cnpj')?'Documento em andamento. Feche as janelas e deixe o relógio correr alguns dias (ou conclua na hora com 3 selos).':'Na Recepção, faça o <b>contrato social</b> e depois o <b>CNPJ</b> na Receita Federal, com o CNAE de SCM (internet).',done:cnpjDone(),act:'docs',btn:'Abrir documentos'},
-    {id:'outorga',t:`Peça a outorga de ${esc(c0.name)}`,d:`Com o CNPJ pronto, pague a outorga da Anatel para prestar serviço de internet na cidade (${brl0(c0.outorga)}).`,done:c0.outorgaPaid,act:'outorga',btn:'Comprar outorga'},
+    {id:'outorga',t:`Peça a outorga de ${esc(c0.name)}`,d:`Com o CNPJ pronto, pague a outorga da Anatel para prestar serviço de internet na cidade (${brl0(c0.outorga)}).`,done:cityLicensed(c0),act:'outorga',btn:'Comprar outorga'},
     {id:'licenca',t:'Faça o licenciamento',d:busy('alvara')?'Alvará em andamento. Deixe o relógio correr alguns dias.':'Peça o <b>alvará da prefeitura</b>. É a licença para funcionar no endereço e instalar torres.',done:docsDone(),act:'docs',btn:'Licenciamento'},
     {id:'torre',t:'Suba e configure a primeira torre',d:draft&&!draft.picking?'Escolha o terreno, a antena e gire o leque para as casas. Depois, na configuração: modo <code>AP</code>, um SSID, IP <code>10.1.0.2</code>, máscara <code>255.255.255.0</code> e gateway <code>10.1.0.1</code>.':'No <b>Mapa real</b>, toque em <b>+ Nova torre</b> e escolha um terreno perto das casas. A ficha técnica da configuração ajuda no rádio.',done:S.towersBuilt>=1,act:c0.geo?'newTowerReal':'focusMap',btn:'+ Nova torre'},
     {id:'cliente',t:'Consiga o primeiro cliente',d:needsBlocks(c0)?'Aguardando o rastreamento das quadras da cidade. Assim que elas aparecerem, toque numa quadra com sinal e bata na porta.':'Toque numa quadra com sinal (verde-água) e bata na porta. Escolha um plano que caiba no bolso da família.',done:S.signed>=1,act:'focusMap',btn:'Ir para o mapa'},
@@ -1559,7 +1772,7 @@ function floorLabel(f){const list=FLOORS.filter(x=>!x.annex);const i=list.indexO
 function windowsHtml(n){const k=Math.max(6,Math.min(10,n));return `<div class="windows">${Array.from({length:k},(_,i)=>`<span class="win ${i<n?'':'empty'}">${i<n?'<span class="person"></span>':''}</span>`).join('')}${n>10?`<small>+${n-10}</small>`:''}</div>`;}
 function builtFloorHtml(f,cls){
   const hc=headcount(f.id),e=effOf(f.id),iss=effIssues(f.id);
-  const extra=f.id==='noc'?`<button class="btn small" data-act="servers">Servidores · ${Object.keys(S.servers).length}/${SERVERS.length}</button>`:f.id==='marketing'?`<button class="btn small" data-act="marketing">Campanhas</button>`:f.id==='rh'?`<span class="chip">Vagas por setor: ${sectorCap()}</span>`:f.id==='migracao'?`<button class="btn small" data-act="migSector">Ligações · ticket ${brl0(ticketNow())}</button>`:'';
+  const extra=f.id==='noc'?`<button class="btn small" data-act="servers">Servidores · ${Object.keys(S.servers).length}/${SERVERS.length}</button>`:f.id==='marketing'?`<button class="btn small" data-act="marketing">Campanhas</button>`:f.id==='rh'?`<span class="chip">Vagas por setor: ${sectorCap()}</span>`:f.id==='ouvidoria'?`<button class="btn small" data-act="ouvidoria">Reclamações${S.ouv?' · '+S.ouv.total:''}</button>`:f.id==='migracao'?`<button class="btn small" data-act="migSector">Ligações · ticket ${brl0(ticketNow())}</button>`:'';
   return `<div class="${cls}"><div class="floor-top"><span class="floor-name"><small>${f.annex?'Galpão anexo':floorLabel(f)}</small>${f.name}</span><span class="floor-lvl">${hc} pessoa(s)<br>${brl0(rolesSum(f))}/mês</span></div>
     ${windowsHtml(hc)}
     <div class="floor-meta"><span class="chip ${hc===0?'bad':e<0.9?'warn':'ok'}">${hc===0?'Sem equipe':'Eficiência '+Math.round(e*100)+'%'}</span>${iss.length?`<span>${iss.join(' · ')}</span>`:''}</div>
@@ -1576,6 +1789,15 @@ function floorHtml(f,lvl){
   if(lvl<f.level)return lockedFloorHtml(f,cls,'Nível '+f.level);
   return buyFloorHtml(f,cls);
 }
+function openSede(){
+  if(!S.sede){toast('Declare a sede primeiro.');return;}
+  const c=S.cities[S.sede.ci],lot=c.lots.find(l=>l.t==='sede'),t=lot&&towerAt(c,lot);
+  openModal(head('Sede',esc(S.company))+`<div class="sede-modal"><div class="building" id="buildingM">${$('#building').innerHTML}</div></div>
+    <div class="choice-list" style="margin-top:10px">${t?`<div class="choice"><div><b>Torre no topo do prédio</b><small>${esc(t.ssid)} · ${t.off?'desligada':'no ar'}</small></div><button class="btn small" id="sdTw">Ver torre</button></div>`:`<div class="choice"><div><b>Torre no topo do prédio</b><small>Usa a altura da sede para cobrir o bairro.</small></div><button class="btn small primary" id="sdRoof">Instalar</button></div>`}</div>`,m=>{
+    const r=m.querySelector('#sdRoof');if(r)r.onclick=()=>towerOffer(c,lot,true);
+    const tw=m.querySelector('#sdTw');if(tw)tw.onclick=()=>towerInfo(c,t);
+  });
+}
 function renderBuilding(){
   const lvl=levelOf(S.xp);
   if(!S.sede){$('#building').innerHTML=`<div class="empty-building">${sedeSvg(false)}<b>Sem sede ainda</b><p class="floor-desc">Escolha o bairro da sede no mapa. O térreo com a recepção é grátis.</p><button class="btn small primary" data-act="focusMap" style="margin-top:8px">Ir para o mapa</button></div>`;return;}
@@ -1587,7 +1809,7 @@ function renderBuilding(){
     :`<div class="floor"><div class="floor-top"><span class="floor-name"><small>Diretoria de rede</small>Fibra óptica</span><span class="floor-lvl">${FIBER_TIERS[S.fiberTier].name}</span></div><p class="floor-desc">Backbone em ${fibCities} cidade(s) · ${fibCl} cliente(s) na fibra.</p><div class="floor-actions"><button class="btn small primary" data-act="fiber">Rede de fibra</button></div></div>`;
   for(const f of [...FLOORS].filter(f=>!f.annex).reverse()){
     if(f.id==='recepcao'){
-      const actions=!cnpjDone()?`<button class="btn small primary" data-act="docs">Abrir a empresa (CNPJ)</button>`:!c0.outorgaPaid?`<button class="btn small primary" data-act="outorga">Comprar outorga · ${brl0(c0.outorga)}</button>`:`<button class="btn small ${docsDone()?'ghost':'primary'}" data-act="docs">${docsDone()?'Documentação':'Licenciamento'}</button>`;
+      const actions=!cnpjDone()?`<button class="btn small primary" data-act="docs">Abrir a empresa (CNPJ)</button>`:!cityLicensed(c0)?`<button class="btn small primary" data-act="outorga">Comprar outorga · ${brl0(c0.outorga)}</button>`:`<button class="btn small ${docsDone()?'ghost':'primary'}" data-act="docs">${docsDone()?'Documentação':'Licenciamento'}</button>`;
       h+=`<div class="floor ground"><div class="floor-top"><span class="floor-name"><small>Térreo</small>${f.name}</span><span class="floor-lvl">Sede · ${esc(c0.bairros[S.sede.b])}</span></div><p class="floor-desc">${f.desc}${S.partners?` Sócios: ${S.partners}.`:''}</p><div class="floor-actions">${actions}</div></div>`;
       continue;
     }
@@ -1595,6 +1817,7 @@ function renderBuilding(){
   }
   h+=`<div class="door"></div>`+floorHtml(FLOORS.find(x=>x.annex),lvl);
   $('#building').innerHTML=h;
+  const bm=document.getElementById('buildingM');if(bm)bm.innerHTML=h;
 }
 function renderProducts(){
   const lvl=levelOf(S.xp);
@@ -1660,7 +1883,9 @@ function showStart(){
    <div class="row2"><div class="field"><label for="stCity">Cidade</label><input class="input" id="stCity" maxlength="40" placeholder="Ex.: Duartina" list="stCities" autocomplete="off"><datalist id="stCities"></datalist></div>
    <div class="field"><label for="stUf">Estado</label><select class="input" id="stUf">${UFS.map(u=>`<option ${u==='SP'?'selected':''}>${u}</option>`).join('')}</select></div></div>
    <button class="btn small ghost" id="stGps" type="button">📍 Usar minha localização</button><p class="geo-note" id="stGeoNote">A cidade precisa existir: o jogo confere na lista de municípios do IBGE e depois carrega o mapa real.</p>
+   ${sbOn()?`<p class="geo-note">${SB.session&&SB.session.user?`Conectado como <b>${esc(SB.session.user.email||'')}</b>: o progresso fica salvo online.`:'Jogando sem conta: o progresso fica só neste aparelho. <button class="btn small ghost" type="button" id="stLogin">Entrar</button>'}</p>`:''}
    <div class="foot"><button class="btn ghost" id="stImport">Importar JSON</button><button class="btn primary" id="stGo">Começar</button></div>`,m=>{
+    const sl=m.querySelector('#stLogin');if(sl)sl.onclick=()=>openLogin(true);
     m.querySelector('#stGps').onclick=async()=>{
       const note=m.querySelector('#stGeoNote');note.textContent='Pegando sua localização…';
       try{const pos=await getPosition();note.textContent='Procurando a cidade…';const r=await reverseCity(pos.lat,pos.lon);
@@ -1685,13 +1910,15 @@ function showStart(){
   });
 }
 function openMenu(){
-  const st=cloud.status==='cloud'?`Salvo na sua conta${cloud.last?` às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}. Você continua de onde parou em qualquer aparelho.`:cloud.status==='erro'?'Não deu para salvar na sua conta agora. O progresso segue salvo neste navegador.':'Salvo automaticamente neste aparelho e funciona sem internet. Para levar a outro aparelho, exporte o JSON.';
+  const st=cloud.status==='cloud'?`Salvo online na sua conta${cloud.last?` às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}. Você continua de onde parou em qualquer aparelho.`:cloud.status==='erro'?'Não deu para salvar na sua conta agora. O progresso segue salvo neste navegador.':'Salvo automaticamente neste aparelho e funciona sem internet. Para levar a outro aparelho, exporte o JSON.';
   openModal(head('Jogo','Menu')+`<div class="notice ${cloud.status==='cloud'?'ok':'warn'}">${st}</div>
     <div class="choice-list">
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
+      ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
       <div class="choice"><div><b>Exportar JSON</b><small>Baixa todo o progresso num arquivo .json.</small></div><button class="btn small primary" id="mExp">Exportar</button></div>
       <div class="choice"><div><b>Importar JSON</b><small>Carrega um progresso salvo antes.</small></div><button class="btn small" id="mImp">Escolher arquivo</button></div>
       <div class="choice"><div><b>Colar JSON</b><small>Se o arquivo não abrir, cole o texto.</small></div><button class="btn small" id="mPaste">Colar</button></div>
+      ${document.fullscreenEnabled?`<div class="choice"><div><b>Tela cheia na horizontal</b><small>Esconde a barra do navegador e deita a tela (Android).</small></div><button class="btn small" data-act="fullscreen">Tela cheia</button></div>`:''}
       <div class="choice"><div><b>Níveis e XP</b><small>O que cada nível libera.</small></div><button class="btn small" data-act="levels">Ver níveis</button></div>
       <div class="choice"><div><b>Recomeçar do zero</b><small>Apaga o progresso salvo.</small></div><button class="btn small" id="mReset">Recomeçar</button></div>
     </div><div id="mConfirm"></div>`,m=>{
@@ -1778,11 +2005,23 @@ function openDocs(){
     });
   });
 }
+function openRegions(c){
+  const rs=cityRegions(c),paid=c.regionsPaid||[],whole=wholeCityPrice(c);
+  openModal(head('Anatel',`Outorga de ${esc(c.name)}`)+`<p>${esc(c.name)} tem ${c.pop.toLocaleString('pt-BR')} habitantes. Numa cidade grande dá para começar pela outorga de uma região de cerca de ${REGION_POP.toLocaleString('pt-BR')} habitantes e ir expandindo.</p>
+    <div class="choice"><div><b>Cidade inteira</b><small>${paid.length?`Desconta o que já foi pago nas regiões.`:'Licença para operar em todos os bairros.'}</small></div><button class="btn small" id="oWhole">${brl0(whole)}</button></div>
+    <p class="eyebrow" style="margin-top:12px">Regiões${rs?` (${paid.length} de ${rs.length} licenciadas)`:''}</p>
+    ${rs?`<div class="city-list">${rs.map((r,i)=>`<div class="choice"><div><b>${esc(r.name)}</b><small>≈ ${r.pop.toLocaleString('pt-BR')} habitantes · ${r.n} quadras</small></div>${paid.includes(i)?'<span class="chip ok">Licenciada</span>':`<button class="btn small ${paid.length?'':'primary'}" data-reg="${i}">${brl0(r.price)}</button>`}</div>`).join('')}</div>`:'<div class="notice warn">As regiões aparecem depois do rastreamento das quadras da cidade.</div>'}
+    <p class="muted" style="font-size:12.5px">Depois da outorga, cidades da expansão também precisam da interligação (backbone) até a cidade. Comece com um enlace pequeno.</p>`,m=>{
+    m.querySelector('#oWhole').onclick=()=>{if(!spend(whole))return;c.outorgaPaid=true;addXp(60);log(`Outorga de ${c.name} paga (cidade inteira).`);event(`Outorga de ${c.name} paga`);checkMissions();save(true);closeModal();toast(`Outorga de ${c.name} paga.`);};
+    m.querySelectorAll('[data-reg]').forEach(b=>b.onclick=()=>{payRegion(c,+b.dataset.reg);renderAll();openRegions(c);});
+  });
+}
 function openOutorga(ci){
   const c=typeof ci==='number'?S.cities[ci]:city();
   if(c.outorgaPaid){toast(`A outorga de ${c.name} já está paga.`);return;}
   if(!S.sede){toast('Declare a sede primeiro.');return;}
   if(!cnpjDone()){toast('Abra a empresa (contrato social e CNPJ) antes de pedir a outorga.');openDocs();return;}
+  if(isBig(c)){openRegions(c);return;}
   openModal(head('Anatel',`Outorga de ${esc(c.name)}`)+`<p>A outorga é a licença para prestar serviço de internet nesta cidade. Sem ela, nada pode ser montado ou vendido aqui.</p>
    <div class="notice warn">Valor para ${esc(c.name)} (${c.pop.toLocaleString('pt-BR')} habitantes): <b>${brl0(c.outorga)}</b>. Cidades maiores custam mais.</div>
    <p class="muted" style="font-size:13px">Simplificação do jogo: na vida real a autorização de SCM da Anatel vale para o país, e as regras e valores mudam com o tempo.</p>
@@ -1850,8 +2089,8 @@ function openNewCity(){
     if(!all){box.innerHTML='<div class="notice">Buscando cidades num raio de '+EXPAND_KM+' km…</div>';return;}
     const q=normName(m.querySelector('#ncQ').value||'');
     const rows=all.filter(x=>!isOwned(x)&&(!q||normName(x.n).includes(q))).slice(0,80);
-    box.innerHTML=rows.length?rows.map(x=>{const pop=x.pop||0,out=outorgaFor(pop||8000),st=studyFor(pop||8000);
-      return `<div class="choice"><div><b>${esc(x.n)}${x.uf?' / '+esc(x.uf):''}</b><small>${x.km} km · ${pop?(x.ok?'':'≈ ')+pop.toLocaleString('pt-BR')+' habitantes':'população não informada'} · outorga ${brl0(out)}</small></div><button class="btn small ${S.money>=st?'primary':''}" data-nc="${all.indexOf(x)}">Estudo · ${brl0(st)}</button></div>`;}).join(''):'<div class="notice">Nenhuma cidade encontrada com esse nome no raio.</div>';
+    box.innerHTML=rows.length?rows.map(x=>{const pop=x.pop||0,big=pop>=BIG_CITY,out=big?outorgaFor(REGION_POP):outorgaFor(pop||8000),st=big?studyFor(REGION_POP):studyFor(pop||8000);
+      return `<div class="choice"><div><b>${esc(x.n)}${x.uf?' / '+esc(x.uf):''}</b><small>${x.km} km · ${pop?(x.ok?'':'≈ ')+pop.toLocaleString('pt-BR')+' habitantes':'população não informada'} · outorga ${big?'a partir de '+brl0(out)+' por região':brl0(out)}</small></div><button class="btn small ${S.money>=st?'primary':''}" data-nc="${all.indexOf(x)}">Estudo · ${brl0(st)}</button></div>`;}).join(''):'<div class="notice">Nenhuma cidade encontrada com esse nome no raio.</div>';
     box.querySelectorAll('[data-nc]').forEach(b=>b.onclick=()=>go(all[+b.dataset.nc]));
   };
   const load=async m=>{
@@ -1865,7 +2104,7 @@ function openNewCity(){
   };
   const go=x=>{
     if(isOwned(x)){toast('Você já está nessa cidade.');return;}
-    const pop=x.pop||8000,st=studyFor(pop);
+    const pop=x.pop||8000,st=pop>=BIG_CITY?studyFor(REGION_POP):studyFor(pop);
     if(!spend(st))return;
     const c=makeCity(x.n,x.uf||S.cities[0].uf,S.cities.length);
     c.pop=pop;c.popOk=!!x.ok;c.outorga=outorgaFor(pop);c.ibgeCode=x.code;c.hint={lat:x.lat,lon:x.lon};
@@ -1893,6 +2132,8 @@ function openCombo(k){
 }
 function blockNotice(c,why){
   if(why==='outorga')return `<div class="notice bad">Falta a outorga de ${esc(c.name)} (${brl0(c.outorga)}).<br><button class="btn small primary" data-act="outorga" style="margin-top:6px">Comprar outorga</button></div>`;
+  if(why==='ilink')return `<div class="notice bad">Falta a interligação: construa o backbone até ${esc(c.name)} (a partir de ${brl0(CITY_LINKS[0].cost)}, com link pequeno).<br><button class="btn small primary" data-act="net" style="margin-top:6px">Construir interligação</button></div>`;
+  if(why==='regiao')return `<div class="notice bad">Esta quadra fica numa região de ${esc(c.name)} sem outorga.<br><button class="btn small primary" data-act="outorga" style="margin-top:6px">Ver regiões</button></div>`;
   if(why==='quadras')return `<div class="notice warn">As quadras de ${esc(c.name)} ainda estão sendo rastreadas pelo mapa. As vendas voltam assim que elas aparecerem.</div>`;
   if(why==='rede')return `<div class="notice bad">A rede de ${esc(c.name)} está cheia (${netCap(c).toLocaleString('pt-BR')} assinantes no bloco /${netPrefix(c)}).<br><button class="btn small primary" data-act="net" style="margin-top:6px">Comprar a próxima caixa</button></div>`;
   if(why==='cnpj')return `<div class="notice bad">Abra a empresa primeiro: contrato social e CNPJ.<br><button class="btn small primary" data-act="docs" style="margin-top:6px">Abrir a empresa</button></div>`;
@@ -1957,6 +2198,54 @@ function openBank(){
     go.onclick=()=>{const P=+m.querySelector('#lnAmt').value,n=+m.querySelector('#lnN').value;S.loans.push({amount:P,months:n,left:n,rate:BANK_RATE,bal:P,pmt:Math.round(pmt(P,BANK_RATE,n))});S.money+=P;log(`Empréstimo de ${brl0(P)} em ${n}x.`);event(`Empréstimo de ${brl0(P)}`);save(true);closeModal();toast(`${brl0(P)} na conta!`);};
   });
 }
+
+/* ===================== Diamantes ===================== */
+function openDiamonds(){
+  const d=S.diamonds||0;
+  const btns=(kind)=>[1,5,10].map(n=>`<button class="btn small" data-dswap="${kind}:${n}" ${d<n?'disabled':''}><i class="dia-ico"></i>${n} → ${kind==='coins'?`${n*DIA_TO_COINS} selos`:brl0(n*DIA_TO_MONEY)}</button>`).join('')+`<button class="btn small primary" data-dswap="${kind}:${d}" ${d<1?'disabled':''}>Todos</button>`;
+  openModal(head('Moeda premium','Diamantes')+`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><i class="dia-ico" style="width:28px;height:28px"></i><span class="big-num">${d}</span><span class="muted">diamantes</span></div>
+    <p>Todo provedor começa com ${START_DIAMONDS} diamantes. Você ganha mais <b>5 a cada nível</b> e <b>1 a cada missão concluída</b>.</p>
+    <div class="choice-list">
+      <div class="choice"><div><b>Trocar por selos</b><small>1 diamante = ${DIA_TO_COINS} selos (para instalação expressa, configuração automática, proteções).</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${btns('coins')}</div></div>
+      <div class="choice"><div><b>Trocar por dinheiro</b><small>1 diamante = ${brl0(DIA_TO_MONEY)} no caixa.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${btns('money')}</div></div>
+    </div>`,m=>{
+    m.querySelectorAll('[data-dswap]').forEach(b=>b.onclick=()=>{const [k,nn]=b.dataset.dswap.split(':');const n=+nn;if(n<1||(S.diamonds||0)<n)return;S.diamonds-=n;
+      if(k==='coins'){S.coins+=n*DIA_TO_COINS;log(`Trocou ${n} diamante(s) por ${n*DIA_TO_COINS} selos.`);toast(`+${n*DIA_TO_COINS} selos.`);}
+      else{S.money+=n*DIA_TO_MONEY;log(`Trocou ${n} diamante(s) por ${brl0(n*DIA_TO_MONEY)}.`);toast(`+${brl0(n*DIA_TO_MONEY)} no caixa.`);}
+      save(true);renderAll();openDiamonds();});
+  });
+}
+
+/* ===================== Ouvidoria ===================== */
+function ouvidoriaMonth(ctx){
+  if(levelOf(S.xp)<OUV_LEVEL){S.ouv=null;return 0;}
+  const {clients,sla,util,over,compl}=ctx;
+  let preco=0;for(const c of S.cities)for(const l of famsOf(c))if(pays(l)&&l.price>l.fam.budget*1.15)preco++;
+  const T=[
+    {id:'atend',t:'Demora no atendimento',n:sla<0.95?Math.round((1-sla)*clients*0.08):0,fix:'Contrate N1 no Call Center',act:'goBuilding'},
+    {id:'lenta',t:'Internet lenta à noite',n:util>0.85?Math.round(clients*0.03*util):0,fix:'Contrate um link maior',act:'link'},
+    {id:'sinal',t:'Sinal caindo e torre lotada',n:over*10,fix:'Suba mais torres ou migre para fibra',act:'focusMap'},
+    {id:'instal',t:'Instalação demorada',n:built('tecnico')?0:Math.round(S.cur.novos*0.3),fix:'Monte o setor Técnico',act:'goBuilding'},
+    {id:'preco',t:'Preço alto para o bolso',n:Math.round(preco*0.08),fix:'Use a Retenção e ofereça planos mais baratos',act:'goBuilding'},
+    {id:'cobranca',t:'Cobrança e boletos',n:Math.round(lateCount()*0.12),fix:'Monte a Recuperação para negociar dívidas',act:'goBuilding'},
+    {id:'cache',t:'Travamento em vídeos e jogos',n:compl*6,fix:'Instale servidores de cache no NOC',act:'servers'},
+    {id:'geral',t:'Elogios, sugestões e dúvidas',n:Math.round(clients*0.006),fix:'Mantenha a equipe treinada',act:null},
+  ].filter(x=>x.n>0).sort((a,b)=>b.n-a.n);
+  const total=T.reduce((a,b)=>a+b.n,0),cap=capOf('ouvidoria',60),handled=Math.min(total,cap),left=total-handled;
+  let dRep=0,fine=0;
+  if(handled)dRep+=Math.min(3,Math.floor(handled/40));
+  if(left>20&&Math.random()<0.35){fine=Math.round(2000+left*40);S.money-=fine;log(`Anatel: ${left} reclamações sem resposta da ouvidoria viraram multa de ${brl0(fine)}.`);event(`Multa da Anatel: ${brl0(fine)}`);dRep-=2;}
+  S.ouv={m:ctx.m,total,handled,left,fine,topics:T.slice(0,6)};S.ouvBonus=total?0.004*handled/total:0;
+  return dRep;
+}
+function openOuvidoria(){
+  const o=S.ouv;
+  if(!o){openModal(head('Ouvidoria','Reclamações')+`<p>A ouvidoria começa a receber reclamações no nível ${OUV_LEVEL}. O primeiro relatório sai no fechamento do mês.</p>`);return;}
+  openModal(head('Ouvidoria',`Reclamações do mês ${o.m}`)+`<div class="kpis"><div class="kpi"><span>Manifestações</span><b>${o.total}</b></div><div class="kpi"><span>Tratadas</span><b>${o.handled}</b></div><div class="kpi"><span>Sem resposta</span><b style="color:${o.left?'var(--danger)':'inherit'}">${o.left}</b></div></div>
+    ${o.fine?`<div class="notice bad">A Anatel multou a empresa em ${brl0(o.fine)} por reclamações sem resposta.</div>`:o.left?'<div class="notice warn">Reclamação sem resposta vira queixa na Anatel. Contrate mais ouvidores.</div>':''}
+    <p class="eyebrow" style="margin-top:6px">O que a empresa precisa melhorar</p>
+    <div class="choice-list">${o.topics.map(x=>`<div class="choice"><div><b>${x.t} · ${x.n}</b><small>${x.fix}</small></div>${x.act?`<button class="btn small" data-act="${x.act}">Resolver</button>`:''}</div>`).join('')||'<div class="notice ok">Nenhuma reclamação relevante neste mês.</div>'}</div>`);
+}
 function openCoins(){
   const tenure=[0,0,0];for(const c of S.cities)for(const l of famsOf(c))if(l.st==='client'&&l.since){const mo=Math.floor((S.day-l.since)/30);if(mo>=12)tenure[2]++;else if(mo>=6)tenure[1]++;else if(mo>=3)tenure[0]++;}
   const next=tenure[0]+tenure[1]*2+tenure[2]*3;
@@ -1964,12 +2253,16 @@ function openCoins(){
     <p>Todo fechamento de mês, cada cliente fiel rende selos: <b>1</b> a partir de 3 meses sem cancelar, <b>2</b> a partir de 6 e <b>3</b> a partir de 12. No próximo fechamento você ganha cerca de <b>${next}</b>.</p>
     <div class="choice-list">
       <div class="choice"><div><b>Trocar por dinheiro</b><small>Cada selo vale ${brl0(COIN_RATE)}.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${[10,50].map(n=>`<button class="btn small" data-swap="${n}" ${S.coins<n?'disabled':''}>${n} → ${brl0(n*COIN_RATE)}</button>`).join('')}<button class="btn small primary" data-swap="${S.coins}" ${S.coins<1?'disabled':''}>Todos → ${brl0(S.coins*COIN_RATE)}</button></div></div>
-      <div class="choice"><div><b>Instalação expressa</b><small>2 selos: cliente conectado na hora, sem configurar nem pagar terceirizado.</small></div><span class="chip">Na instalação</span></div>
+      <div class="choice"><div><b>Converter automaticamente</b><small>Todo fechamento de mês, os selos viram dinheiro sozinhos${S.autoCoins?`, guardando ${S.coinKeep||0} de reserva`:''}.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center">${S.autoCoins?`<select class="input" id="coinKeep" style="width:auto;padding:4px 6px" aria-label="Reserva de selos">${[0,10,20,50,100].map(v=>`<option value="${v}" ${(S.coinKeep||0)===v?'selected':''}>Reserva ${v}</option>`).join('')}</select>`:''}<button class="btn small ${S.autoCoins?'':'primary'}" id="coinAuto">${S.autoCoins?'Desligar':'Ligar'}</button></div></div>
+      <div class="choice"><div><b>Instalação expressa</b><small>${CPE_COIN_COST} selos: cliente conectado na hora, sem configurar nem pagar terceirizado.</small></div><span class="chip">Na instalação</span></div>
+      <div class="choice"><div><b>Configuração automática</b><small>${TOWER_COIN_COST} selos na torre e ${CPE_COIN_COST} na casa do cliente: o rádio sai configurado certo, sem digitar nada.</small></div><span class="chip">Na configuração</span></div>
       <div class="choice"><div><b>Documento na hora</b><small>3 selos: conclui um documento em andamento.</small></div><span class="chip">Na documentação</span></div>
     </div>
     <p class="eyebrow" style="margin-top:14px">Proteções · 1 ano (12 meses)</p>
     <div class="choice-list">${Object.entries(SHIELDS).map(([k,sh])=>`<div class="choice"><div><b>${sh.name}</b><small>${sh.desc}${shieldOn(k)?` <b>Ativa até o mês ${S.shield[k]}.</b>`:''}</small></div><button class="btn small ${shieldOn(k)?'':'primary'}" data-shield="${k}" ${S.coins<sh.cost?'disabled':''}><i class="coin-ico"></i>${shieldOn(k)?'Renovar +12 meses':'Comprar'} · ${sh.cost}</button></div>`).join('')}</div>`,m=>{
     m.querySelectorAll('[data-shield]').forEach(b=>b.onclick=()=>{const k=b.dataset.shield,sh=SHIELDS[k];if(S.coins<sh.cost)return;S.coins-=sh.cost;S.shield=S.shield||{};const base=shieldOn(k)?S.shield[k]:monthOf(S.day)-1;S.shield[k]=base+12;log(`${sh.name} comprada até o mês ${S.shield[k]}.`);event(`${sh.short}: protegido por 1 ano`);save(true);renderAll();toast(`${sh.name}: protegido até o mês ${S.shield[k]}.`);openCoins();});
+    const ca=m.querySelector('#coinAuto');if(ca)ca.onclick=()=>{S.autoCoins=!S.autoCoins;if(S.autoCoins&&S.coinKeep==null)S.coinKeep=10;save(true);openCoins();};
+    const ck=m.querySelector('#coinKeep');if(ck)ck.onchange=()=>{S.coinKeep=+ck.value;save(true);};
     m.querySelectorAll('[data-swap]').forEach(b=>b.onclick=()=>{const n=+b.dataset.swap;if(n<1||S.coins<n)return;S.coins-=n;S.money+=n*COIN_RATE;log(`Trocou ${n} selos por ${brl0(n*COIN_RATE)}.`);save(true);toast(`+${brl0(n*COIN_RATE)} no caixa.`);openCoins();});
   });
 }
@@ -2024,7 +2317,7 @@ function openMarketing(){
   });
 }
 function openEmptyLot(c,lot){
-  const lvl=levelOf(S.xp),canStore=lvl>=STORE_LEVEL&&!hasStore(c)&&c.outorgaPaid&&!!S.sede;
+  const lvl=levelOf(S.xp),canStore=lvl>=STORE_LEVEL&&!hasStore(c)&&cityLicensed(c)&&!!S.sede;
   if(!canStore){towerOffer(c,lot,false);return;}
   openModal(head('Terreno vazio',`O que fazer aqui?`)+`<div class="choice-list">
     <div class="choice"><div><b>Torre de rádio</b><small>${S.kits?`Reinstalar torre desmontada por ${brl0(KIT_COST)}`:`${brl0(TOWER_COST)}`} · cobre cerca de 2 quadras.</small></div><button class="btn small primary" id="eTower">Torre</button></div>
@@ -2043,7 +2336,7 @@ function openFiber(){
   const bairros=c.bairros.map((b,i)=>{const lots=quadras(c).filter(l=>bairroOf(l)===i),houses=lots.reduce((s,l)=>s+(l.dom||0),0),fl=lots.flatMap(l=>l.fams||[]),radio=fl.filter(l=>isSub(l)&&l.tech!=='fiber').length,fib=fl.filter(l=>isSub(l)&&l.tech==='fiber').length,has=c.fiber.ctos.includes(i);
     return `<div class="tile ${has?'on':''}"><b>${esc(b)}</b><small>${houses.toLocaleString('pt-BR')} domicílios · ${radio} no rádio · ${fib} na fibra</small>${has?'<span class="chip ok" style="align-self:flex-start">CTO instalada</span>':`<button class="btn small" data-cto="${i}" ${c.fiber.on?'':'disabled'} style="align-self:flex-start">Caixa CTO · ${brl0(CTO_COST)}</button>`}</div>`;}).join('');
   openModal(head('Rede de fibra',esc(c.name))+`
-    ${!c.outorgaPaid?'<div class="notice bad">Compre a outorga desta cidade primeiro.</div>':''}
+    ${!cityLicensed(c)?'<div class="notice bad">Compre a outorga desta cidade primeiro.</div>':''}
     ${c.fiber.on?`<div class="notice ok">Backbone ativo em ${esc(c.name)}. Manutenção: ${brl0(1000)}/mês + ${brl0(40)} por caixa CTO.</div>`:`<div class="notice warn"><b>Primeiro investimento: backbone de ${brl0(BACKBONE_COST)}.</b> É o cabo principal que traz a fibra até a cidade. Depois, cada bairro precisa de uma caixa CTO.<div style="margin-top:8px"><button class="btn small primary" id="fbBack" ${c.outorgaPaid?'':'disabled'}>Construir backbone · ${brl0(BACKBONE_COST)}</button></div></div>`}
     <div class="grid3">${bairros}</div>
     <h3 style="font-size:15px;margin:16px 0 8px">Planos e equipamento (${tier.name})</h3>
@@ -2142,7 +2435,7 @@ function onLot(i){
   const c=city(),lot=c.lots[i];
   const t=towerAt(c,lot);
   if(lot.t==='sede'){
-    if(t){towerInfo(c,t);return;}
+    openSede();return;
     openModal(head('Sede',esc(S.company))+`<p>Prédio da empresa no bairro <b>${esc(c.bairros[S.sede.b])}</b>.</p>
       <div class="choice-list"><div class="choice"><div><b>Ver o prédio</b><small>Andares, equipe e setores.</small></div><button class="btn small" data-act="goBuilding">Abrir</button></div>
       <div class="choice"><div><b>Torre no topo do prédio</b><small>Usa a altura da sede para cobrir o bairro.</small></div><button class="btn small primary" id="roofT">Instalar</button></div></div>`,m=>{m.querySelector('#roofT').onclick=()=>towerOffer(c,lot,true);});
@@ -2154,7 +2447,7 @@ function onLot(i){
   openQuadra(c,lot);
 }
 function openQuadra(c,lot){
-  const fs=lot.fams||[],subs=fs.filter(isSub),sh=lot.dom?subs.length/lot.dom:0,cov=coverOf(c,lot),fib=fiberAt(c,lot),free=quadraFree(lot),block=saleBlock(c);
+  const fs=lot.fams||[],subs=fs.filter(isSub),sh=lot.dom?subs.length/lot.dom:0,cov=coverOf(c,lot),fib=fiberAt(c,lot),free=quadraFree(lot),block=saleBlock(c)||(hasBlocks(c)&&!regionOk(c,lot)?'regiao':null);
   const issues=fs.map((f,i)=>[f,i]).filter(([f])=>f.st==='pending'||f.st==='late'||f.st==='suspended'||f.st==='cancelReq'||f.cpe);
   const tag=f=>f.st==='pending'?'Instalar':f.st==='late'?'Inadimplente':f.st==='suspended'?'Suspenso':f.st==='cancelReq'?'Quer cancelar':'Rádio para recolher';
   const clients=fs.map((f,i)=>[f,i]).filter(([f])=>f.st==='client');
@@ -2311,6 +2604,9 @@ function openApConfig(c,lot,draft){
       +fld('dvKey','Senha WPA2','Sem senha, qualquer um conecta na sua torre. Mínimo 8 caracteres.',txt('dvKey','mín. 8 caracteres'));
   openModal(head(draft?`Torre em ${esc(draft.place||'novo terreno')}`:'Torre nova','Configurar rádio da torre')+devShell('Rádio setorial AS-5',tier,tierName,fields,sheets),m=>{
     m.querySelector('#dvCancel').onclick=closeModal;
+    addCoinBtn(m,TOWER_COIN_COST,()=>{const set=(id,v)=>{const e=m.querySelector('#'+id);if(e)e.value=v;};let k=1;while(c.towers.some(t=>t.ssid===`TORRE-${k}`))k++;
+      set('dvMode','ap');set('dvSsid',`TORRE-${k}`);const ip=nextIp(c);set('dvIp',ipStr(c,ip));set('dvMask',maskOf(netPrefix(c)));set('dvGw',`10.${c.idx+1}.0.1`);
+      const okCh=CHANNELS.filter(ch=>c.spectrum[ch]<=30&&!c.towers.some(t=>t.channel===ch&&dist(t,lot)<=5)).sort((a,b)=>c.spectrum[a]-c.spectrum[b]);set('dvCh',okCh[0]||CHANNELS[0]);set('dvW','40');set('dvPw','14');set('dvKey','Senha'+Math.random().toString(36).slice(2,8));});
     m.querySelector('#dvApply').onclick=()=>{
       const g=id=>(m.querySelector('#'+id)||{value:''}).value;
       const errs=[];
@@ -2349,6 +2645,12 @@ function openApConfig(c,lot,draft){
     };
   });
 }
+function addCoinBtn(m,cost,fill,isCpe){
+  const foot=m.querySelector('.dev-foot');if(!foot)return;
+  const b=document.createElement('button');b.className='btn small';b.type='button';b.innerHTML=`<i class="coin-ico"></i>Configurar com selos · ${cost}`;if(S.coins<cost){b.disabled=true;b.title=`Você tem ${S.coins} selos`;}
+  b.onclick=()=>{if(S.coins<cost){toast(`Faltam selos: precisa de ${cost}.`);return;}fill();S.coins-=cost;m.dataset.auto='1';log(`Configuração automática com ${cost} selos.`);m.querySelector('#dvApply').click();};
+  foot.insertBefore(b,foot.querySelector('#dvApply'));
+}
 function bearing(from,to){return (Math.atan2(to.x-from.x,-(to.y-from.y))*180/Math.PI+360)%360;}
 function openCpeConfig(c,lot,deal){
   const tier=S.manualInstalls<3?1:S.manualInstalls<7?2:3;
@@ -2374,6 +2676,7 @@ function openCpeConfig(c,lot,deal){
     const updR=()=>{if(!az)return;const v=rssiAt(+az.value);m.querySelector('#dvAzV').textContent=az.value+'°';m.querySelector('#dvRssi').textContent=v+' dBm';const bar=m.querySelector('#dvRssiBar');bar.style.width=clamp((v+95)/45*100,3,100)+'%';bar.style.background=v>=-68?'#3ddc97':v>=-78?'#e9c46a':'#ef6f5e';};
     if(az){az.oninput=updR;updR();}
     m.querySelector('#dvCancel').onclick=()=>openInstall(c,lot,deal,true);
+    addCoinBtn(m,CPE_COIN_COST,()=>{const set=(id,v)=>{const e=m.querySelector('#'+id);if(e)e.value=v;};set('dvMode','sta');set('dvSsid',t.ssid);set('dvIp',ipStr(c,nextIp(c)));set('dvMask',maskOf(netPrefix(c)));set('dvGw',`10.${c.idx+1}.0.1`);if(az){az.value=Math.round(target);updR();}if(t.key)set('dvKey',t.key);},true);
     m.querySelector('#dvGive').onclick=()=>{if(!spend(THIRD_COST))return;activate(c,lot,deal,nextIp(c));log(`Cliente ${lot.fam.name} conectado (terceirizado).`);checkMissions();save(true);closeModal();toast('Cliente conectado pelo terceirizado.');};
     m.querySelector('#dvApply').onclick=()=>{
       const g=id=>(m.querySelector('#'+id)||{value:''}).value;
@@ -2385,7 +2688,7 @@ function openCpeConfig(c,lot,deal){
       if(tier>=3&&t.key&&g('dvKey')!==t.key)errs.push(['Senha incorreta','A senha WPA2 tem que ser a mesma configurada na torre.']);
       showResult(m,errs,`Conectado na torre ${esc(t.ssid)}. Cliente navegando!`);
       if(errs.length)return;
-      S.manualInstalls++;activate(c,lot,deal,octet);addXp(10);log(`Você instalou o rádio de ${lot.fam.name} (${net}.${octet}).`);checkMissions();save(true);
+      if(!m.dataset.auto){S.manualInstalls++;addXp(10);}activate(c,lot,deal,octet);log(`Você instalou o rádio de ${lot.fam.name} (${net}.${octet}).`);checkMissions();save(true);
       m.querySelector('#dvApply').disabled=true;
       setTimeout(()=>{closeModal();toast('Cliente conectado! +XP de técnico.');},900);
     };
@@ -2415,6 +2718,11 @@ document.addEventListener('click',e=>{
   else if(act==='fiber')openFiber();
   else if(act==='coins')openCoins();
   else if(act==='docs')openDocs();
+  else if(act==='fullscreen'){closeModal();(async()=>{try{await document.documentElement.requestFullscreen();if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock('landscape');}catch(e){}})();}
+  else if(act==='login')openLogin(false);
+  else if(act==='diamonds')openDiamonds();
+  else if(act==='ouvidoria')openOuvidoria();
+  else if(act==='sede')openSede();
   else if(act==='blocksRetry'){const c=city();if(!c.geo)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else loadBlocks(c);}
   else if(act==='net')openNet();
   else if(act==='link')openLink();
@@ -2652,7 +2960,7 @@ async function onMapClick(e,qi){
   let place={bairro:'',road:''};try{place=await reversePlace(lat,lng);}catch(err){}
   const ibp=ibgeAt(c,lat,lng);if(ibp)place.bairro=ibp.nome;
   if(!LM.hasLayer(pop))return;
-  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}${qh}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>${inside&&levelOf(S.xp)>=STORE_LEVEL&&!hasStore(c)&&c.outorgaPaid&&S.sede?` <button class="btn small" data-act="storeHere" style="margin-top:8px">Loja aqui · ${brl0(STORE_COST)}</button>`:''}`);
+  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}${qh}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>${inside&&levelOf(S.xp)>=STORE_LEVEL&&!hasStore(c)&&cityLicensed(c)&&S.sede?` <button class="btn small" data-act="storeHere" style="margin-top:8px">Loja aqui · ${brl0(STORE_COST)}</button>`:''}`);
 }
 function drawSedePick(){
   if(!LM)return;if(sedeMk){sedeMk.remove();sedeMk=null;}
@@ -2777,7 +3085,7 @@ function drawReal(c,fit){
     else L.circle([g.lat,g.lon],{radius:m,color:col,weight:2,fillOpacity:t.off?0.03:0.08,dashArray:t.off?'6 6':null,interactive:false}).addTo(LLayers);
     L.marker([g.lat,g.lon],{icon:mkIcon(towerSvg,34),title:t.ssid}).bindPopup(`<b>Torre ${esc(t.ssid)}</b>${t.place?` · ${esc(t.place)}`:''}<br>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes<br>${t.beam&&t.beam<360?`Setorial ${t.beam}° apontada para ${t.az}° ${compass(t.az)}`:'Omni (360°)'} · alcance ≈ ${(m/1000).toFixed(1).replace('.',',')} km${t.h?`<br>Torre de ${t.h} m em terreno de ${t.m2} m²`:''}`).addTo(LLayers);
   }
-  if(S.sede&&S.sede.ci===c.idx){const g=S.sede.lat!=null?{lat:S.sede.lat,lon:S.sede.lon}:lotGeo(c,{x:S.sede.x,y:S.sede.y});L.marker([g.lat,g.lon],{icon:mkIcon(sedeSvg(false),36),title:'Sede'}).bindPopup(`<b>Sede da ${esc(S.company)}</b><br>${esc(c.bairros[S.sede.b])}${S.sede.addr?' · '+esc(S.sede.addr):''}`).addTo(LLayers);}
+  if(S.sede&&S.sede.ci===c.idx){const g=S.sede.lat!=null?{lat:S.sede.lat,lon:S.sede.lon}:lotGeo(c,{x:S.sede.x,y:S.sede.y});L.marker([g.lat,g.lon],{icon:mkIcon(sedeSvg(false),36),title:'Sede: toque para ver o prédio'}).on('click',ev=>{L.DomEvent.stopPropagation(ev);openSede();}).addTo(LLayers);}
   if(c.store){const g=c.store.lat!=null?{lat:c.store.lat,lon:c.store.lon}:lotGeo(c,c.store);L.marker([g.lat,g.lon],{icon:mkIcon(storeSvg,30),title:'Loja filial'}).bindPopup('<b>Loja filial</b>').addTo(LLayers);}
   drawSedePick();
   if(fit){const h=c.geo.side/2,dLat=h/mPerLat,dLon=h/mPerLon(c.geo.lat);LM.fitBounds([[c.geo.lat-dLat,c.geo.lon-dLon],[c.geo.lat+dLat,c.geo.lon+dLon]],{padding:[4,4]});}
@@ -2812,7 +3120,7 @@ let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;});
 window.addEventListener('appinstalled',()=>{deferredInstall=null;toast('App instalado!');});
 function setOnline(){document.body.classList.toggle('is-offline',!navigator.onLine);}
-window.addEventListener('online',()=>{setOnline();if(S)autoGeo();});
+window.addEventListener('online',()=>{setOnline();if(S)autoGeo();if(cloud.ref&&S){cloud.dirty=true;flushCloud();}else if(sbOn()&&SB.session&&!cloud.ref)initCloud();});
 window.addEventListener('offline',()=>{setOnline();toast('Sem internet: o jogo continua e salva no aparelho.');});
 window.addEventListener('pagehide',()=>{if(S)save(false);});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&S)save(false);});
@@ -2837,12 +3145,16 @@ if('serviceWorker' in navigator&&location.protocol!=='file:'){
   });
 }
 setOnline();
+try{if(localStorage.getItem('pt-portrait')==='1')document.body.classList.add('portrait-ok');}catch(e){}
+document.getElementById('rotOk').onclick=()=>{document.body.classList.add('portrait-ok');try{localStorage.setItem('pt-portrait','1');}catch(e){}};
 function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{if(S&&sp>0&&!modalOpen)tick();loop();},sp>0?1000/sp:500);}
 function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
-  setTab('map');
+  setTab(matchMedia('(orientation:landscape) and (max-height:560px)').matches?'building':'map');
   S=(data&&validSave(data.S))?data.S:loadLocal();
+  sbInit();
   if(S){migrate(S);for(const c of S.cities)for(const l of famsOf(c))if(l.st==='pending'&&!l.deal)l.st='none';renderAll();}
+  else if(sbOn()&&!SB.session)openLogin(true);
   else showStart();
   loop();
   initCloud();
