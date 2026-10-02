@@ -33,6 +33,27 @@ Os níveis ímpares dão bônus de caixa. O botão **Ver níveis** mostra a list
 
 A partir do nível 4, **Expandir para outra cidade** lista as cidades de verdade num raio de 100 km de qualquer cidade que você já atende (municípios do OpenStreetMap, população do Censo 2022 do IBGE). Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga. Não dá para digitar uma cidade inventada.
 
+## Rede, link e tráfego
+
+- **Capacidade da rede:** cada cidade começa com um bloco /24 (cerca de 240 assinantes). Toque no chip **Rede** do mapa para comprar as caixas de expansão: cada uma traz um bloco de IP maior (/23, /22, /21…), com nova máscara, até a última caixa, que cobre a cidade inteira e custa por volta de R$ 1 milhão numa cidade do tamanho de Duartina. Com a rede cheia, ninguém novo assina.
+- **Rádio e fibra:** o mapa e o topo mostram quantos clientes estão em cada tecnologia.
+- **Link de internet:** o botão **Link** no topo mostra o tráfego no horário de pico, o consumo por serviço e o histórico. O link é contratado por mês, de 200 Mega a 100 Gigas. O consumo cresce com o tempo; com o link estourado, a internet fica lenta, a reputação cai e mais clientes cancelam. Servidores de cache no NOC tiram parte do tráfego.
+
+## Migração e Upgrade
+
+Setor liberado no nível 12. Os operadores ligam para a base no fechamento do mês:
+- **Migração de tecnologia:** clientes de rádio em bairros com fibra passam para a fibra, mantendo o mesmo preço do rádio ou cobrando o plano de fibra.
+- **Upgrade:** oferta do próximo plano (ou do próximo plano com 3 meses pela metade da diferença). O cliente aceita ou recusa, e o ticket médio sobe.
+
+## Expansão
+
+A 1ª e a 2ª expansão só pedem o nível 4. A **3ª expansão exige 1.000 assinantes**, e cada expansão seguinte pede mais 1.000.
+
+## Metas e plano de carreira
+
+- **Metas (a partir de 5.000 assinantes):** vendas, instalação, atendimento, retenção, cobrança, marketing (CAC) e ticket médio. Cada meta pode ser conservadora, moderada ou agressiva. Bateu: PLR para a equipe e mais rendimento no mês seguinte. Errou uma meta moderada ou agressiva: o setor rende menos no mês seguinte.
+- **Plano de carreira (RH):** implantado uma vez no RH; depois cada setor promove operadores a pleno e sênior. Promovidos ganham mais, rendem mais e pedem menos demissão.
+
 ## Proteções com selos
 
 Na tela de **Selos** dá para comprar 1 ano (12 meses) de proteção:
