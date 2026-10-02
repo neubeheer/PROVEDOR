@@ -18,13 +18,18 @@ O botão **Ver níveis** mostra o que cada nível libera e quanto de bônus ele 
 
 ## Mapa real
 
-No mapa, o botão **Quadras / Mapa real** troca entre o tabuleiro do jogo e o mapa de verdade da cidade.
+O jogo abre no **Mapa real** da cidade (OpenStreetMap). O botão **Quadras** mostra o tabuleiro do porta a porta.
 
-- No começo, **Usar minha localização** pega a cidade pelo GPS (o navegador pede permissão).
-- O jogo busca a cidade e os bairros reais no OpenStreetMap e estima os domicílios de cada bairro pela população da cidade e pelos prédios mapeados.
-- **Planejar torre** coloca um marcador que você arrasta; o jogo mostra quantos domicílios ainda sem sinal aquela posição alcança.
-- **Melhor ponto** procura sozinho o terreno que cobre mais domicílios novos.
-- **Instalar torre aqui** leva a torre para o terreno livre mais próximo no tabuleiro e abre a configuração do rádio.
+- **Cidade:** no começo, **Usar minha localização** pega a cidade pelo GPS. O jogo busca a cidade, identifica os bairros e estima os domicílios pela população.
+- **Sede:** toque no ponto exato do prédio no mapa. O jogo descobre o bairro sozinho e declara a sede ali.
+- **Consultar um lugar:** toque em qualquer ponto para ver o bairro, a rua e o preço do m² do terreno (mais caro perto do centro).
+- **Torre:** toque em **Torre aqui** ou **+ Nova torre** e escolha:
+  - o terreno: 150 m² (torre de 18 m), 300 m² (30 m) ou 600 m² (45 m); terreno maior permite torre mais alta e mais alcance;
+  - a antena setorial: 60°, 90° ou 120°;
+  - a direção da antena, arrastando a bolinha laranja ou usando **Melhor direção**.
+- **Cobertura:** o leque mostra quantos domicílios a torre alcança e quantos ainda estão sem sinal, além das construções mapeadas no OpenStreetMap dentro do leque.
+- O custo é o terreno (m² × preço) mais torre e rádio. Depois vem a configuração do rádio, como sempre.
+- As casas com sinal no mapa são as mesmas das quadras, onde você faz o porta a porta.
 
 O mapa real precisa de internet. Sem conexão, o jogo continua normalmente nas quadras.
 

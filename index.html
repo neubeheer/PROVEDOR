@@ -329,7 +329,7 @@ body.is-offline .offline-pill{display:inline-block}
 .view-toggle{display:inline-flex;background:#e8eee6;border-radius:10px;padding:3px;gap:2px}
 .view-toggle button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;color:var(--muted)}
 .view-toggle button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.realmap{width:100%;height:min(72vh,620px);min-height:340px;border-radius:14px;overflow:hidden;background:#dfe7dc;z-index:0}
+.realmap{width:100%;height:max(420px,calc(100vh - 260px));min-height:340px;border-radius:14px;overflow:hidden;background:#dfe7dc;z-index:0}
 .real-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:10px}
 .real-tools .grp{display:flex;flex-wrap:wrap;gap:6px}
 .plan-box{margin-top:10px;border-radius:12px;padding:10px 12px;background:var(--gold-soft);color:#5a3d05;font-size:13.5px}
@@ -341,6 +341,17 @@ body.is-offline .offline-pill{display:inline-block}
 .mk svg{width:100%;height:100%;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
 .leaflet-container{font-family:var(--body)}
 .geo-note{font-size:12px;color:var(--muted);margin-top:6px}
+.draft{margin-top:10px;border:2px solid var(--accent);border-radius:14px;padding:12px;background:#fffaf5}
+.draft-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
+.draft-head b{display:block;font-size:16px}
+.draft-head small{color:var(--muted)}
+.draft-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:#eef2ec;border-radius:10px;padding:3px}
+.seg button{flex:1 1 auto;border:0;background:transparent;border-radius:8px;padding:7px 8px;font-weight:800;font-size:12.5px;cursor:pointer;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.draft input[type=range]{accent-color:var(--accent)}
+.leaflet-popup-content{font-family:var(--body);font-size:13px;line-height:1.4}
+@media (max-width:820px){.draft-grid{grid-template-columns:minmax(0,1fr)}}
 /* Celular */
 @media (max-width:820px){
   .top{position:sticky;top:0;gap:8px;padding-block:calc(8px + env(safe-area-inset-top,0px)) 8px}
@@ -695,7 +706,10 @@ const cap=()=>built('noc')&&opsOf('noc')>0?Math.round(CAP*1.5):CAP;
 const monthOf=d=>Math.floor((d-1)/30)+1;
 const dayOf=d=>((d-1)%30)+1;
 const bairroOf=l=>Math.floor(l.y/3)*3+Math.floor(l.x/3);
-function coverOf(c,lot){let best=null,bd=99;for(const t of c.towers){if(t.off)continue;const d=dist(t,lot);if(d<=RANGE&&d<bd){bd=d;best=t;}}return best?{t:best,d:bd,strong:bd<=1.5}:null;}
+function tpos(t){return {x:t.gx!=null?t.gx:t.x+0.5,y:t.gy!=null?t.gy:t.y+0.5};}
+function tRange(t){return t.range||RANGE;}
+function inSector(t,px,py){const p=tpos(t),d=Math.hypot(px-p.x,py-p.y);if(d>tRange(t))return false;if(!t.beam||t.beam>=360||d<0.35)return true;const brg=(Math.atan2(px-p.x,-(py-p.y))*180/Math.PI+360)%360;return Math.abs(((brg-t.az)+540)%360-180)<=t.beam/2;}
+function coverOf(c,lot){let best=null,bd=99;for(const t of c.towers){if(t.off)continue;if(!inSector(t,lot.x+.5,lot.y+.5))continue;const p=tpos(t),d=Math.hypot(lot.x+.5-p.x,lot.y+.5-p.y);if(d<bd){bd=d;best=t;}}return best?{t:best,d:bd,strong:bd<=tRange(best)*0.58}:null;}
 const isSub=l=>l.st==='client'||l.st==='late'||l.st==='suspended'||l.st==='cancelReq';
 const pays=l=>l.st==='client'||l.st==='cancelReq';
 function priceNow(l){return l.disc&&monthOf(S.day)<=l.disc.until?Math.round(l.price*(1-l.disc.pct)*100)/100:l.price;}
@@ -1011,7 +1025,8 @@ function renderMap(){
    <div class="map-meta"><div class="view-toggle" role="group" aria-label="Visão do mapa"><button data-view="grid" aria-pressed="${mapView==='grid'}">Quadras</button><button data-view="real" aria-pressed="${mapView==='real'}">Mapa real</button></div>${sel}<span class="chip">Cobertura ${houses.length?Math.round(covered/houses.length*100):0}%</span><span class="chip">Clientes ${cl}/${houses.length}</span>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   $('#crisisBar').innerHTML=cr?`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}</div></div>`:'';
-  $('#sedeBar').innerHTML=sedeMode?`<div class="sede-bar"><p><b>Onde fica a sede?</b> Toque num bairro do mapa. Selecionado: <b>${esc(c.bairros[selBairro])}</b></p>
+  $('#sedeBar').innerHTML=sedeMode&&mapView==='real'&&c.geo?`<div class="sede-bar"><p><b>Onde fica a sede?</b> ${sedePick?`Local escolhido: <b>${esc(sedePick.name||'buscando o bairro…')}</b>${sedePick.road?` · ${esc(sedePick.road)}`:''}`:'Toque no mapa no ponto exato do prédio.'}</p>
+     <div class="sede-actions"><button class="btn small primary" data-act="declareSede" ${sedePick?'':'disabled'}>Declarar sede aqui</button></div></div>`:sedeMode?`<div class="sede-bar"><p><b>Onde fica a sede?</b> Toque num bairro do mapa. Selecionado: <b>${esc(c.bairros[selBairro])}</b></p>
      <div class="sede-actions"><button class="btn small ghost" data-act="bairros">Nomes dos bairros</button><button class="btn small primary" data-act="declareSede">Declarar sede aqui</button></div></div>`:'';
   const overT=new Set(c.towers.filter(t=>towerLoad(c,t)>cap()).map(t=>t.id));
   const lots=c.lots.map((l,i)=>{
@@ -1206,10 +1221,19 @@ function openBairros(){
 }
 function declareSede(){
   const c=S.cities[0];
-  const inB=c.lots.filter(l=>bairroOf(l)===selBairro);
-  const lot=inB.find(l=>l.t==='empty'&&!l.tree)||inB.find(l=>l.t==='empty')||inB[4];
+  let lot,pick=null;
+  if(mapView==='real'&&sedePick&&c.geo){
+    pick=sedePick;const gp=geoToGrid(c.geo,pick.lat,pick.lon);
+    const gx=clamp(gp.x,0.01,8.99),gy=clamp(gp.y,0.01,8.99);selBairro=Math.floor(gy/3)*3+Math.floor(gx/3);
+    if(pick.name&&(c.namesAuto!==false||!(c.geo.bairros[selBairro]||{}).real)){c.bairros[selBairro]=pick.name;if(c.geo.bairros[selBairro])c.geo.bairros[selBairro].name=pick.name;}
+    const inB=c.lots.filter(l=>bairroOf(l)===selBairro).sort((a,b)=>Math.hypot(a.x+.5-gx,a.y+.5-gy)-Math.hypot(b.x+.5-gx,b.y+.5-gy));
+    lot=inB.find(l=>l.t==='empty')||inB[0];
+  }else{
+    const inB=c.lots.filter(l=>bairroOf(l)===selBairro);
+    lot=inB.find(l=>l.t==='empty'&&!l.tree)||inB.find(l=>l.t==='empty')||inB[4];
+  }
   lot.t='sede';delete lot.fam;delete lot.st;
-  S.sede={ci:0,b:selBairro,x:lot.x,y:lot.y};
+  S.sede={ci:0,b:selBairro,x:lot.x,y:lot.y};if(pick){S.sede.lat=pick.lat;S.sede.lon=pick.lon;S.sede.addr=pick.road||'';}sedePick=null;
   S.phase='play';
   log(`Sede declarada no bairro ${c.bairros[selBairro]}. Recepção aberta!`);event(`Sede aberta no bairro ${c.bairros[selBairro]}`);
   checkMissions();save(true);renderAll();
@@ -1644,7 +1668,7 @@ const txt=(id,ph='')=>`<input class="dev-input" id="${id}" autocomplete="off" sp
 const modeSel=`<select class="dev-input" id="dvMode"><option value="">Selecione…</option><option value="ap">Access Point (AP)</option><option value="sta">Station (cliente)</option></select>`;
 function showResult(m,errs,okMsg){const box=m.querySelector('#dvRes');box.innerHTML=errs.length?errs.map(([t,d])=>`<div><b>${t}.</b> ${d}</div>`).join(''):`<div class="good"><b>Tudo certo.</b> ${okMsg}</div>`;}
 
-function openApConfig(c,lot){
+function openApConfig(c,lot,draft){
   const tier=Math.min(3,S.towersBuilt+1);
   const tierName=['','endereçamento IP','canal e espectro','potência e segurança'][tier];
   let fields=fld('dvMode','Modo de operação','Na torre, o rádio distribui sinal para os clientes.',modeSel)
@@ -1661,7 +1685,7 @@ function openApConfig(c,lot){
   }
   if(tier>=3)fields+=fld('dvPw','Potência de transmissão (dBm)','A antena tem ganho de 16 dBi. Potência + ganho (EIRP) não pode passar de 30 dBm no jogo.',`<input class="dev-input" id="dvPw" type="number" min="0" max="30" placeholder="dBm">`)
       +fld('dvKey','Senha WPA2','Sem senha, qualquer um conecta na sua torre. Mínimo 8 caracteres.',txt('dvKey','mín. 8 caracteres'));
-  openModal(head('Torre nova','Configurar rádio da torre')+devShell('Rádio setorial AS-5',tier,tierName,fields,sheets),m=>{
+  openModal(head(draft?`Torre em ${esc(draft.place||'novo terreno')}`:'Torre nova','Configurar rádio da torre')+devShell('Rádio setorial AS-5',tier,tierName,fields,sheets),m=>{
     m.querySelector('#dvCancel').onclick=closeModal;
     m.querySelector('#dvApply').onclick=()=>{
       const g=id=>(m.querySelector('#'+id)||{value:''}).value;
@@ -1690,9 +1714,11 @@ function openApConfig(c,lot){
       }
       showResult(m,errs,'Torre no ar!');
       if(errs.length)return;
-      const usedKit=S.kits>0;if(!spend(towerPrice()))return;if(usedKit){S.kits--;if(c.idx!==0||S.cities.length>1)S.kitUsed=true;}
-      c.towers.push({id:'t'+Date.now().toString(36),x:lot.x,y:lot.y,ssid,ip:octet,channel:ch,width:w,power:pw,key});
-      c.used.push(octet);if(lot.t==='empty')lot.t='tower';S.towersBuilt++;S.cur.torres++;addXp(50);
+      const usedKit=S.kits>0;const price=draft?draft.land+(usedKit?KIT_COST:EQUIP_COST):towerPrice();if(!spend(price))return;if(usedKit){S.kits--;if(c.idx!==0||S.cities.length>1)S.kitUsed=true;}
+      const tw={id:'t'+Date.now().toString(36),x:lot.x,y:lot.y,ssid,ip:octet,channel:ch,width:w,power:pw,key};
+      if(draft)Object.assign(tw,{gx:draft.gx,gy:draft.gy,lat:draft.lat,lon:draft.lon,az:draft.az,beam:draft.beam,range:draft.rangeLots,m2:draft.m2,h:draft.h,place:draft.place});
+      c.towers.push(tw);
+      c.used.push(octet);if(lot.t==='empty'&&(!draft||Math.hypot(lot.x+.5-draft.gx,lot.y+.5-draft.gy)<0.75))lot.t='tower';if(draft)clearDraft();S.towersBuilt++;S.cur.torres++;addXp(50);
       log(`Torre ${ssid} no ar em ${c.name}.`);event(`Torre ${ssid} no ar`);checkMissions();save(true);
       m.querySelector('#dvApply').disabled=true;
       setTimeout(()=>{closeModal();toast('Torre no ar! As casas em volta agora têm sinal.');},900);
@@ -1776,7 +1802,7 @@ document.addEventListener('click',e=>{
   else if(act==='goBuilding'){if(modalOpen)closeModal();setTab('building');$('#building').scrollIntoView({behavior:'smooth',block:'start'});}
   else if(act==='build'){const f=FLOORS.find(x=>x.id===a.dataset.f);if(built(f.id))return;if(!spend(f.cost))return;S.floors[f.id]={built:true,team:{}};addXp(30);log(`Andar ${f.name} comprado.`);event(`${f.name} montado`);checkMissions();save(true);renderAll();toast(`${f.name} pronto! Toque em Equipe para contratar.`);}
 });
-document.addEventListener('change',e=>{if(e.target.id==='citySel'&&S){S.ci=+e.target.value;save(false);renderAll();}});
+document.addEventListener('change',e=>{if(e.target.id==='citySel'&&S){S.ci=+e.target.value;clearDraft&&clearDraft();LSig='';save(false);renderAll();autoGeo();}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen&&$('#modal').querySelector('.x'))closeModal();});
 
 
@@ -1784,196 +1810,263 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen&&$('#moda
 /* ===================== Mapa real (OpenStreetMap) ===================== */
 const NOMI='https://nominatim.openstreetmap.org';
 const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
-const PEOPLE_PER_HOME=2.8;
-let mapView=(()=>{try{return localStorage.getItem('pt-view')||'grid';}catch(e){return 'grid';}})();
-let LM=null,LLayers=null,LSig='',planMarker=null,meMarker=null,geoBusy=new Set();
+const PEOPLE_PER_HOME=2.8, EQUIP_COST=2000;
+const TOWER_SIZES=[{m2:150,h:18,km:0.8},{m2:300,h:30,km:1.3},{m2:600,h:45,km:2.0}];
+const BEAMS=[60,90,120];
+const COMPASS=['N','NE','L','SE','S','SO','O','NO'];
+let mapView=(()=>{try{return localStorage.getItem('pt-view')||'real';}catch(e){return 'real';}})();
+let LM=null,LLayers=null,LDraft=null,LSig='',meMarker=null,geoBusy=new Set(),draft=null,sedePick=null,sedeMk=null,lastClick=null,bldTimer=null;
 async function fetchJson(url,opts={},ms=25000){
   const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
   try{const r=await fetch(url,{...opts,signal:ac.signal,headers:{'Accept':'application/json',...(opts.headers||{})}});if(!r.ok)throw new Error('http '+r.status);return await r.json();}
   finally{clearTimeout(t);}
 }
+// Nominatim pede no máximo 1 consulta por segundo
+let nomiChain=Promise.resolve();
+function nomi(url){const run=nomiChain.then(()=>fetchJson(url)).finally(()=>new Promise(r=>setTimeout(r,1100)));nomiChain=run.catch(()=>{}).then(()=>new Promise(r=>setTimeout(r,0)));return run;}
+const placeCache=new Map();
 function getPosition(){return new Promise((res,rej)=>{if(!navigator.geolocation)return rej({code:0});navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lon:p.coords.longitude}),rej,{enableHighAccuracy:false,timeout:15000,maximumAge:600000});});}
 function ufFrom(addr){const iso=(addr&&addr['ISO3166-2-lvl4'])||'';return iso.startsWith('BR-')?iso.slice(3):'';}
-async function reverseCity(lat,lon){
-  const r=await fetchJson(`${NOMI}/reverse?format=jsonv2&zoom=10&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lon}`);
-  const a=r.address||{};return {name:a.city||a.town||a.village||a.municipality||'',uf:ufFrom(a)};
+async function reverseCity(lat,lon){const r=await nomi(`${NOMI}/reverse?format=jsonv2&zoom=10&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lon}`);const a=r.address||{};return {name:a.city||a.town||a.village||a.municipality||'',uf:ufFrom(a)};}
+async function reversePlace(lat,lon){
+  const k=lat.toFixed(4)+','+lon.toFixed(4);if(placeCache.has(k))return placeCache.get(k);
+  const r=await nomi(`${NOMI}/reverse?format=jsonv2&zoom=17&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lon}`);
+  const a=r.address||{};const out={bairro:a.suburb||a.neighbourhood||a.quarter||a.residential||a.city_district||a.hamlet||'',road:a.road||a.pedestrian||''};
+  placeCache.set(k,out);return out;
 }
 async function geocodeCity(name,uf){
   const q=encodeURIComponent(`${name}${uf?', '+uf:''}, Brasil`);
-  const list=await fetchJson(`${NOMI}/search?format=jsonv2&countrycodes=br&limit=6&addressdetails=1&extratags=1&accept-language=pt-BR&q=${q}`);
+  const list=await nomi(`${NOMI}/search?format=jsonv2&countrycodes=br&limit=6&addressdetails=1&extratags=1&accept-language=pt-BR&q=${q}`);
   if(!list.length)return null;
-  const good=list.find(r=>r.osm_type==='relation'&&(r.type==='administrative'||r.addresstype==='municipality'||r.addresstype==='city'||r.addresstype==='town'))||list.find(r=>['city','town','village','municipality'].includes(r.addresstype))||list[0];
+  const good=list.find(r=>r.osm_type==='relation'&&(r.type==='administrative'||['municipality','city','town'].includes(r.addresstype)))||list.find(r=>['city','town','village','municipality'].includes(r.addresstype))||list[0];
   const a=good.address||{};
-  return {lat:+good.lat,lon:+good.lon,osmType:good.osm_type,osmId:good.osm_id,bbox:(good.boundingbox||[]).map(Number),pop:parseInt(((good.extratags||{}).population||'').replace(/\D/g,''))||0,name:a.city||a.town||a.village||a.municipality||good.name,uf:ufFrom(a)};
+  return {lat:+good.lat,lon:+good.lon,osmType:good.osm_type,osmId:good.osm_id,pop:parseInt(((good.extratags||{}).population||'').replace(/\D/g,''))||0,name:a.city||a.town||a.village||a.municipality||good.name,uf:ufFrom(a)};
 }
-async function overpass(q){
-  let last;for(const url of OVERPASS){try{return await fetchJson(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},30000);}catch(e){last=e;}}
-  throw last;
-}
+async function overpass(q){let last;for(const url of OVERPASS){try{return await fetchJson(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},30000);}catch(e){last=e;}}throw last;}
 async function fetchBairros(g){
   const filt='[place~"^(suburb|neighbourhood|quarter)$"][name];out body 300;';
   const q=g.osmType==='relation'?`[out:json][timeout:25];area(${3600000000+Number(g.osmId)})->.a;node(area.a)${filt}`:`[out:json][timeout:25];node(around:7000,${g.lat},${g.lon})${filt}`;
-  const r=await overpass(q);
-  const seen=new Set();
+  const r=await overpass(q);const seen=new Set();
   return (r.elements||[]).filter(e=>e.tags&&e.tags.name).map(e=>({name:e.tags.name,lat:e.lat,lon:e.lon})).filter(b=>{const k=b.name.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;});
 }
-async function fetchBuildingCounts(points,radius){
-  const q='[out:json][timeout:25];'+points.map(p=>`way["building"](around:${radius},${p.lat.toFixed(6)},${p.lon.toFixed(6)});out count;`).join('');
-  const r=await overpass(q);
-  return (r.elements||[]).filter(e=>e.type==='count').map(e=>+((e.tags||{}).ways||(e.tags||{}).total||0));
+async function countBuildingsPoly(latlngs){
+  const poly=latlngs.map(p=>`${p[0].toFixed(6)} ${p[1].toFixed(6)}`).join(' ');
+  const r=await overpass(`[out:json][timeout:20];way["building"](poly:"${poly}");out count;`);
+  const e=(r.elements||[]).find(x=>x.type==='count');return e?+((e.tags||{}).ways||(e.tags||{}).total||0):0;
 }
 const mPerLat=111320;
 function mPerLon(lat){return 111320*Math.cos(lat*Math.PI/180);}
 function geoToGrid(geo,lat,lon){const dx=(lon-geo.lon)*mPerLon(geo.lat),dy=(lat-geo.lat)*mPerLat;const lm=geo.side/9;return {x:4.5+dx/lm,y:4.5-dy/lm};}
 function gridToGeo(geo,x,y){const lm=geo.side/9;return {lat:geo.lat+(4.5-y)*lm/mPerLat,lon:geo.lon+(x-4.5)*lm/mPerLon(geo.lat)};}
 function lotGeo(c,l){return gridToGeo(c.geo,l.x+0.5,l.y+0.5);}
-function buildGeo(c,g,raw,counts){
-  // escolhe os 9 bairros mais próximos do centro
+function towerGeo(c,t){if(t.lat!=null)return {lat:t.lat,lon:t.lon};const p=tpos(t);return gridToGeo(c.geo,p.x,p.y);}
+function buildGeo(c,g,raw){
   const dist=b=>Math.hypot((b.lon-g.lon)*mPerLon(g.lat),(b.lat-g.lat)*mPerLat);
-  let list=raw.map(b=>({...b,d:dist(b)})).sort((a,b)=>a.d-b.d).slice(0,9);
-  const far=list.length?Math.max(...list.map(b=>b.d)):0;
-  const side=clamp(far*2.3,2400,14000);
-  const geo={lat:g.lat,lon:g.lon,side,source:'osm',bairros:[]};
-  // posiciona cada bairro em um bloco 3x3 (o mais central fica no centro)
+  const list=raw.map(b=>({...b,d:dist(b)})).sort((a,b)=>a.d-b.d).slice(0,9);
+  const far=list.length>=4?Math.max(...list.map(b=>b.d)):0;
+  const pop=g.pop||c.pop;
+  const side=clamp(far?far*2.3:Math.sqrt(pop)*22,2400,14000);
+  const geo={lat:g.lat,lon:g.lon,side,source:'osm',bairros:[],pop,homes:Math.round(pop/PEOPLE_PER_HOME)};
   const slots=new Array(9).fill(null);
   list.forEach((b,i)=>{
-    const p=geoToGrid(geo,b.lat,b.lon);let bx=clamp(Math.floor(p.x/3),0,2),by=clamp(Math.floor(p.y/3),0,2);let k=by*3+bx;
-    if(i===0)k=4;
-    if(slots[k]){let best=-1,bd=1e9;for(let j=0;j<9;j++){if(slots[j])continue;const cx=(j%3)*3+1.5,cy=Math.floor(j/3)*3+1.5;const d=Math.hypot(cx-p.x,cy-p.y);if(d<bd){bd=d;best=j;}}k=best;}
-    if(k>=0)slots[k]={name:b.name,lat:b.lat,lon:b.lon,real:true,idx:i};
+    const p=geoToGrid(geo,b.lat,b.lon);let k=clamp(Math.floor(p.y/3),0,2)*3+clamp(Math.floor(p.x/3),0,2);if(i===0)k=4;
+    if(slots[k]){let best=-1,bd=1e9;for(let j=0;j<9;j++){if(slots[j])continue;const d=Math.hypot((j%3)*3+1.5-p.x,Math.floor(j/3)*3+1.5-p.y);if(d<bd){bd=d;best=j;}}k=best;}
+    if(k>=0)slots[k]={name:b.name,lat:b.lat,lon:b.lon,real:true};
   });
-  for(let j=0;j<9;j++){if(!slots[j]){const gg=gridToGeo(geo,(j%3)*3+1.5,Math.floor(j/3)*3+1.5);slots[j]={name:c.bairros[j],lat:gg.lat,lon:gg.lon,real:false};}}
-  // domicílios: população da cidade / pessoas por casa, repartida pelos prédios mapeados (ou por igual)
-  const pop=g.pop||c.pop;const homes=Math.round(pop/PEOPLE_PER_HOME);
-  let w=slots.map(()=>1);
-  if(counts&&counts.length===9&&counts.reduce((a,b)=>a+b,0)>=60)w=counts.map(v=>Math.max(v,5));
-  const W=w.reduce((a,b)=>a+b,0);
-  slots.forEach((b,j)=>{b.hh=Math.max(20,Math.round(homes*w[j]/W));b.buildings=counts?counts[j]||0:null;});
-  geo.bairros=slots;geo.homes=homes;geo.pop=pop;geo.loadedAt=Date.now();geo.weighted=w!==null&&counts&&counts.reduce((a,b)=>a+b,0)>=60;
-  return geo;
+  for(let j=0;j<9;j++)if(!slots[j]){const gg=gridToGeo(geo,(j%3)*3+1.5,Math.floor(j/3)*3+1.5);slots[j]={name:c.bairros[j],lat:gg.lat,lon:gg.lon,real:false};}
+  geo.bairros=slots;geo.loadedAt=Date.now();return geo;
 }
+const homesPerLot=c=>c.geo?c.geo.homes/Math.max(1,c.lots.filter(l=>l.t==='house').length):0;
+function landPrice(c,lat,lon){const d=Math.hypot((lon-c.geo.lon)*mPerLon(c.geo.lat),(lat-c.geo.lat)*mPerLat);return Math.round(6+19*Math.max(0,1-d/(c.geo.side*0.62)));}
 async function geoLoad(c,opts={}){
   if(!c||geoBusy.has(c))return;
   if(!navigator.onLine){c.geoError='offline';renderReal();return;}
-  geoBusy.add(c);c.geoError=null;renderReal();
+  geoBusy.add(c);c.geoError=null;c.geoStep='Procurando a cidade…';renderReal();
   try{
     const g=await geocodeCity(c.name,c.uf);
     if(!g){c.geoError='notfound';return;}
+    c.geoStep='Carregando bairros do OpenStreetMap…';renderReal();
     let raw=[];try{raw=await fetchBairros(g);}catch(e){raw=[];}
-    const tmp=buildGeo(c,g,raw,null);
-    let counts=null;try{counts=await fetchBuildingCounts(tmp.bairros,550);}catch(e){counts=null;}
-    const geo=buildGeo(c,g,raw,counts);
+    const geo=buildGeo(c,g,raw);
+    const rename=(opts.rename||c.namesAuto)&&c.namesAuto!==false;
+    // bairros que o OSM não tem: pergunta o nome do lugar no centro de cada setor
+    const missing=geo.bairros.map((b,j)=>[b,j]).filter(([b])=>!b.real);
+    let n=0;
+    for(const [b,j] of missing){
+      n++;c.geoStep=`Identificando bairros (${n}/${missing.length})…`;renderReal();
+      try{const r=await reversePlace(b.lat,b.lon);const nm=r.bairro;if(nm&&!geo.bairros.some((x,i)=>i!==j&&x.name===nm)){b.name=nm;b.real=true;}else b.name=j===4?'Centro':`Setor ${DIRS[j]}`;}catch(e){b.name=j===4?'Centro':`Setor ${DIRS[j]}`;}
+    }
     c.geo=geo;
-    if((opts.rename||c.namesAuto)&&c.namesAuto!==false){geo.bairros.forEach((b,j)=>{c.bairros[j]=b.name;});c.namesAuto=true;}
+    if(rename){geo.bairros.forEach((b,j)=>{c.bairros[j]=b.name;});c.namesAuto=true;}
     if(g.pop){c.pop=g.pop;if(!c.outorgaPaid)c.outorga=Math.round(clamp(g.pop*0.3,2000,60000)/100)*100;}
-    const realN=geo.bairros.filter(b=>b.real).length;
-    log(`Mapa real de ${c.name} carregado: ${realN} bairro(s) do OpenStreetMap, cerca de ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
-    toast(`Mapa de ${c.name} carregado (${realN} bairros reais).`);
+    log(`Mapa real de ${c.name} carregado: cerca de ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
+    toast(`Mapa de ${c.name} carregado.`);
     save(true);
   }catch(e){c.geoError='fail';}
-  finally{geoBusy.delete(c);LSig='';renderAll();}
+  finally{geoBusy.delete(c);c.geoStep='';LSig='';renderAll();}
 }
 function setView(v){mapView=v;try{localStorage.setItem('pt-view',v);}catch(e){}LSig='';renderMap();renderReal();}
-function frac(d,R,rb){return clamp((R+rb-d)/(2*rb),0,1);}
-function bairroGrid(c,j){const b=c.geo.bairros[j];const p=geoToGrid(c.geo,b.lat,b.lon);return {x:clamp(p.x,0.3,8.7),y:clamp(p.y,0.3,8.7)};}
-function coverageAt(c,gx,gy,ignoreExisting){
-  // domicílios alcançados por uma torre no ponto (gx,gy) do tabuleiro, só a parte que ainda não tem sinal
-  let total=0,parts=[];const rb=1.5;
-  c.geo.bairros.forEach((b,j)=>{
-    const bp=bairroGrid(c,j);let f=frac(Math.hypot(bp.x-gx,bp.y-gy),RANGE,rb);
-    if(f<=0)return;
-    if(!ignoreExisting){let have=0;for(const t of c.towers){if(t.off)continue;have=Math.max(have,frac(Math.hypot(bp.x-(t.x+.5),bp.y-(t.y+.5)),RANGE,rb));}f=Math.max(0,f-have);}
-    if(f>0){const n=Math.round(b.hh*f);total+=n;parts.push([b.name,n]);}
-  });
-  return {total,parts:parts.sort((a,b)=>b[1]-a[1])};
+function compass(az){return COMPASS[Math.round(az/45)%8];}
+function sectorLatLngs(lat,lon,az,beam,m){
+  const pts=[[lat,lon]],n=Math.max(8,Math.round(beam/6));
+  for(let i=0;i<=n;i++){const a=(az-beam/2+beam*i/n)*Math.PI/180;pts.push([lat+Math.cos(a)*m/mPerLat,lon+Math.sin(a)*m/mPerLon(lat)]);}
+  return pts;
 }
-function freeLots(c){return c.lots.filter(l=>l.t==='empty'||(l.t==='sede'&&!towerAt(c,l)));}
-function bestSpot(c){let best=null;for(const l of freeLots(c)){const r=coverageAt(c,l.x+.5,l.y+.5,false);if(!best||r.total>best.r.total)best={l,r};}return best;}
-function nearestFreeLot(c,gx,gy){let best=null,bd=1e9;for(const l of freeLots(c)){const d=Math.hypot(l.x+.5-gx,l.y+.5-gy);if(d<bd){bd=d;best=l;}}return best?{l:best,d:bd}:null;}
+function draftCoverage(c,d){
+  const t={gx:d.gx,gy:d.gy,az:d.az,beam:d.beam,range:d.rangeLots};let houses=0,fresh=0;
+  for(const l of c.lots){if(l.t!=='house')continue;if(!inSector(t,l.x+.5,l.y+.5))continue;houses++;if(!coverOf(c,l))fresh++;}
+  const hp=homesPerLot(c);return {houses,fresh,homes:Math.round(houses*hp),freshHomes:Math.round(fresh*hp)};
+}
+function bestAzimuth(c,d){let best=d.az,bv=-1;for(let a=0;a<360;a+=10){const r=draftCoverage(c,{...d,az:a});if(r.fresh>bv){bv=r.fresh;best=a;}}return best;}
 function mkIcon(svg,size){return L.divIcon({className:'mk',html:svg,iconSize:[size,size],iconAnchor:[size/2,size*0.9]});}
 function initLeaflet(){
   if(LM||!window.L)return;
   LM=L.map('realMap',{zoomControl:true,attributionControl:true,zoomSnap:0.25,zoomDelta:0.5});
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(LM);
-  LLayers=L.layerGroup().addTo(LM);
+  LLayers=L.layerGroup().addTo(LM);LDraft=L.layerGroup().addTo(LM);
+  LM.on('click',onMapClick);
 }
+async function onMapClick(e){
+  const c=city();if(!c.geo)return;
+  const {lat,lng}=e.latlng;
+  if(S.phase==='sede'&&c.idx===0){
+    sedePick={lat,lon:lng,name:''};drawSedePick();renderMap();
+    try{const r=await reversePlace(lat,lng);if(sedePick&&sedePick.lat===lat){sedePick.name=r.bairro||c.bairros[Math.floor(clamp(geoToGrid(c.geo,lat,lng).y,0,8.99)/3)*3+Math.floor(clamp(geoToGrid(c.geo,lat,lng).x,0,8.99)/3)];sedePick.road=r.road;renderMap();}}catch(err){if(sedePick)sedePick.name=c.bairros[4];renderMap();}
+    return;
+  }
+  if(draft&&draft.picking){setDraftAt(c,lat,lng);return;}
+  lastClick={lat,lon:lng};
+  const gp=geoToGrid(c.geo,lat,lng),inside=gp.x>=0&&gp.x<=9&&gp.y>=0&&gp.y<=9,price=landPrice(c,lat,lng);
+  const pop=L.popup({maxWidth:260}).setLatLng(e.latlng).setContent(`<b>Buscando o bairro…</b><br>Terreno ≈ ${brl0(price)}/m²`).openOn(LM);
+  let place={bairro:'',road:''};try{place=await reversePlace(lat,lng);}catch(err){}
+  if(!LM.hasLayer(pop))return;
+  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>`);
+}
+function drawSedePick(){
+  if(!LM)return;if(sedeMk){sedeMk.remove();sedeMk=null;}
+  if(sedePick)sedeMk=L.marker([sedePick.lat,sedePick.lon],{icon:mkIcon(sedeSvg(false),38)}).addTo(LM);
+}
+async function setDraftAt(c,lat,lon,keepAz){
+  const gp=geoToGrid(c.geo,lat,lon);
+  if(gp.x<0||gp.x>9||gp.y<0||gp.y>9){toast('Esse ponto fica fora da área de atuação desta cidade.');return;}
+  const size=draft&&draft.sizeIdx!=null?draft.sizeIdx:0,beam=draft&&draft.beam||90;
+  draft={lat,lon,gx:gp.x,gy:gp.y,sizeIdx:size,beam,az:draft&&draft.az!=null?draft.az:0,place:'',road:'',picking:false,blds:null};
+  applyDraftSize(c);if(!keepAz)draft.az=bestAzimuth(c,draft);drawDraft(c);renderDraftPanel(c);
+  try{const r=await reversePlace(lat,lon);if(draft&&draft.lat===lat){draft.place=r.bairro||'';draft.road=r.road;renderDraftPanel(c);}}catch(e){}
+  queueBuildingCount(c);
+}
+function applyDraftSize(c){const sz=TOWER_SIZES[draft.sizeIdx],lm=c.geo.side/9;draft.m2=sz.m2;draft.h=sz.h;draft.km=sz.km;draft.rangeLots=sz.km*1000/lm;draft.priceM2=landPrice(c,draft.lat,draft.lon);draft.land=draft.m2*draft.priceM2;}
+function clearDraft(){draft=null;if(LDraft)LDraft.clearLayers();const t=$('#draftPanel');if(t)t.innerHTML='';}
+function drawDraft(c){
+  if(!LDraft)return;LDraft.clearLayers();if(!draft||draft.picking)return;
+  const m=draft.km*1000;
+  L.polygon(sectorLatLngs(draft.lat,draft.lon,draft.az,draft.beam,m),{color:'#f0661a',weight:2,dashArray:'6 6',fillColor:'#f0661a',fillOpacity:.14,interactive:false}).addTo(LDraft);
+  const base=L.marker([draft.lat,draft.lon],{draggable:true,icon:mkIcon(towerSvg,40),zIndexOffset:900}).addTo(LDraft);
+  base.on('dragend',()=>{const p=base.getLatLng();setDraftAt(c,p.lat,p.lng,true);});
+  const a=draft.az*Math.PI/180,hl=[draft.lat+Math.cos(a)*m*0.7/mPerLat,draft.lon+Math.sin(a)*m*0.7/mPerLon(draft.lat)];
+  const handle=L.marker(hl,{draggable:true,icon:mkIcon(`<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="12" fill="#fff" stroke="#f0661a" stroke-width="4"/><path d="M20 12l5 9h-10z" fill="#f0661a" transform="rotate(${draft.az} 20 20)"/></svg>`,32),zIndexOffset:1000,title:'Arraste para girar a antena'}).addTo(LDraft);
+  handle.on('drag',()=>{const p=handle.getLatLng();draft.az=Math.round((Math.atan2((p.lng-draft.lon)*mPerLon(draft.lat),(p.lat-draft.lat)*mPerLat)*180/Math.PI+360)%360);renderDraftPanel(c,true);});
+  handle.on('dragend',()=>{drawDraft(c);queueBuildingCount(c);});
+}
+function queueBuildingCount(c){
+  clearTimeout(bldTimer);if(!draft)return;draft.blds=null;
+  bldTimer=setTimeout(async()=>{if(!draft)return;const key=[draft.lat,draft.lon,draft.az,draft.beam,draft.sizeIdx].join();
+    try{const n=await countBuildingsPoly(sectorLatLngs(draft.lat,draft.lon,draft.az,draft.beam,draft.km*1000));if(draft&&[draft.lat,draft.lon,draft.az,draft.beam,draft.sizeIdx].join()===key){draft.blds=n;renderDraftPanel(c);}}catch(e){}},1400);
+}
+function renderDraftPanel(c,light){
+  const box=$('#draftPanel');if(!box)return;
+  if(!draft){box.innerHTML='';return;}
+  if(draft.picking){box.innerHTML=`<div class="plan-box"><b>Toque no mapa onde quer comprar o terreno da torre.</b> <button class="btn small ghost" data-act="cancelDraft">Cancelar</button></div>`;return;}
+  const cov=draftCoverage(c,draft),kit=S.kits>0,equip=kit?KIT_COST:EQUIP_COST,total=draft.land+equip,block=signupBlock(c);
+  if(light){const az=$('#dAzV');if(az)az.textContent=`${draft.az}° ${compass(draft.az)}`;const cv=$('#dCov');if(cv)cv.innerHTML=covHtml(cov);const r=$('#dAz');if(r)r.value=draft.az;LDraft.eachLayer(ly=>{if(ly instanceof L.Polygon)ly.setLatLngs(sectorLatLngs(draft.lat,draft.lon,draft.az,draft.beam,draft.km*1000));});return;}
+  box.innerHTML=`<div class="draft">
+    <div class="draft-head"><div><p class="eyebrow">Novo terreno</p><b>${esc(draft.place||'Identificando o bairro…')}</b>${draft.road?`<small>${esc(draft.road)}</small>`:''}</div><button class="x" data-act="cancelDraft" aria-label="Cancelar">×</button></div>
+    <div class="draft-grid">
+      <div class="field"><label>Terreno e altura da torre</label><div class="seg">${TOWER_SIZES.map((z,i)=>`<button data-dsize="${i}" aria-pressed="${draft.sizeIdx===i}">${z.m2} m² · ${z.h} m</button>`).join('')}</div><small class="muted">${brl0(draft.priceM2)}/m² aqui · alcance ${draft.km.toString().replace('.',',')} km</small></div>
+      <div class="field"><label>Antena setorial</label><div class="seg">${BEAMS.map(b=>`<button data-dbeam="${b}" aria-pressed="${draft.beam===b}">${b}°</button>`).join('')}</div><small class="muted">Mais aberta cobre mais área; mais fechada alcança melhor numa direção.</small></div>
+      <div class="field"><label for="dAz">Direção da antena · <b id="dAzV">${draft.az}° ${compass(draft.az)}</b></label><input type="range" id="dAz" min="0" max="359" step="1" value="${draft.az}"><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small ghost" data-act="bestAz">Melhor direção</button><small class="muted" style="align-self:center">Ou arraste a bolinha laranja no mapa.</small></div></div>
+      <div class="field"><label>Cobertura</label><div id="dCov">${covHtml(cov)}</div></div>
+    </div>
+    <div class="foot"><div><small class="muted">Terreno ${draft.m2} m² × ${brl0(draft.priceM2)} = ${brl0(draft.land)} · ${kit?`torre do galpão ${brl0(KIT_COST)}`:`torre e rádio ${brl0(EQUIP_COST)}`}</small><br><b>Total ${brl0(total)}</b></div><button class="btn primary" data-act="buyDraft" ${block?'disabled':''}>${block?(block==='outorga'?'Falta a outorga':block==='docs'?'Falta a documentação':'Declare a sede'):'Comprar terreno e configurar'}</button></div>
+  </div>`;
+  const r=$('#dAz');if(r)r.oninput=()=>{draft.az=+r.value;renderDraftPanel(c,true);drawDraftHandleOnly(c);};
+  if(r)r.onchange=()=>{drawDraft(c);queueBuildingCount(c);};
+}
+function drawDraftHandleOnly(c){/* o leque é atualizado em renderDraftPanel(light); a bolinha se ajusta ao soltar */}
+function covHtml(cov){return `<b>${cov.homes.toLocaleString('pt-BR')} domicílios</b> no leque (${cov.houses} casas do jogo), sendo <b>${cov.freshHomes.toLocaleString('pt-BR')}</b> ainda sem sinal.${draft&&draft.blds!=null?`<br><small class="muted">${draft.blds.toLocaleString('pt-BR')} construções mapeadas no OpenStreetMap dentro do leque.</small>`:''}`;}
 function renderReal(){
   if(!S)return;
-  const grid=mapView!=='real'||S.phase==='sede';
+  const grid=mapView!=='real';
   $('#gridWrap').hidden=!grid;$('#gridLegend').hidden=!grid;$('#realWrap').hidden=grid;
-  const sb=$('#sedeBar');if(sb&&!grid&&S.phase==='sede'){/* a escolha da sede fica no tabuleiro */}
   if(grid)return;
   const c=city(),tools=$('#realTools');
   if(!c.geo){
     const busy=geoBusy.has(c);
     $('#realMap').hidden=true;
-    tools.innerHTML=`<div class="real-empty"><b>${busy?`Buscando ${esc(c.name)} no mapa…`:c.geoError==='offline'?'Sem internet agora':c.geoError==='notfound'?`Não encontrei ${esc(c.name)}${c.uf?'/'+esc(c.uf):''} no mapa`:'Mapa real ainda não carregado'}</b><p class="muted" style="margin:0;max-width:420px">${busy?'Carregando bairros e estimando domicílios pelo OpenStreetMap.':c.geoError==='notfound'?'Confira o nome da cidade e o estado.':'O mapa real usa o OpenStreetMap e precisa de internet. O jogo nas quadras continua funcionando.'}</p>${busy?'':`<button class="btn primary small" data-act="geoLoad">Carregar mapa real</button>`}</div>`;
+    tools.innerHTML=`<div class="real-empty"><b>${busy?esc(c.geoStep||`Buscando ${c.name} no mapa…`):c.geoError==='offline'?'Sem internet agora':c.geoError==='notfound'?`Não encontrei ${esc(c.name)}${c.uf?'/'+esc(c.uf):''} no mapa`:'Mapa real ainda não carregado'}</b><p class="muted" style="margin:0;max-width:440px">${busy?'Os dados vêm do OpenStreetMap.':c.geoError==='notfound'?'Confira o nome da cidade e o estado.':'O mapa real precisa de internet. Enquanto isso, o jogo funciona nas quadras.'}</p><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${busy?'':`<button class="btn primary small" data-act="geoLoad">Carregar mapa real</button>`}<button class="btn small ghost" data-view="grid">Ver quadras</button></div></div>`;
     return;
   }
   $('#realMap').hidden=false;
   if(!window.L){tools.innerHTML='<div class="real-empty"><b>Carregando o mapa…</b></div>';setTimeout(renderReal,400);return;}
-  initLeaflet();
-  LM.invalidateSize(false);
-  if(LM.getSize().x===0){LSig='';renderPlanBox(c);return;}
-  const sig=JSON.stringify([c.idx,c.geo.loadedAt,c.towers.map(t=>[t.x,t.y,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,cityClients(c)]);
-  if(sig!==LSig){
-    const first=!LSig||!LSig.startsWith('['+c.idx+',');
-    LSig=sig;drawReal(c,first);
+  initLeaflet();LM.invalidateSize(false);
+  if(LM.getSize().x===0){LSig='';return;}
+  const sig=JSON.stringify([c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,c.lots.map(l=>l.st||l.t).join(''),S.phase]);
+  if(sig!==LSig){const first=!LSig||!LSig.startsWith('['+c.idx+','+c.geo.loadedAt);LSig=sig;drawReal(c,first);}
+  if(!$('#draftPanel')||tools.dataset.phase!==S.phase){
+    tools.dataset.phase=S.phase;
+    tools.innerHTML=`<div class="real-tools"><div class="grp">${S.phase==='sede'?'':`<button class="btn small primary" data-act="newTower">+ Nova torre</button>`}<button class="btn small ghost" data-act="gpsMe">📍 Onde estou</button></div><div class="grp"><button class="btn small ghost" data-act="geoLoad">Atualizar mapa</button></div></div><div id="draftPanel"></div><p class="geo-note" id="geoNote"></p>`;
   }
-  renderPlanBox(c);
+  const nb=tools.querySelector('[data-act="newTower"]');if(nb)nb.hidden=!!draft;
+  $('#geoNote').textContent=S.phase==='sede'?'Toque no mapa para escolher o ponto exato da sede.':`Toque em qualquer ponto para ver o bairro e o preço do m². Domicílios estimados pela população de ${c.name} (≈ ${c.geo.homes.toLocaleString('pt-BR')}).`;
+  if(draft&&!$('#draftPanel').innerHTML)renderDraftPanel(c);
 }
 function drawReal(c,fit){
   LLayers.clearLayers();
-  const lm=c.geo.side/9,rb=1.5*lm;
+  const lm=c.geo.side/9;
+  // bairros
   c.geo.bairros.forEach((b,j)=>{
-    const lots=c.lots.filter(l=>bairroOf(l)===j),subs=lots.filter(isSub).length,fib=c.fiber.ctos.includes(j);
-    const cov=c.towers.some(t=>!t.off&&Math.hypot(t.x+.5-bairroGrid(c,j).x,t.y+.5-bairroGrid(c,j).y)<RANGE)||fib;
-    L.circle([b.lat,b.lon],{radius:rb,color:fib?'#f0a81a':cov?'#0f9a8d':'#5b6a6f',weight:fib?3:1.5,fillColor:cov?'#7dcfae':'#a3cf78',fillOpacity:.22,dashArray:b.real?null:'4 4'})
-      .bindTooltip(`${esc(c.bairros[j])}`,{permanent:true,direction:'center',className:'bairro-tip'})
-      .bindPopup(`<b>${esc(c.bairros[j])}</b><br>≈ ${b.hh.toLocaleString('pt-BR')} domicílios${b.real?'':' (posição estimada)'}<br>${subs} assinante(s) no jogo${fib?'<br>Fibra: caixa CTO instalada':''}`)
-      .addTo(LLayers);
+    const fib=c.fiber.ctos.includes(j);
+    L.circleMarker([b.lat,b.lon],{radius:4,color:fib?'#f0a81a':'#1e2a30',weight:2,fillColor:'#fff',fillOpacity:1,interactive:false})
+      .bindTooltip(`${esc(c.bairros[j])}`,{permanent:true,direction:'top',offset:[0,-6],className:'bairro-tip'}).addTo(LLayers);
   });
+  // casas do jogo: assinantes em destaque
+  const hp=homesPerLot(c);
+  for(const l of c.lots){
+    if(l.t!=='house')continue;const hr=rng(hash(c.name+':'+l.x+':'+l.y)),g=gridToGeo(c.geo,l.x+0.5+(hr()-.5)*.6,l.y+0.5+(hr()-.5)*.6),sub=isSub(l),cov=coverOf(c,l)||fiberAt(c,l);
+    L.circleMarker([g.lat,g.lon],{radius:sub?6:4,color:'#fff',weight:1.5,fillColor:sub?(l.tech==='fiber'?'#e5a21e':l.st==='client'?'#0f9a8d':'#cf3b3b'):cov?'#7dcfae':'#9aa59a',fillOpacity:sub?1:.8})
+      .bindPopup(`<b>Casa de ${esc(l.fam.name)}</b><br>${esc(c.bairros[bairroOf(l)])} · representa ≈ ${Math.round(hp)} domicílios<br>${sub?'Assinante':cov?'Com sinal: dá para vender':'Sem sinal'}`).addTo(LLayers);
+  }
+  // torres com leque
   for(const t of c.towers){
-    const g=lotGeo(c,{x:t.x,y:t.y}),over=towerLoad(c,t)>cap();
-    L.circle([g.lat,g.lon],{radius:RANGE*lm,color:t.off?'#888':over?'#cf3b3b':'#0f9a8d',weight:2,fillOpacity:t.off?0.03:0.08,dashArray:t.off?'6 6':null,interactive:false}).addTo(LLayers);
-    L.marker([g.lat,g.lon],{icon:mkIcon(towerSvg,34),title:t.ssid}).bindPopup(`<b>Torre ${esc(t.ssid)}</b><br>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes<br>Alcance ≈ ${(RANGE*lm/1000).toFixed(1)} km`).addTo(LLayers);
+    const g=towerGeo(c,t),over=towerLoad(c,t)>cap(),m=tRange(t)*lm,col=t.off?'#888':over?'#cf3b3b':'#0f9a8d';
+    if(t.beam&&t.beam<360)L.polygon(sectorLatLngs(g.lat,g.lon,t.az,t.beam,m),{color:col,weight:2,fillOpacity:t.off?0.03:0.1,dashArray:t.off?'6 6':null,interactive:false}).addTo(LLayers);
+    else L.circle([g.lat,g.lon],{radius:m,color:col,weight:2,fillOpacity:t.off?0.03:0.08,dashArray:t.off?'6 6':null,interactive:false}).addTo(LLayers);
+    L.marker([g.lat,g.lon],{icon:mkIcon(towerSvg,34),title:t.ssid}).bindPopup(`<b>Torre ${esc(t.ssid)}</b>${t.place?` · ${esc(t.place)}`:''}<br>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes<br>${t.beam&&t.beam<360?`Setorial ${t.beam}° apontada para ${t.az}° ${compass(t.az)}`:'Omni (360°)'} · alcance ≈ ${(m/1000).toFixed(1).replace('.',',')} km${t.h?`<br>Torre de ${t.h} m em terreno de ${t.m2} m²`:''}`).addTo(LLayers);
   }
-  if(S.sede&&S.sede.ci===c.idx){const g=lotGeo(c,{x:S.sede.x,y:S.sede.y});L.marker([g.lat,g.lon],{icon:mkIcon(sedeSvg(false),34),title:'Sede'}).bindPopup(`<b>Sede da ${esc(S.company)}</b>`).addTo(LLayers);}
+  if(S.sede&&S.sede.ci===c.idx){const g=S.sede.lat!=null?{lat:S.sede.lat,lon:S.sede.lon}:lotGeo(c,{x:S.sede.x,y:S.sede.y});L.marker([g.lat,g.lon],{icon:mkIcon(sedeSvg(false),36),title:'Sede'}).bindPopup(`<b>Sede da ${esc(S.company)}</b><br>${esc(c.bairros[S.sede.b])}${S.sede.addr?' · '+esc(S.sede.addr):''}`).addTo(LLayers);}
   if(c.store){const g=lotGeo(c,c.store);L.marker([g.lat,g.lon],{icon:mkIcon(storeSvg,30),title:'Loja filial'}).bindPopup('<b>Loja filial</b>').addTo(LLayers);}
-  if(fit){const dLat=rb/mPerLat,dLon=rb/mPerLon(c.geo.lat);const lats=c.geo.bairros.map(b=>b.lat),lons=c.geo.bairros.map(b=>b.lon);LM.fitBounds([[Math.min(...lats)-dLat,Math.min(...lons)-dLon],[Math.max(...lats)+dLat,Math.max(...lons)+dLon]],{padding:[8,8]});}
-  if(planMarker&&planMarker._city!==c.idx)clearPlan();
-}
-function clearPlan(){if(planMarker){if(planMarker._ring)planMarker._ring.remove();planMarker.remove();planMarker=null;}}
-function renderPlanBox(c){
-  const tools=$('#realTools');
-  let box='';
-  if(planMarker){
-    const p=planMarker.getLatLng(),gp=geoToGrid(c.geo,p.lat,p.lng),r=coverageAt(c,gp.x,gp.y,false),nf=nearestFreeLot(c,gp.x,gp.y);
-    const outside=gp.x<0||gp.x>9||gp.y<0||gp.y>9;
-    box=`<div class="plan-box">${outside?'<b>Fora da área de jogo desta cidade.</b> Arraste o marcador para perto dos bairros.':`Ponto planejado alcança <b>≈ ${r.total.toLocaleString('pt-BR')} domicílios sem sinal</b>${r.parts.length?` em ${r.parts.slice(0,4).map(x=>`${esc(x[0])} (${x[1].toLocaleString('pt-BR')})`).join(', ')}`:''}.${nf&&nf.d>1.2?' O terreno livre mais próximo fica um pouco afastado; a torre vai para lá.':''}`}</div>`;
-  }
-  const can=!signupBlock(c);
-  tools.innerHTML=`<div class="real-tools"><div class="grp"><button class="btn small ${planMarker?'':'primary'}" data-act="planTower">${planMarker?'Recolocar marcador':'Planejar torre'}</button><button class="btn small" data-act="bestSpot">Melhor ponto</button>${planMarker?`<button class="btn small primary" data-act="installPlanned" ${can?'':'disabled'}>Instalar torre aqui</button>`:''}</div><div class="grp"><button class="btn small ghost" data-act="gpsMe">📍 Onde estou</button><button class="btn small ghost" data-act="geoLoad" title="Atualizar dados do mapa">Atualizar mapa</button></div></div>${box}
-    <p class="geo-note">Domicílios estimados pela população da cidade${c.geo.weighted?' e pelos prédios mapeados em cada bairro':''} (OpenStreetMap). ${can?'Arraste o marcador laranja para planejar a cobertura.':'Para instalar torres, termine sede, outorga e documentação.'}</p>`;
-}
-function placePlan(c,lat,lon){
-  if(!LM)return;
-  clearPlan();
-  planMarker=L.marker([lat,lon],{draggable:true,icon:mkIcon(`<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="11" fill="#f0661a" stroke="#fff" stroke-width="3"/><path d="M20 13v14M13 20h14" stroke="#fff" stroke-width="3"/></svg>`,36),zIndexOffset:1000}).addTo(LM);
-  planMarker._city=c.idx;
-  const ring=L.circle([lat,lon],{radius:RANGE*c.geo.side/9,color:'#f0661a',weight:2,dashArray:'6 6',fillOpacity:.06,interactive:false}).addTo(LM);
-  planMarker._ring=ring;
-  planMarker.on('drag',()=>{ring.setLatLng(planMarker.getLatLng());renderPlanBox(c);});
-  renderPlanBox(c);
+  drawSedePick();
+  if(fit){const h=c.geo.side/2,dLat=h/mPerLat,dLon=h/mPerLon(c.geo.lat);LM.fitBounds([[c.geo.lat-dLat,c.geo.lon-dLon],[c.geo.lat+dLat,c.geo.lon+dLon]],{padding:[4,4]});}
+  if(draft)drawDraft(c);
 }
 document.addEventListener('click',e=>{
-  const a=e.target.closest('[data-act]');if(!a||!S)return;
-  const act=a.dataset.act,c=city();
+  if(!S)return;const c=city();
+  const sz=e.target.closest('[data-dsize]');if(sz&&draft){draft.sizeIdx=+sz.dataset.dsize;applyDraftSize(c);drawDraft(c);renderDraftPanel(c);queueBuildingCount(c);return;}
+  const bm=e.target.closest('[data-dbeam]');if(bm&&draft){draft.beam=+bm.dataset.dbeam;drawDraft(c);renderDraftPanel(c);queueBuildingCount(c);return;}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  const act=a.dataset.act;
   if(act==='geoLoad'){geoLoad(c,{rename:c.namesAuto});}
-  else if(act==='planTower'){if(!LM)return;const ctr=LM.getCenter();placePlan(c,ctr.lat,ctr.lng);}
-  else if(act==='bestSpot'){const b=bestSpot(c);if(!b){toast('Sem terreno livre nesta cidade.');return;}const g=lotGeo(c,b.l);placePlan(c,g.lat,g.lon);LM.panTo([g.lat,g.lon]);toast(b.r.total?`Melhor ponto: ≈ ${b.r.total.toLocaleString('pt-BR')} domicílios novos.`:'A cidade já está bem coberta.');}
-  else if(act==='installPlanned'){if(!planMarker)return;const p=planMarker.getLatLng(),gp=geoToGrid(c.geo,p.lat,p.lng),nf=nearestFreeLot(c,gp.x,gp.y);if(!nf){toast('Sem terreno livre nesta cidade.');return;}clearPlan();towerOffer(c,nf.l,nf.l.t==='sede');}
-  else if(act==='gpsMe'){getPosition().then(pos=>{if(!LM)return;if(meMarker)meMarker.remove();meMarker=L.circleMarker([pos.lat,pos.lon],{radius:8,color:'#fff',weight:3,fillColor:'#2f6fed',fillOpacity:1}).addTo(LM).bindPopup('Você está aqui');LM.setView([pos.lat,pos.lon],15);}).catch(()=>toast('Não deu para pegar sua localização.'));}
+  else if(act==='newTower'){if(!c.geo)return;clearDraft();draft={picking:true};renderReal();renderDraftPanel(c);}
+  else if(act==='draftHere'){if(!lastClick)return;LM.closePopup();draft=null;setDraftAt(c,lastClick.lat,lastClick.lon);renderReal();}
+  else if(act==='cancelDraft'){clearDraft();renderReal();}
+  else if(act==='bestAz'){if(!draft)return;draft.az=bestAzimuth(c,draft);drawDraft(c);renderDraftPanel(c);queueBuildingCount(c);}
+  else if(act==='buyDraft'){
+    if(!draft)return;const block=signupBlock(c);if(block){openModal(head('Torre','Ainda não dá')+blockNotice(c,block));return;}
+    const total=draft.land+(S.kits>0?KIT_COST:EQUIP_COST);if(S.money<total){toast(`Falta caixa: precisa de ${brl0(total)}.`);return;}
+    let lot=null,bd=1e9;for(const l of c.lots){const d=Math.hypot(l.x+.5-draft.gx,l.y+.5-draft.gy);if(d<bd){bd=d;lot=l;}}
+    openApConfig(c,lot,{...draft});
+  }
+  else if(act==='gpsMe'){getPosition().then(pos=>{if(!LM)return;if(meMarker)meMarker.remove();meMarker=L.circleMarker([pos.lat,pos.lon],{radius:8,color:'#fff',weight:3,fillColor:'#2f6fed',fillOpacity:1}).addTo(LM).bindPopup('Você está aqui');LM.setView([pos.lat,pos.lon],16);}).catch(()=>toast('Não deu para pegar sua localização.'));}
 });
 /* ===================== App instalável e offline ===================== */
 let deferredInstall=null;
@@ -2006,6 +2099,7 @@ if('serviceWorker' in navigator&&location.protocol!=='file:'){
 }
 setOnline();
 function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{if(S&&sp>0&&!modalOpen)tick();loop();},sp>0?1000/sp:500);}
+function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});}
 function start(data){
   setTab('map');
   S=(data&&validSave(data.S))?data.S:loadLocal();
@@ -2013,6 +2107,7 @@ function start(data){
   else showStart();
   loop();
   initCloud();
+  setTimeout(autoGeo,600);
 }
 if(window.claude&&window.claude.hot&&typeof window.claude.hot.snapshot==='function'){try{window.claude.hot.snapshot(()=>({S}));}catch(e){}}
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
