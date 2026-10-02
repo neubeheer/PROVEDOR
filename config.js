@@ -1,13 +1,13 @@
 /* Configuração online do Provedor Tycoon. Deixe em branco para jogar só no aparelho.
 
    supabaseUrl / supabaseAnonKey  → conta (login) e progresso salvo online.
-     Supabase → Project Settings → API: "Project URL" e a chave "anon public".
+     Supabase → botão Copy do projeto: "Project URL" e "Publishable key" (ou a antiga "anon public").
      A chave anon é pública por natureza; quem protege os dados são as regras do supabase/schema.sql.
 
    quadrasUrl → link do banco de quadras no Google Drive (o "App da Web" do Apps Script).
      Termina em /exec. Veja o README, seção "Banco de quadras no Google Drive". */
 window.PT_CONFIG = {
-  supabaseUrl: '',
-  supabaseAnonKey: '',
-  quadrasUrl: ''
+  supabaseUrl: 'https://fatdynkmnbqehxkrovsv.supabase.co',
+  supabaseAnonKey: '',   // cole aqui a Publishable key (começa com sb_publishable_)
+  quadrasUrl: 'https://script.google.com/macros/s/AKfycbzijdrkDFG3wMZn-vj6YyTw32Jdy5jDQT2odjEqYO1bPQoNbpX-_L0HMiwPAuHsRg2rqQ/exec'
 };

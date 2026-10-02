@@ -774,7 +774,8 @@ async function sbRefresh(){
 async function sbFetch(path,opts={},useUser=true,ms=15000){
   if(useUser&&SB.session&&SB.session.expires_at*1000<Date.now()+60000)await sbRefresh();
   const go=()=>{const tok=useUser&&SB.session?SB.session.access_token:SB.key;const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
-    return fetch(SB.url+path,{...opts,signal:ac.signal,headers:{apikey:SB.key,Authorization:'Bearer '+tok,'Content-Type':'application/json',...(opts.headers||{})}}).finally(()=>clearTimeout(t));};
+    const auth=tok!==SB.key?{Authorization:'Bearer '+tok}:{};
+    return fetch(SB.url+path,{...opts,signal:ac.signal,headers:{apikey:SB.key,...auth,'Content-Type':'application/json',...(opts.headers||{})}}).finally(()=>clearTimeout(t));};
   let r=await go();if(r.status===401&&useUser&&SB.session&&await sbRefresh())r=await go();return r;
 }
 async function sbLogin(email,pass,signup){
