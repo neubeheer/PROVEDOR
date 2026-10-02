@@ -675,6 +675,9 @@ button.pill{cursor:pointer}
 .tabs.dock .rail-ico{display:block;width:26px;height:26px;filter:drop-shadow(0 1.5px 0 var(--navy))}
 .tabs.dock button[aria-pressed="true"]{background:linear-gradient(180deg,#ffe066,var(--sun));color:var(--navy);text-shadow:none}
 #panelBody .building{max-width:460px;margin:0 auto}
+.qn-wrap{background:none;border:0}
+.qn-tag{position:absolute;transform:translate(-50%,-50%);min-width:20px;padding:0 5px;border-radius:999px;background:var(--navy);color:#fff;border:2px solid #fff;font:400 12px/16px var(--display);text-align:center;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.45);pointer-events:none}
+.qn-tag.fib{background:#b86200}
 [data-price]{min-width:44px;font-size:18px!important;line-height:1}
 #panelBody .missions{gap:6px}
 @media (max-width:820px){
@@ -3310,6 +3313,10 @@ function draftCoverage(c,d){
 }
 function bestAzimuth(c,d){let best=d.az,bv=-1;for(let a=0;a<360;a+=10){const r=draftCoverage(c,{...d,az:a});const v=r.freshHomes!=null?r.freshHomes:r.fresh;if(v>bv){bv=v;best=a;}}return best;}
 function mkIcon(svg,size){return L.divIcon({className:'mk',html:svg,iconSize:[size,size],iconAnchor:[size/2,size*0.9]});}
+/* Número de assinantes em cada quadra do mapa real: aparece a partir do zoom 15, para não poluir a visão da cidade inteira. */
+let LQN=null;const QCEN=new WeakMap();
+function qCenter(q){let c=QCEN.get(q);if(!c){c=polyCentroid(q.poly);QCEN.set(q,c);}return c;}
+function qnZoom(){if(!LM||!LQN)return;if(LM.getZoom()>=15){if(!LM.hasLayer(LQN))LQN.addTo(LM);}else if(LM.hasLayer(LQN))LM.removeLayer(LQN);}
 function initLeaflet(){
   if(LM||!window.L)return;
   LM=L.map('realMap',{zoomControl:true,attributionControl:true,zoomSnap:0.25,zoomDelta:0.5});
@@ -3441,7 +3448,8 @@ function drawReal(c,fit){
   if(hasBlocks(c)){
     const overT=new Set(c.towers.filter(t=>towerLoad(c,t)>cap()).map(t=>t.id));
     if(!QREND)QREND=L.canvas({padding:.3});
-    c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT);const st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
+    if(!LQN){LQN=L.layerGroup();LM.on('zoomend',qnZoom);}LQN.clearLayers();
+    c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT);if(lk.subs.length){const ce=qCenter(q),fib=lk.subs.some(f=>f.tech==='fiber');L.marker(ce,{interactive:false,keyboard:false,icon:L.divIcon({className:'qn-wrap',iconSize:[0,0],html:`<span class="qn-tag${fib?' fib':''}" title="${lk.subs.length} de ${q.dom||0} domicílios">${lk.subs.length}</span>`})}).addTo(LQN);}const st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
       L.polygon(q.poly,{renderer:QREND,color:st,weight:st==='#ffffff'?1:2.5,fillColor:lk.fill,fillOpacity:lk.subs.length?.85:.55})
       .on('click',ev=>{L.DomEvent.stopPropagation(ev);if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev,i);return;}LM.closePopup();const ql=quadras(c)[i];if(ql)openQuadra(c,ql);}).addTo(LLayers);});
   }
@@ -3472,6 +3480,8 @@ function drawReal(c,fit){
   if(c.store){const g=c.store.lat!=null?{lat:c.store.lat,lon:c.store.lon}:lotGeo(c,c.store);L.marker([g.lat,g.lon],{icon:mkIcon(storeSvg,30),title:'Loja filial'}).bindPopup('<b>Loja filial</b>').addTo(LLayers);}
   drawSedePick();
   if(fit){const h=c.geo.side/2,dLat=h/mPerLat,dLon=h/mPerLon(c.geo.lat);LM.fitBounds([[c.geo.lat-dLat,c.geo.lon-dLon],[c.geo.lat+dLat,c.geo.lon+dLon]],{padding:[4,4]});}
+  if(!hasBlocks(c)&&LQN)LQN.clearLayers();
+  qnZoom();
   if(draft)drawDraft(c);
 }
 document.addEventListener('click',e=>{
