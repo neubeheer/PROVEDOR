@@ -1,14 +1,15 @@
 name: Banco de quadras (Google Drive)
 
 # Desenha as quadras das cidades pelas ruas do OpenStreetMap e grava no Google Drive (pelo Apps Script),
-# para o jogo abrir o tabuleiro na hora. Roda sozinho todo dia (Brasil inteiro, aos poucos)
-# e também pelo botão "Run workflow".
+# para o jogo abrir o tabuleiro na hora. Roda sozinho todo dia no modo "regioes": desenha as cidades
+# em volta das cidades que os jogadores atendem (até 2 expansões de 200 km), das mais perto para as mais longe.
+# Pelo botão "Run workflow" dá para escolher um estado (ex.: SP) ou BR em vez disso.
 on:
   workflow_dispatch:
     inputs:
       uf:
-        description: 'Estado (ex.: SP) ou BR para o Brasil inteiro'
-        default: 'SP'
+        description: 'regioes (em volta dos jogadores), um estado (ex.: SP) ou BR para o Brasil inteiro'
+        default: 'regioes'
         required: true
       limit:
         description: 'Máximo de cidades nesta rodada (0 = todas)'
@@ -30,7 +31,13 @@ jobs:
         env:
           QUADRAS_URL: ${{ secrets.QUADRAS_URL }}
           QUADRAS_SENHA: ${{ secrets.QUADRAS_SENHA }}
+          UF: ${{ github.event.inputs.uf || 'regioes' }}
+          LIMIT: ${{ github.event.inputs.limit || '150' }}
         run: |
           if [ -z "$QUADRAS_URL" ] || [ -z "$QUADRAS_SENHA" ]; then
             echo "Configure os segredos QUADRAS_URL e QUADRAS_SENHA em Settings → Secrets and variables → Actions."; exit 0; fi
-          python3 scripts/quadras_cache.py --uf "${{ github.event.inputs.uf || 'BR' }}" --limit "${{ github.event.inputs.limit || '150' }}"
+          if [ "$UF" = "regioes" ]; then
+            python3 scripts/quadras_cache.py --regioes --limit "$LIMIT"
+          else
+            python3 scripts/quadras_cache.py --uf "$UF" --limit "$LIMIT"
+          fi

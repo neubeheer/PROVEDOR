@@ -6,7 +6,13 @@ OpenStreetMap (Overpass), desenha os quarteirões com o mesmo método do jogo e
 grava um arquivo por cidade na pasta do Drive, pelo link do Apps Script. Assim o jogo abre as quadras na hora, sem
 esperar o OpenStreetMap.
 
+Modo regiões (o padrão do workflow diário): pega no banco as cidades que os
+jogadores atendem e desenha as vizinhas, das mais perto para as mais longe. O
+jogo deixa expandir até 200 km de cada cidade atendida; com --aneis 2 o robô
+também adianta a expansão seguinte (até 400 km).
+
 Uso:
+  QUADRAS_URL=... QUADRAS_SENHA=... python3 scripts/quadras_cache.py --regioes --limit 150
   QUADRAS_URL=https://script.google.com/macros/s/.../exec QUADRAS_SENHA=... python3 scripts/quadras_cache.py --uf SP
   python3 scripts/quadras_cache.py --uf BR --limit 150     # próximas 150 cidades do país
   python3 scripts/quadras_cache.py --city "Duartina" --uf SP --dry-run
@@ -21,6 +27,10 @@ OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private
             'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter']
 UA = 'ProvedorTycoon-cache/1.0 (github.com/neubeheer/PROVEDOR)'
 M_LAT = 111320.0
+MUNICIPIOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'municipios.json')
+UF_BY_CODE = {'11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO', '21': 'MA', '22': 'PI', '23': 'CE',
+              '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA', '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP',
+              '41': 'PR', '42': 'SC', '43': 'RS', '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'}
 
 
 def m_lon(lat):
@@ -144,7 +154,33 @@ def blocks_for(lat, lon, R, elements):
     return [{'a': round(f['area']), 'p': [[round(lat + y / M_LAT, 6), round(lon + x / kx, 6)] for x, y in simplify_ring(f['pts'], 1.5)]} for f in faces]
 
 
+def km_between(a_lat, a_lon, b_lat, b_lon):
+    """Mesma conta do jogo (kmBetween)."""
+    return math.hypot((a_lon - b_lon) * m_lon((a_lat + b_lat) / 2), (a_lat - b_lat) * M_LAT) / 1000
+
+
 # ----------------------------- fontes -----------------------------
+def municipios_br():
+    """Sede de cada município: data/municipios.json ([código IBGE, nome, lat, lon])."""
+    with open(MUNICIPIOS, encoding='utf-8') as f:
+        return [{'id': c, 'nome': n, 'uf': UF_BY_CODE.get(c[:2], ''), 'lat': lat, 'lon': lon} for c, n, lat, lon in json.load(f)]
+
+
+def fila_regioes(regioes, done, raio, aneis):
+    """Municípios ainda fora do banco a até raio*aneis km de alguma cidade dos jogadores, dos mais perto para os mais longe."""
+    seeds = [(float(r['lat']), float(r['lon'])) for r in regioes if r.get('lat') is not None and r.get('lon') is not None]
+    lim = raio * aneis
+    fila = []
+    for m in municipios_br():
+        if m['id'] in done:
+            continue
+        km = min((km_between(lat, lon, m['lat'], m['lon']) for lat, lon in seeds), default=None)
+        if km is not None and km <= lim:
+            fila.append(dict(m, km=km))
+    fila.sort(key=lambda m: m['km'])
+    return fila
+
+
 def municipios(uf):
     url = f'https://servicodados.ibge.gov.br/api/v1/localidades/estados/{uf}/municipios?orderBy=nome'
     return [{'id': str(m['id']), 'nome': m['nome'], 'uf': uf} for m in http_json(url)]
@@ -216,6 +252,12 @@ class Drive:
             raise RuntimeError(f'não deu para listar o banco: {r}')
         return set(r.get('chaves') or [])
 
+    def regioes(self):
+        r = http_json(self.url + ('&' if '?' in self.url else '?') + 'regioes=1', timeout=120)
+        if not r or not r.get('ok'):
+            raise RuntimeError(f'não deu para ler as regiões: {r}')
+        return r.get('regioes') or []
+
     def put(self, row):
         if self.dry:
             return
@@ -229,6 +271,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--uf', default='SP', help='sigla do estado ou BR para o Brasil inteiro')
     ap.add_argument('--city', help='só uma cidade (nome)')
+    ap.add_argument('--regioes', action='store_true', help='desenha as cidades em volta das cidades dos jogadores')
+    ap.add_argument('--raio', type=float, default=200, help='alcance de uma expansão no jogo, em km (modo regiões)')
+    ap.add_argument('--aneis', type=int, default=2, help='quantas expansões seguidas o robô adianta (modo regiões)')
     ap.add_argument('--limit', type=int, default=0, help='máximo de cidades nesta rodada (0 = todas)')
     ap.add_argument('--sleep', type=float, default=4.0, help='pausa entre cidades, em segundos (respeite o Overpass)')
     ap.add_argument('--refresh', action='store_true', help='refaz cidades já gravadas')
@@ -249,9 +294,49 @@ def main():
         print(len(blocks_for(lat, lon, 4000, els)), 'quadras')
         return
 
-    ufs = UFS if a.uf.upper() == 'BR' else [a.uf.upper()]
     done = set() if a.refresh else sb.existing(a.uf.upper())
     count = 0
+
+    def desenha(m, uf, pop, pos=None):
+        R = 2500 if pop >= 200000 else 3000 if pop >= 30000 else 2000
+        try:
+            try:
+                pos = geocode(m['nome'], uf) or pos
+            except Exception:  # Nominatim fora do ar: usa a sede do data/municipios.json
+                if not pos:
+                    raise
+            if not pos:
+                print(f'[{uf}] {m["nome"]}: não achei no mapa')
+                return
+            els = streets(pos[0], pos[1], R)
+            bl = blocks_for(pos[0], pos[1], R, els)
+            if len(bl) < 6:
+                print(f'[{uf}] {m["nome"]}: só {len(bl)} quadra(s), pulando')
+                return
+            sb.put({'city_key': m['id'], 'name_key': f"{norm_name(m['nome'])}|{uf}", 'name': m['nome'], 'uf': uf,
+                    'lat': pos[0], 'lon': pos[1], 'radius': R, 'faces': bl})
+            print(f'[{uf}] {m["nome"]}: {len(bl)} quadras ({pop:,} hab.)'.replace(',', '.') + (f' · {m["km"]:.0f} km de um jogador' if 'km' in m else ''))
+        except Exception as e:
+            print(f'[{uf}] {m["nome"]}: erro {e}')
+
+    if a.regioes:
+        regioes = sb.regioes() if url else []
+        if not regioes:
+            print('Nenhum jogador registrou cidade ainda (o jogo avisa o banco quando um jogador logado salva).')
+            return
+        fila = fila_regioes(regioes, done, a.raio, a.aneis)
+        print(f'{len(regioes)} cidade(s) de jogadores; {len(fila)} vizinha(s) até {a.raio * a.aneis:.0f} km ainda fora do banco.')
+        if a.limit:
+            fila = fila[:a.limit]
+        pops = populacoes([m['id'] for m in fila])
+        for m in fila:
+            count += 1
+            desenha(m, m['uf'], pops.get(m['id'], 0), (m['lat'], m['lon']))
+            time.sleep(a.sleep)
+        print(f'Pronto: {count} cidade(s) processada(s).')
+        return
+
+    ufs = UFS if a.uf.upper() == 'BR' else [a.uf.upper()]
     for uf in ufs:
         mun = municipios(uf)
         if a.city:
@@ -265,23 +350,7 @@ def main():
                 print(f'Limite de {a.limit} cidades atingido.')
                 return
             count += 1
-            pop = pops.get(m['id'], 0)
-            R = 2500 if pop >= 200000 else 3000 if pop >= 30000 else 2000
-            try:
-                pos = geocode(m['nome'], uf)
-                if not pos:
-                    print(f'[{uf}] {m["nome"]}: não achei no mapa')
-                    continue
-                els = streets(pos[0], pos[1], R)
-                bl = blocks_for(pos[0], pos[1], R, els)
-                if len(bl) < 6:
-                    print(f'[{uf}] {m["nome"]}: só {len(bl)} quadra(s), pulando')
-                    continue
-                sb.put({'city_key': m['id'], 'name_key': f"{norm_name(m['nome'])}|{uf}", 'name': m['nome'], 'uf': uf,
-                        'lat': pos[0], 'lon': pos[1], 'radius': R, 'faces': bl})
-                print(f'[{uf}] {m["nome"]}: {len(bl)} quadras ({pop:,} hab.)'.replace(',', '.'))
-            except Exception as e:
-                print(f'[{uf}] {m["nome"]}: erro {e}')
+            desenha(m, uf, pops.get(m['id'], 0))
             time.sleep(a.sleep)
     print(f'Pronto: {count} cidade(s) processada(s).')
 

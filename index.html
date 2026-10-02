@@ -592,7 +592,7 @@ body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))
 /* ===================== Regras do jogo ===================== */
 const SAVE_KEY='provedor-tycoon-v2';
 const START_MONEY=20000, RANGE=2.6, CAP=64;
-const TOWER_COST=3000, CPE_COST=200, THIRD_COST=120, HIRE_COST=500, NEWCITY_COST=1500, FIBRA_LEVEL=12, EXPAND_LEVEL=4, STORE_LEVEL=8, EXPAND_KM=100;
+const TOWER_COST=3000, CPE_COST=200, THIRD_COST=120, HIRE_COST=500, NEWCITY_COST=1500, FIBRA_LEVEL=12, EXPAND_LEVEL=4, STORE_LEVEL=8, EXPAND_KM=200;
 const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900},{g:1,name:'1 Giga',price:1500},{g:2,name:'2 Gigas',price:2600},{g:5,name:'5 Gigas',price:5500},{g:10,name:'10 Gigas',price:9000},{g:20,name:'20 Gigas',price:16000},{g:40,name:'40 Gigas',price:28000},{g:100,name:'100 Gigas',price:60000}];
 const START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
 const BIG_CITY=50000, REGION_POP=20000;
@@ -656,7 +656,7 @@ const LEVELS=[
   {l:1,items:['Tutorial: CNPJ, outorga, licenciamento, primeira torre e primeiro cliente','Recepção (grátis) e venda porta a porta']},
   {l:2,items:['1º e 2º andar: Call Center e Comercial']},
   {l:3,items:['Bônus de caixa']},
-  {l:4,items:['Técnico e galpão de Logística','Expansão para cidades até 100 km']},
+  {l:4,items:['Técnico e galpão de Logística',`Expansão para cidades até ${EXPAND_KM} km`]},
   {l:5,items:['Bônus de caixa']},
   {l:6,items:['Retenção e RH','Combo internet + TV']},
   {l:7,items:['Bônus de caixa']},
@@ -808,6 +808,18 @@ async function drivePutFaces(c,faces,R){
   const k=cityKeys(c);
   try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({city_key:k.code||k.nk,name_key:k.nk,name:c.name,uf:c.uf||'',lat:c.geo.lat,lon:c.geo.lon,radius:R,faces,token:SB.session.access_token})});}catch(e){}
 }
+/* Avisa o banco de quadras das cidades que o jogador atende: o robô desenha primeiro as cidades até ${EXPAND_KM} km delas. */
+async function driveRegions(){
+  const u=quadrasUrl();if(!u||!S||!sbOn()||!SB.session)return;
+  const todo=S.cities.filter(c=>!c.regiaoOk);if(!todo.length)return;
+  if(SB.session.expires_at*1000<Date.now()+60000)await sbRefresh();if(!SB.session)return;
+  let mun=null;try{mun=await municipiosBR();}catch(e){}
+  for(const c of todo){
+    const m=c.ibgeCode&&mun?mun.get(c.ibgeCode):null,g=m||c.geo||c.hint;if(!g||!c.ibgeCode)continue;
+    try{const r=await fetchJson(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({acao:'regiao',city_key:c.ibgeCode,name:c.name,uf:c.uf||'',lat:g.lat,lon:g.lon,token:SB.session.access_token})},20000);
+      if(r&&r.ok){c.regiaoOk=true;save(false);}}catch(e){}
+  }
+}
 async function connTest(){
   const row=(ok,t,d)=>`<div class="choice"><div><b>${ok===null?'⏳':ok?'✅':'❌'} ${t}</b><small>${d}</small></div></div>`;
   const draw=r=>openModal(head('Conexões','Teste')+`<div class="choice-list">${r.join('')}</div><p class="muted" style="font-size:12.5px">As quadras só vão para o Drive quando um jogador logado abre uma cidade que ainda não está lá.</p>`);
@@ -858,7 +870,7 @@ async function flushCloud(){
   if(!cloud.ref||!cloud.dirty||!S)return;
   if(cloud.busy){clearTimeout(cloud.t);cloud.t=setTimeout(flushCloud,1500);return;}
   cloud.busy=true;cloud.dirty=false;
-  try{await cloud.ref.set({json:JSON.stringify(S),savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';}
+  try{await cloud.ref.set({json:JSON.stringify(S),savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';driveRegions();}
   catch(e){cloud.dirty=true;cloud.status='erro';}
   cloud.busy=false;renderSaveDot();
 }
@@ -2048,7 +2060,7 @@ function openOutorga(ci){
   });
 }
 
-/* ===================== Cidades reais: IBGE e vizinhas até 100 km ===================== */
+/* ===================== Cidades reais: IBGE e vizinhas até EXPAND_KM (200 km) ===================== */
 const IBGE_API='https://servicodados.ibge.gov.br/api';
 const UF_BY_CODE={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'PI',23:'CE',24:'RN',25:'PB',26:'PE',27:'AL',28:'SE',29:'BA',31:'MG',32:'ES',33:'RJ',35:'SP',41:'PR',42:'SC',43:'RS',50:'MS',51:'MT',52:'GO',53:'DF'};
 const MUN_CACHE=new Map();
@@ -2080,18 +2092,25 @@ async function cityPopulation(c){
   if(v){c.pop=v;c.popOk=true;if(!c.outorgaPaid)c.outorga=outorgaFor(v);save(false);renderAll();}
 }
 const kmBetween=(a,b)=>Math.hypot((a.lon-b.lon)*mPerLon((a.lat+b.lat)/2),(a.lat-b.lat)*mPerLat)/1000;
+/* Sede de cada município do Brasil (código IBGE, nome, lat, lon): data/municipios.json, guardado offline. */
+let MUN_BR=null;
+async function municipiosBR(){
+  if(MUN_BR)return MUN_BR;
+  const rows=await fetchJson('data/municipios.json',{},20000);
+  if(!Array.isArray(rows)||!rows.length)throw new Error('sem municípios');
+  MUN_BR=new Map(rows.map(([code,n,lat,lon])=>[code,{code,n,lat,lon,uf:UF_BY_CODE[code.slice(0,2)]||''}]));return MUN_BR;
+}
+/* Cidades até EXPAND_KM da sede desta cidade. A expansão anda em cadeia: cada cidade nova abre mais EXPAND_KM a partir dela. */
 async function loadNear(c){
-  if(c.near&&c.near.list&&c.near.list.length)return c.near.list;
-  const g=c.geo||c.hint;if(!g)throw new Error('sem mapa');
-  const r=await overpass(`[out:json][timeout:90];relation(around:${EXPAND_KM*1000},${g.lat.toFixed(5)},${g.lon.toFixed(5)})[boundary=administrative][admin_level=8][name];out tags center;`,90000);
-  const seen=new Set(),list=[];
-  for(const e of r.elements||[]){if(!e.center||!e.tags)continue;const t=e.tags;const code=(t['IBGE:GEOCODIGO']||t['ref:ibge']||'').replace(/\D/g,'').slice(0,7)||null;
-    const uf=code?UF_BY_CODE[code.slice(0,2)]:(t['is_in:state_code']||c.uf||'');const key=code||normName(t.name)+'|'+uf;if(seen.has(key))continue;seen.add(key);
-    list.push({n:t.name,uf,code,lat:+e.center.lat.toFixed(5),lon:+e.center.lon.toFixed(5),pop:parseInt(String(t.population||'').replace(/\D/g,''))||0,km:Math.round(kmBetween(g,e.center))});}
-  const pops=await ibgePops(list.filter(x=>x.code).map(x=>x.code));
-  for(const x of list)if(x.code&&pops[x.code]){x.pop=pops[x.code];x.ok=1;}
-  const out=list.filter(x=>x.km<=EXPAND_KM).sort((a,b)=>a.km-b.km);
-  c.near={at:Date.now(),list:out};save(false);return out;
+  if(c.near&&c.near.km===EXPAND_KM&&c.near.list&&c.near.list.length)return c.near.list;
+  const mun=await municipiosBR();
+  const g=(c.ibgeCode&&mun.get(c.ibgeCode))||c.geo||c.hint;if(!g)throw new Error('sem mapa');
+  const list=[];
+  for(const m of mun.values()){if(m.code===c.ibgeCode)continue;const km=kmBetween(g,m);if(km<=EXPAND_KM)list.push({n:m.n,uf:m.uf,code:m.code,lat:m.lat,lon:m.lon,pop:0,km:Math.round(km)});}
+  const pops=await ibgePops(list.map(x=>x.code));
+  for(const x of list)if(pops[x.code]){x.pop=pops[x.code];x.ok=1;}
+  const out=list.sort((a,b)=>a.km-b.km);
+  c.near={at:Date.now(),km:EXPAND_KM,list:out};save(false);return out;
 }
 function expandReq(){const n=S.cities.length;return n>=3?1000*(n-2):0;}
 function openNewCity(){
@@ -2113,10 +2132,10 @@ function openNewCity(){
   const load=async m=>{
     all=null;draw(m);
     try{const acc=new Map();
-      for(const c of owned){if(!c.geo&&!c.hint)continue;const l=await loadNear(c);for(const x of l){const k=x.code||normName(x.n)+'|'+x.uf;const prev=acc.get(k);if(!prev||x.km<prev.km)acc.set(k,{...x});}}
+      for(const c of owned){if(!c.ibgeCode&&!c.geo&&!c.hint)continue;const l=await loadNear(c);for(const x of l){const k=x.code||normName(x.n)+'|'+x.uf;const prev=acc.get(k);if(!prev||x.km<prev.km)acc.set(k,{...x});}}
       if(!acc.size)throw new Error('vazio');
       all=[...acc.values()].sort((a,b)=>a.km-b.km);
-    }catch(e){err=navigator.onLine?'Não deu para carregar as cidades vizinhas agora (OpenStreetMap ocupado).':'Sem internet: a lista de cidades vizinhas precisa de conexão na primeira vez.';}
+    }catch(e){err=navigator.onLine?'Não deu para carregar as cidades vizinhas agora.':'Sem internet: a lista de cidades vizinhas precisa de conexão na primeira vez.';}
     if(modalOpen)draw(m);
   };
   const go=x=>{
@@ -2129,7 +2148,7 @@ function openNewCity(){
     if(!x.ok&&x.code)cityPopulation(c);
     openOutorga(S.ci);
   };
-  openModal(head('Expansão',`Cidades até ${EXPAND_KM} km`)+`<p>Cidades de verdade perto das suas. Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga.</p>
+  openModal(head('Expansão',`Cidades até ${EXPAND_KM} km`)+`<p>Cidades de verdade a até ${EXPAND_KM} km de alguma cidade que você já atende. Cada cidade nova abre mais ${EXPAND_KM} km a partir dela. Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga.</p>
     <div class="field"><label for="ncQ">Filtrar pelo nome</label><input class="input" id="ncQ" maxlength="40" placeholder="Ex.: Bauru" autocomplete="off"></div>
     <div class="city-list" id="ncList"></div>
     <div class="foot"><span>Caixa: <b>${brl0(S.money)}</b></span><span class="muted" style="font-size:12.5px">Distância a partir da cidade mais próxima que você já atende.</span></div>`,m=>{

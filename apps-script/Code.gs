@@ -6,7 +6,9 @@
  *
  *   Ler:     GET  .../exec?cidade=3514304            (código IBGE)  ou  ?nome=duartina|SP
  *   Listar:  GET  .../exec?lista=1                    (códigos que já existem; usado pelo robô)
+ *   Regiões: GET  .../exec?regioes=1                  (cidades que os jogadores atendem; o robô desenha as vizinhas)
  *   Gravar:  POST .../exec   corpo JSON (texto)       ver doPost
+ *   Região:  POST .../exec   {"acao":"regiao", ...}    o jogo avisa uma cidade que o jogador atende
  *
  * Quem pode gravar:
  *   - jogador logado no Supabase: só cria cidade nova (não sobrescreve);
@@ -60,16 +62,18 @@ function arquivo_(k) {
   const it = pasta_().getFilesByName(nomeArquivo_(k));
   return it.hasNext() ? it.next() : null;
 }
-function indice_() {
-  const f = arquivo_('_indice');
+function lerJson_(k) {
+  const f = arquivo_(k);
   if (!f) return {};
   try { return JSON.parse(f.getBlob().getDataAsString()); } catch (e) { return {}; }
 }
-function salvarIndice_(idx) {
-  const txt = JSON.stringify(idx);
-  const f = arquivo_('_indice');
-  if (f) f.setContent(txt); else pasta_().createFile(nomeArquivo_('_indice'), txt, 'application/json');
+function salvarJson_(k, obj) {
+  const txt = JSON.stringify(obj);
+  const f = arquivo_(k);
+  if (f) f.setContent(txt); else pasta_().createFile(nomeArquivo_(k), txt, 'application/json');
 }
+function indice_() { return lerJson_('_indice'); }
+function salvarIndice_(idx) { salvarJson_('_indice', idx); }
 function quadrasValidas_(faces) {
   if (!Array.isArray(faces) || faces.length < 6 || faces.length > MAX_QUADRAS) return false;
   for (const q of faces) {
@@ -101,8 +105,12 @@ function doGet(e) {
     if (q.lista) {
       const out = [];
       const it = pasta_().getFiles();
-      while (it.hasNext()) { const n = it.next().getName(); if (n !== '_indice.json') out.push(n.replace(/\.json$/, '')); }
+      while (it.hasNext()) { const n = it.next().getName(); if (n.charAt(0) !== '_') out.push(n.replace(/\.json$/, '')); }
       return json_({ ok: true, chaves: out });
+    }
+    if (q.regioes) {
+      const reg = lerJson_('_regioes');
+      return json_({ ok: true, regioes: Object.keys(reg).map(function (k) { return Object.assign({ codigo: k }, reg[k]); }) });
     }
     let k = chaveOk_(q.cidade) ? q.cidade : null;
     if (!k && chaveOk_(q.nome)) k = indice_()[q.nome] || q.nome;
@@ -117,6 +125,24 @@ function doGet(e) {
   }
 }
 
+/* ---------- regiões dos jogadores ----------
+   corpo: {"acao":"regiao","city_key":"3514502","name":"Duartina","uf":"SP","lat":..,"lon":..,"token":"..."}
+   Guarda em _regioes.json as cidades que algum jogador atende. O robô desenha primeiro as cidades em volta delas. */
+function regiao_(d, lock) {
+  const lat = +d.lat, lon = +d.lon;
+  if (!/^\d{7}$/.test(d.city_key)) return json_({ ok: false, erro: 'use o código IBGE da cidade' });
+  if (!(lat >= -35 && lat <= 6 && lon >= -75 && lon <= -28)) return json_({ ok: false, erro: 'posição fora do Brasil' });
+  lock.waitLock(20000);
+  const reg = lerJson_('_regioes'), prev = reg[d.city_key];
+  reg[d.city_key] = {
+    nome: String(d.name || '').slice(0, 80), uf: String(d.uf || '').slice(0, 2),
+    lat: Math.round(lat * 1e4) / 1e4, lon: Math.round(lon * 1e4) / 1e4,
+    jogadores: ((prev && prev.jogadores) || 0) + 1, desde: (prev && prev.desde) || new Date().toISOString(),
+  };
+  salvarJson_('_regioes', reg);
+  return json_({ ok: true, regiao: d.city_key });
+}
+
 /* ---------- gravação ----------
    corpo: {"city_key":"3514304","name_key":"duartina|SP","name":"Duartina","uf":"SP","lat":..,"lon":..,
            "radius":2000,"faces":[...], "token":"<login do Supabase>" }   ou  "senha":"<SENHA_DO_ROBO>" */
@@ -129,6 +155,7 @@ function doPost(e) {
     const robo = !!d.senha && d.senha === props_().getProperty('SENHA_DO_ROBO');
     if (!robo && !loginSupabaseOk_(d.token)) return json_({ ok: false, erro: 'sem permissão: entre na sua conta' });
     if (!chaveOk_(d.city_key) || (d.name_key && !chaveOk_(d.name_key))) return json_({ ok: false, erro: 'chave da cidade inválida' });
+    if (d.acao === 'regiao') return regiao_(d, lock);
     if (!quadrasValidas_(d.faces)) return json_({ ok: false, erro: 'quadras inválidas' });
 
     lock.waitLock(20000);

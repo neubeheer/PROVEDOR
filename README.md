@@ -19,7 +19,7 @@ Funciona no computador e no celular, salva o progresso no próprio aparelho e co
 | Nível | Libera |
 |---|---|
 | 2 | Call Center e Comercial (1º e 2º andar) |
-| 4 | Técnico, galpão de Logística e expansão para cidades até 100 km |
+| 4 | Técnico, galpão de Logística e expansão para cidades até 200 km |
 | 6 | Retenção, RH e combo internet + TV |
 | 8 | Marketing, Recuperação, loja filial e carreata |
 | 10 | NOC, servidores de cache e combo com telefone |
@@ -31,7 +31,7 @@ Os níveis ímpares dão bônus de caixa. O botão **Ver níveis** mostra a list
 
 ## Expansão para outras cidades
 
-A partir do nível 4, **Expandir para outra cidade** lista as cidades de verdade num raio de 100 km de qualquer cidade que você já atende (municípios do OpenStreetMap, população do Censo 2022 do IBGE). Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga. Não dá para digitar uma cidade inventada.
+A partir do nível 4, **Expandir para outra cidade** lista as cidades de verdade num raio de 200 km de qualquer cidade que você já atende (sedes dos municípios em `data/municipios.json`, população do Censo 2022 do IBGE). A expansão anda em cadeia: cada cidade nova abre mais 200 km a partir dela. Quem começa em Duartina não pega São Paulo (310 km) nem Belo Horizonte de cara; precisa chegar antes a uma cidade a até 200 km delas. Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga. Não dá para digitar uma cidade inventada.
 
 ## Rede, link e tráfego
 
@@ -105,6 +105,9 @@ As quadras de cada cidade ficam como arquivos JSON numa pasta do seu Google Driv
 - O jogo pede as quadras da cidade ao link. Se a cidade já está no Drive, o tabuleiro abre na hora; se não, desenha pelo OpenStreetMap e manda o resultado para o script.
 - Só grava quem está logado: o script confere o login no Supabase antes de salvar, recusa arquivo malformado ou grande demais e não deixa jogador sobrescrever uma cidade que já existe.
 - Cada jogador busca uma cidade uma vez só; depois as quadras ficam no progresso dele.
+- Quando o progresso de um jogador logado vai para a nuvem, o jogo avisa o script das cidades que ele atende (arquivo `_regioes.json` na pasta). O robô usa essa lista para desenhar primeiro as cidades vizinhas.
+
+Depois de mudar o `Code.gs`, publique de novo em **Implantar → Gerenciar implantações → editar → Versão: Nova versão**. Assim o link `/exec` continua o mesmo.
 
 **A senha do robô:** o robô do GitHub não é um jogador e não tem login no Supabase. Para o script saber que é ele, os dois compartilham uma senha: a `SENHA_DO_ROBO`, gerada pela função **configurar** e guardada nas Propriedades do script. O robô manda essa senha junto com as quadras; com ela, o script aceita gravar e também atualizar cidades. Ela nunca vai para o `config.js` nem para o jogo, só para os segredos do GitHub. Se vazar, rode **trocarSenhaDoRobo** no Apps Script e atualize o segredo no GitHub.
 
@@ -114,8 +117,8 @@ O workflow **Banco de quadras (Google Drive)** desenha as quadras de cada munic�
 1. No GitHub: *Settings → Secrets and variables → Actions → New repository secret*. Crie:
    - `QUADRAS_URL`: o link `/exec` do Apps Script;
    - `QUADRAS_SENHA`: a `SENHA_DO_ROBO` que apareceu no registro do Apps Script.
-2. Em **Actions → Banco de quadras (Google Drive) → Run workflow**, escolha o estado (ex.: `SP`) ou `BR` e o limite de cidades.
-3. Ele também roda sozinho todo dia, processando 150 cidades do país que ainda não estão no Drive.
+2. Ele roda sozinho todo dia no modo **regioes**: lê as cidades dos jogadores e desenha até 150 cidades vizinhas que ainda não estão no Drive, das mais perto para as mais longe. Primeiro vêm as que estão a até 200 km (a próxima expansão do jogador), depois as que estão a até 400 km (a expansão seguinte).
+3. Em **Actions → Banco de quadras (Google Drive) → Run workflow** dá para rodar na hora: deixe `regioes` ou escolha um estado (ex.: `SP`) ou `BR`, e o limite de cidades.
 
 O Brasil inteiro tem 5.570 municípios e deve ocupar perto de 1 GB no Drive (a conta grátis tem 15 GB, divididos com Gmail e Fotos). O robô respeita os limites do OpenStreetMap, então completar o país leva algumas semanas de rodadas diárias; rode por estado para adiantar os que você mais usa.
 
@@ -226,6 +229,7 @@ O GPS só funciona em `https://` ou em `localhost`.
 | `manifest.webmanifest` | Nome, cores e ícones para instalar como app |
 | `icons/` | Ícones do app |
 | `data/bairros/` | Bairros oficiais do IBGE por cidade (gerados pelo script) |
+| `data/municipios.json` | Sede de cada município do Brasil (código IBGE, nome, lat, lon), para o raio da expansão e o robô |
 | `scripts/ibge_bairros.py` | Converte a malha de bairros do IBGE para o jogo |
 | `.github/workflows/` | Botão no GitHub que roda o script |
 | `config.js` | Supabase (login e progresso) e link do banco de quadras (opcional) |
