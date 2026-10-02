@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v26`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v27`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Layout pensado para celular deitado; em pé aparece aviso para girar.
 - Visual de jogo (último bloco `<style>` do `index.html`): fundo azul de mar, HUD em pílulas com ícones SVG (`HUD_ICO`), botões com contorno escuro, fonte Lilita One. Inspirado em jogos tycoon de celular.
@@ -17,6 +17,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - Teto de clientes = habitantes: `q.dom` guarda moradores (`POT_PER_HOME` = 2,8 por domicílio); save antigo convertido uma vez (`pot2`). `netSteps` vai até cobrir `cityHomes(c)`. Regiões de outorga convertem de volta para população.
 - Promoções (nível `PROMO_LEVEL` = 100): `S.promo` (oferta de entrada `ENTRY_OFFERS` + `inst`), aplicadas em `chance()` (`promoChance`) e em `activate()` (`applyEntryPromo`, desconto `l.disc` e fidelidade `l.fidUntil`); procura espontânea no fechamento do mês. `S.cpromo` (clube, indica, migra) em `clientCampaignsMonth()`; custo em `promoCost` do relatório.
 - Botão fixo **Expandir** no topo do mapa (`data-act="city"`): a missão de expansão some depois de concluída, então ele é o acesso permanente à Expansão e à nova operação.
+- Filial de área (`openArea`/`buildArea`/`loadArea`, `c.areas`): numa cidade grande as quadras cobrem só o centro (raio de 2,5 km); tocar fora da área abre a filial (R$ 300 mil × `costMul` + R$ 5 mil/mês, até `AREA_MAX`, exige outorga da cidade inteira). Desenha as quadras pelo Overpass num raio `areaR` em volta do ponto (quadras com `q.ar`, sem repetir as que existem), redistribui os moradores com `blockHomes` e amplia `inArea`. O balcão faz `AREA_SALES` tentativas por mês (`areaSales`). Recarregar o mapa mantém as quadras das áreas.
 - `LINKS` acima de 100 Gigas têm `build` (construção única, `S.linkOwned` guarda a maior rota construída). `CITY_LINKS` ganhou DWDM 100/400 e independente 400 no fim da lista (para não mudar os índices de saves).
 - Sedes regionais: `c.hq.floors` (filial convertida por `convertHQ`). `built/team/opsOf/headcount` somam todos os prédios (`allFloors`), exceto dentro de `inB(prédio, fn)` (tela do prédio, `openTeam(id, ci)`, demissões no `monthEnd`), onde valem só os dados daquele prédio. Botões de um prédio regional levam `data-hq`.
 - Nova operação: `openIndep`/`indepConfirm`, liberada com `indepReq()` (5 mil × (1 + operações abertas)). A cidade tem `c.indep` e `c.costMul` (5): multiplica estudo, outorga (inclusive regiões e `cityPopulation`/`geoLoad`) e `netSteps`; só aceita o link `CITY_LINKS` com `indep:true` (R$ 10 mi).
@@ -40,7 +41,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Pendências de configuração (em 2026-10-02)
 - [x] `supabase/schema.sql` rodado: as tabelas `saves` e `presenca` existem (conferido em 2026-10-02).
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
-- [ ] Publicar a v26 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v27 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda). Em 2026-10-02 o link ainda respondia a versão antiga (`?regioes=1` dava erro).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 

@@ -1399,6 +1399,7 @@ function monthEnd(){
   rivalMonth();
   // lojas: atendimento de balcão
   for(const c of S.cities)if(c.store){for(let i=0;i<2;i++)attemptSale(c,'loja');}
+  for(const c of S.cities)for(const a of c.areas||[])areaSales(c,a);
   // servidores de cache e reclamações
   let red=0,servers=0,compl=0;
   for(const sv of SERVERS){
@@ -1415,7 +1416,7 @@ function monthEnd(){
   for(const [cc,u] of cityU)if(u>1)log(`Interligação de ${cc.name} estourada (${Math.round(u*100)}%). Aumente o backbone até a cidade.`);
   const link=linkNow().price+ilinkCost, maint=towersOn*120*(effect('chuva')?2:1)+(effect('raios')?towersOn*400:0), content=tv*COMBOS.tv.unit+fone*COMBOS.fone.unit;
   const fiberMaint=S.cities.reduce((s,c)=>s+(c.fiber&&c.fiber.on?1000+c.fiber.ctos.length*40:0),0);
-  const serverCost=servers*150, storeCost=S.cities.filter(c=>c.store).length*1500+hqCities().length*HQ_MAINT;
+  const serverCost=servers*150, storeCost=S.cities.filter(c=>c.store).length*1500+hqCities().length*HQ_MAINT+S.cities.reduce((t,c)=>t+(c.areas||[]).length,0)*AREA_MAINT;
   let loanPay=0;
   S.loans=S.loans.filter(ln=>{const interest=ln.bal*ln.rate;const pay=Math.min(ln.pmt,ln.bal+interest);ln.bal=Math.max(0,ln.bal+interest-pay);ln.left--;loanPay+=pay;return ln.left>0&&ln.bal>0.5;});
   let coinsNow=0;
@@ -1433,7 +1434,7 @@ function monthEnd(){
   if(util>1){dRep-=Math.min(8,Math.ceil((util-1)*20));log(`Link estourado: o pico de ${gb(peakT)} passou do link de ${linkNow().name}. Internet lenta à noite e clientes reclamando.`);event('Link estourado no pico');}
   const offWithClients=S.cities.reduce((s,c)=>s+c.towers.filter(t=>t.off&&famsOf(c).some(l=>isSub(l)&&l.tid===t.id)).length,0);
   dRep-=offWithClients*2;
-  for(const c of S.cities){if(c.store)dRep+=1;}
+  for(const c of S.cities){if(c.store)dRep+=1;if((c.areas||[]).length)dRep+=1;}
   dRep+=ouvidoriaMonth({clients,sla:clients?Math.min(1,ccCap/clients):1,util,over,compl,m});
   S.rep=clamp(S.rep+dRep,0,100);
   // rotatividade (RH)
@@ -2040,6 +2041,59 @@ function rehomeFamilies(c,blocks){
     if(o.t==='house'&&!o.poly)o.fams=[];}
   return moved;
 }
+/* Filial de área: numa cidade grande, as quadras só cobrem o centro. A filial amplia a área de atuação
+   num raio em volta do ponto escolhido: desenha as quadras pelas ruas, libera torres e CTOs ali e o balcão vende na região.
+   Os moradores da cidade são redistribuídos entre todas as quadras (o teto continua sendo a população). */
+const AREA_COST=300000, AREA_MAINT=5000, AREA_MAX=8, AREA_SALES=20, AREA_BUSY=new Set();
+const areaR=c=>c.pop>200000?1800:1500;
+const areaCost=c=>AREA_COST*(c.costMul||1);
+const areaLimit=c=>clamp(Math.sqrt(c.pop)*25,4000,15000);
+function areaWhy(c,lat,lon){
+  if(!c.geo||!hasBlocks(c))return 'As quadras desta cidade ainda não foram desenhadas.';
+  if(levelOf(S.xp)<STORE_LEVEL)return `Libera no nível ${STORE_LEVEL}.`;
+  if(!c.outorgaPaid)return 'Precisa da outorga da cidade inteira.';
+  if((c.areas||[]).length>=AREA_MAX)return `Limite de ${AREA_MAX} filiais de área por cidade.`;
+  if(Math.hypot((lon-c.geo.lon)*mPerLon(c.geo.lat),(lat-c.geo.lat)*mPerLat)>areaLimit(c))return 'Longe demais do centro: o ponto fica fora do município.';
+  if(inArea(c,geoToGrid(c.geo,lat,lon)))return 'Esse ponto já está dentro da área de atuação.';
+  return null;}
+function openArea(c,lat,lon,name){const why=areaWhy(c,lat,lon),km=(areaR(c)/1000).toFixed(1).replace('.',',');
+  openModal(head('Expansão na cidade','Filial de área')+`<p>Uma filial em <b>${esc(name||'nova região')}</b> amplia a área de atuação de ${esc(c.name)} num raio de ${km} km. As quadras em volta são desenhadas pelas ruas e passam a aceitar torres, caixas de fibra e vendas. O balcão faz até ${AREA_SALES} visitas de venda por mês na região.</p>
+  <div class="notice">Os moradores de ${esc(c.name)} são redistribuídos entre todas as quadras: o teto de clientes continua sendo a população da cidade.</div>
+  ${why?`<div class="notice warn">${why}</div>`:''}
+  <div class="foot"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="areaGo" ${why?'disabled':''}>Abrir · ${brl0(areaCost(c))} + ${brl0(AREA_MAINT)}/mês</button></div>`,m=>{const b=m.querySelector('#areaGo');if(b)b.onclick=()=>buildArea(c,lat,lon,name);});}
+function buildArea(c,lat,lon,name){
+  if(areaWhy(c,lat,lon))return;if(!spend(areaCost(c)))return;
+  c.areas=c.areas||[];const g=geoToGrid(c.geo,lat,lon),r=areaR(c);
+  const a={id:c.areas.reduce((m,x)=>Math.max(m,x.id),0)+1,lat:+lat.toFixed(6),lon:+lon.toFixed(6),r,name:name||'',at:S.day,n:0,gx:+g.x.toFixed(3),gy:+g.y.toFixed(3),rg:+(r/(c.geo.side/9)).toFixed(3)};
+  c.areas.push(a);addXp(150);log(`Filial de área aberta em ${c.name}${a.name?' ('+a.name+')':''} (${brl0(areaCost(c))}).`);event(`Filial de área em ${c.name}`);
+  save(true);closeModal();toast('Filial aberta! Desenhando as quadras da região…');loadArea(c,a);}
+async function loadArea(c,a){
+  if(AREA_BUSY.has(a)||!navigator.onLine||!hasBlocks(c))return;
+  AREA_BUSY.add(a);c.geoStep=`Desenhando as quadras de ${a.name||'nova região'}…`;renderMap();
+  try{
+    const ar=`(around:${a.r},${a.lat.toFixed(6)},${a.lon.toFixed(6)})`;
+    const r=await overpass(`[out:json][timeout:60];(way${ar}[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|pedestrian|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];way${ar}[railway=rail];);out geom;`,60000);
+    if(r.remark&&/error|timed out|timeout/i.test(r.remark))throw new Error(r.remark);
+    const kx=mPerLon(a.lat),kx0=mPerLon(c.geo.lat),cell=80;
+    const faces=streetFaces(r.elements||[],a.lat,a.lon)
+      .filter(f=>f.area>=500&&f.area<=60000&&f.area/(f.per*f.per)>0.018&&Math.hypot(f.cx,f.cy)<=a.r)
+      .sort((p,q)=>Math.hypot(p.cx,p.cy)-Math.hypot(q.cx,q.cy)).slice(0,900);
+    // não repete quadras que já existem (células de 80 m)
+    const cxy=(la,lo)=>[Math.round((lo-c.geo.lon)*kx0/cell),Math.round((la-c.geo.lat)*mPerLat/cell)];
+    const used=new Set();for(const q of c.blocks){const [x,y]=cxy(...qCenter(q));used.add(x+','+y);}
+    const near=(x,y)=>{for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++)if(used.has((x+i)+','+(y+j)))return true;return false;};
+    let id=c.blocks.reduce((m,q)=>Math.max(m,q.id),-1)+1;const add=[];
+    for(const f of faces){const p=simplifyRing(f.pts,1.5).map(([x,y])=>[+(a.lat+y/mPerLat).toFixed(6),+(a.lon+x/kx).toFixed(6)]);const ce=polyCentroid(p),[x,y]=cxy(ce[0],ce[1]);if(near(x,y))continue;used.add(x+','+y);
+      const g=geoToGrid(c.geo,ce[0],ce[1]);add.push({id:id++,t:'house',x:+(g.x-.5).toFixed(4),y:+(g.y-.5).toFixed(4),area:Math.round(f.area),poly:p,dom:0,fams:[],ar:a.id});}
+    if(!add.length){a.n=-1;log(`${c.name}: o OpenStreetMap não tem quadras novas em volta da filial de área.`);toast('Não há quadras novas em volta desse ponto.');save(true);return;}
+    c.blocks.push(...add);blockHomes(c,c.blocks);for(const q of add)q.b=blockBairro(c,q);for(const q of c.blocks)delete q.ib;
+    a.n=add.length;c.blocksAt=Date.now();QV=null;QSig='';
+    log(`${c.name}: filial de área com ${add.length} quadras novas. Os ${cityHomes(c).toLocaleString('pt-BR')} moradores foram redistribuídos.`);toast(`${add.length} quadras novas em ${c.name}.`);save(true);
+  }catch(e){toast('Não deu para desenhar as quadras agora. Tento de novo em 1 minuto.');setTimeout(()=>{if(S&&!a.n)loadArea(c,a);},60000);}
+  finally{AREA_BUSY.delete(a);c.geoStep='';LSig='';renderAll();}
+}
+function areaSales(c,a){if(!(a.n>0)||saleBlock(c))return;const qs=[],fr=[];for(const q of c.blocks){if(q.ar!==a.id)continue;const f=quadraFree(q);if(f>0&&regionOk(c,q)&&sellable(c,q)){qs.push(q);fr.push(f);}}
+  if(!qs.length)return;const pre={qs,fr,tot:fr.reduce((x,y)=>x+y,0)};for(let i=0;i<AREA_SALES&&pre.tot>0;i++)if(attemptSale(c,'loja',false,pre)&&saleBlock(c))break;}
 const BSTAT=new Map();
 const needsBlocks=c=>!!c&&!hasBlocks(c)&&!c.blocksNone;
 function retryBlocks(c,why){const st=BSTAT.get(c)||{n:0};st.n++;st.err=why;const wait=Math.min(60000,4000*Math.pow(2,st.n-1));st.next=Date.now()+wait;clearTimeout(st.t);st.t=setTimeout(()=>{if(S&&needsBlocks(c)&&navigator.onLine)loadBlocks(c);},wait);BSTAT.set(c,st);}
@@ -2070,8 +2124,10 @@ async function loadBlocks(c){
     c.blocksSrc=src;
     blockHomes(c,blocks);
     for(const q of blocks){q.b=blockBairro(c,q);delete q.ib;}
+    const keep=hasBlocks(c)?c.blocks.filter(q=>q.ar):[];if(keep.length)c.blocks=c.blocks.filter(q=>!q.ar);
     const moved=rehomeFamilies(c,blocks);
-    c.blocks=blocks;c.blocksAt=Date.now();delete c.blocksTried;BSTAT.delete(c);QV=null;QSig='';
+    c.blocks=blocks;
+    if(keep.length){let id=blocks.length;for(const q of keep)q.id=id++;c.blocks.push(...keep);blockHomes(c,c.blocks);for(const q of c.blocks)delete q.ib;}c.blocksAt=Date.now();delete c.blocksTried;BSTAT.delete(c);QV=null;QSig='';
     log(`${c.name}: ${blocks.length} quadras ${src==='cache'?'carregadas do banco de quadras (Drive)':'desenhadas pelas ruas do OpenStreetMap'}, ${cityHomes(c).toLocaleString('pt-BR')} moradores${moved?`, ${moved} cliente(s) e pendência(s) mantidos`:''}.`);
     toast(`${blocks.length} quadras reais de ${c.name} no tabuleiro.`);
     save(true);
@@ -3490,7 +3546,7 @@ function ibgeSamples(c){
     if(!pts.length)pts.push(geoToGrid(c.geo,b.c[0],b.c[1]));return {b,pts};});
   SAMPLE_CACHE.set(key,out);return out;
 }
-function inArea(c,gp){const m=hasBlocks(c)?2:0;return gp.x>=-m&&gp.x<=9+m&&gp.y>=-m&&gp.y<=9+m;}
+function inArea(c,gp){const m=hasBlocks(c)?2:0;return (gp.x>=-m&&gp.x<=9+m&&gp.y>=-m&&gp.y<=9+m)||(c.areas||[]).some(a=>a.n>0&&Math.hypot(gp.x-a.gx,gp.y-a.gy)<=a.rg);}
 function coveredAt(c,gx,gy){return c.towers.some(t=>!t.off&&inSector(t,gx,gy));}
 function draftCoverage(c,d){
   const t={gx:d.gx,gy:d.gy,az:d.az,beam:d.beam,range:d.rangeLots};let houses=0,fresh=0;
@@ -3533,7 +3589,7 @@ async function onMapClick(e,qi){
   let place={bairro:'',road:''};try{place=await reversePlace(lat,lng);}catch(err){}
   const ibp=ibgeAt(c,lat,lng);if(ibp)place.bairro=ibp.nome;
   if(!LM.hasLayer(pop))return;
-  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}${qh}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>${inside&&levelOf(S.xp)>=STORE_LEVEL&&!hasStore(c)&&cityLicensed(c)&&S.sede?` <button class="btn small" data-act="storeHere" style="margin-top:8px">Loja aqui · ${brl0(STORE_COST)}</button>`:''}`);
+  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}${qh}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}${!inside&&hasBlocks(c)&&levelOf(S.xp)>=STORE_LEVEL?`<br><button class="btn small signal" data-act="areaHere" data-n="${esc(place.bairro||'')}" style="margin-top:8px">Filial de área aqui · ${brl0(areaCost(c))}</button>`:''}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>${inside&&levelOf(S.xp)>=STORE_LEVEL&&!hasStore(c)&&cityLicensed(c)&&S.sede?` <button class="btn small" data-act="storeHere" style="margin-top:8px">Loja aqui · ${brl0(STORE_COST)}</button>`:''}`);
 }
 function drawSedePick(){
   if(!LM)return;if(sedeMk){sedeMk.remove();sedeMk=null;}
@@ -3670,6 +3726,8 @@ function drawReal(c,fit){
     L.marker([g.lat,g.lon],{icon:mkIcon(towerSvg,34),title:t.ssid}).bindPopup(`<b>Torre ${esc(t.ssid)}</b>${t.place?` · ${esc(t.place)}`:''}<br>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes<br>${t.beam&&t.beam<360?`Setorial ${t.beam}° apontada para ${t.az}° ${compass(t.az)}`:'Omni (360°)'} · alcance ≈ ${(m/1000).toFixed(1).replace('.',',')} km${t.h?`<br>Torre de ${t.h} m em terreno de ${t.m2} m²`:''}`).addTo(LLayers);
   }
   if(S.sede&&S.sede.ci===c.idx){const g=S.sede.lat!=null?{lat:S.sede.lat,lon:S.sede.lon}:lotGeo(c,{x:S.sede.x,y:S.sede.y});L.marker([g.lat,g.lon],{icon:mkIcon(sedeSvg(false),36),title:'Sede: toque para ver o prédio'}).on('click',ev=>{L.DomEvent.stopPropagation(ev);openSede();}).addTo(LLayers);}
+  for(const a of c.areas||[]){L.circle([a.lat,a.lon],{radius:a.r,color:'#e5a21e',weight:2,dashArray:'8 6',fillOpacity:0.03,interactive:false}).addTo(LLayers);
+    L.marker([a.lat,a.lon],{icon:mkIcon(storeSvg,30),title:'Filial de área'}).bindPopup(`<b>Filial de área${a.name?' · '+esc(a.name):''}</b><br>${a.n>0?`${a.n.toLocaleString('pt-BR')} quadras · raio de ${(a.r/1000).toFixed(1).replace('.',',')} km`:AREA_BUSY.has(a)?'Desenhando as quadras…':a.n<0?'Sem quadras novas em volta':'Quadras ainda não desenhadas'}<br>Balcão: até ${AREA_SALES} visitas de venda por mês na região.${a.n?'':`<br><button class="btn small" data-act="areaRetry" data-a="${a.id}" style="margin-top:6px">Desenhar agora</button>`}`).addTo(LLayers);}
   if(c.store){const g=c.store.lat!=null?{lat:c.store.lat,lon:c.store.lon}:lotGeo(c,c.store);L.marker([g.lat,g.lon],{icon:mkIcon(storeSvg,30),title:c.hq?'Sede regional':'Loja filial'}).bindPopup(c.hq?'<b>Sede regional</b><br><button class="btn small" data-panel="building" style="margin-top:6px">Ver prédio</button>':`<b>Loja filial</b>${canHQ(c)?`<br><button class="btn small primary" data-act="hqConvert" data-c="${c.idx}" style="margin-top:6px">Virar sede regional · ${brl0(HQ_COST)}</button>`:''}`).addTo(LLayers);}
   drawSedePick();
   if(fit){const h=c.geo.side/2,dLat=h/mPerLat,dLon=h/mPerLon(c.geo.lat);LM.fitBounds([[c.geo.lat-dLat,c.geo.lon-dLon],[c.geo.lat+dLat,c.geo.lon+dLon]],{padding:[4,4]});}
@@ -3686,6 +3744,8 @@ document.addEventListener('click',e=>{
   if(act==='geoLoad'){geoLoad(c,{rename:c.namesAuto});}
   else if(act==='openQuadra'){LM&&LM.closePopup();const q=quadras(c)[+a.dataset.q];if(q)openQuadra(c,q);}
   else if(act==='newTowerReal'){if(!c.geo)return;setView('real');clearDraft();draft={picking:true};renderReal();renderDraftPanel(c);}
+  else if(act==='areaHere'){if(!lastClick)return;LM.closePopup();openArea(c,lastClick.lat,lastClick.lon,a.dataset.n);}
+  else if(act==='areaRetry'){LM&&LM.closePopup();const ar=(c.areas||[]).find(x=>x.id===+a.dataset.a);if(ar)loadArea(c,ar);}
   else if(act==='storeHere'){if(!lastClick||hasStore(c))return;LM.closePopup();
     if(!spend(STORE_COST))return;let lot=null,bd=1e9;const gp=geoToGrid(c.geo,lastClick.lat,lastClick.lon);for(const l of c.lots){if(l.t==='sede'||l.t==='tower'||l.t==='store')continue;const d=Math.hypot(l.x+.5-gp.x,l.y+.5-gp.y);if(d<bd){bd=d;lot=l;}}
     if(lot){lot.t='store';delete lot.fams;}c.store={x:lot?lot.x:4,y:lot?lot.y:4,lat:lastClick.lat,lon:lastClick.lon};addXp(40);log(`Loja filial aberta em ${c.name}.`);event(`Loja filial em ${c.name}`);checkMissions();save(true);LSig='';renderAll();toast('Loja aberta! Agora dá para fazer carreata.');}
@@ -3738,7 +3798,7 @@ let lastErr='';
 function reportErr(e,where){const msg=(e&&e.message)||String(e);console.error(where,e);if(msg===lastErr)return;lastErr=msg;try{log('Erro no jogo ('+where+'): '+msg);}catch(x){}toast('⚠️ Erro no jogo: '+msg+'. Mande um print para o suporte.');}
 function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL)&&navigator.onLine&&cloud.ref)tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?1000/sp:500);}
 window.addEventListener('error',e=>{if(e&&e.error)reportErr(e.error,'tela');});
-function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
+function autoGeo(){if(!S)return;const c=city();if(c.geo&&hasBlocks(c))for(const a of c.areas||[])if(!a.n&&!AREA_BUSY.has(a))loadArea(c,a);if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
   setTab('map');sbInit();S=null;
   if(!sbOn()){openModal(head('Configuração','Salvamento online desligado',false)+'<p>O jogo salva só na conta. Preencha <code>supabaseUrl</code> e <code>supabaseAnonKey</code> no <code>config.js</code>.</p>');return;}
