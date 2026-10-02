@@ -112,6 +112,25 @@ button.stat:hover{background:#34464e}
 .sede-bar p{margin:0;font-size:14px}
 .sede-actions{display:flex;flex-wrap:wrap;gap:6px}
 .map-wrap{max-width:640px;margin:0 auto}
+.map.svgmode{display:block;padding:0;background:#dfe6dc;background-image:none;overflow:hidden;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.map.svgmode.dragging{cursor:grabbing}
+.map.svgmode svg.qboard{display:block;width:100%;height:100%}
+.qboard .qb{stroke:#fff;stroke-width:1.2;vector-effect:non-scaling-stroke;cursor:pointer;transition:fill .2s}
+.qboard .qb:hover{stroke:#1e2a30;stroke-width:2}
+.qboard .qb.late{stroke:var(--danger);stroke-width:2.6}
+.qboard .qb.cancelReq{stroke:#8a3ffc;stroke-width:2.6}
+.qboard .qb.cpe{stroke:var(--gold);stroke-width:2.6}
+.qboard .qb.sel{stroke:#1e2a30;stroke-width:3}
+.qboard .qn{font-weight:900;fill:#fff;paint-order:stroke;stroke:rgba(8,60,55,.75);stroke-width:3px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.qboard .bl{font-weight:800;fill:#1e2a30;paint-order:stroke;stroke:rgba(255,255,255,.9);stroke-width:4px;text-anchor:middle;pointer-events:none;letter-spacing:.02em}
+.qboard .wedge{pointer-events:none}
+.qboard .mk{cursor:pointer}
+.qzoom{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:5}
+.qzoom button{width:34px;height:34px;border-radius:9px;border:0;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);font-size:18px;font-weight:900;cursor:pointer;color:#1e2a30}
+.qnote{position:absolute;left:8px;right:52px;bottom:8px;z-index:5;background:rgba(255,255,255,.92);border-radius:10px;padding:6px 9px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between;pointer-events:auto}
+.qnote span{color:#4a5a62}
+@media (max-width:560px){.qnote{flex-wrap:nowrap;font-size:11px;padding:4px 6px;right:48px}.qnote .btn{padding:5px 9px;font-size:12px;white-space:nowrap}}
+.pop-q{margin-top:6px;padding:6px 8px;border-radius:8px;background:#eef4ea;font-size:12.5px}
 .map{display:grid;grid-template-columns:repeat(3,1fr) .42fr repeat(3,1fr) .42fr repeat(3,1fr);grid-template-rows:repeat(3,1fr) .42fr repeat(3,1fr) .42fr repeat(3,1fr);gap:3px;aspect-ratio:1;max-width:100%;background:var(--road);padding:6px;border-radius:14px;position:relative;
   background-image:linear-gradient(90deg,transparent calc(50% - 1px),var(--stripe) calc(50% - 1px),var(--stripe) calc(50% + 1px),transparent calc(50% + 1px))}
 .lot{border:0;padding:0;border-radius:5px;background:var(--grass);display:grid;place-items:center;cursor:pointer;position:relative;min-width:0;transition:transform .12s}
@@ -596,7 +615,7 @@ function migrate(st){
   st.partners=st.partners||0;st.kits=st.kits||0;st.servers=st.servers||{};st.fiberTier=st.fiberTier||0;st.migrated=st.migrated||0;st.complaints=st.complaints||0;
   for(const c of st.cities){c.fiber=c.fiber||{on:false,ctos:[]};c.campaigns=c.campaigns||[];if(c.store===undefined)c.store=null;}
   for(const [id,f] of Object.entries(st.floors||{})){if(id==='recepcao')continue;if(f.staff!=null&&!f.team){f.team=id==='callcenter'?{voz:f.staff}:{op:f.staff};delete f.staff;}if(f.built&&!f.team)f.team={};}
-  st.coins=st.coins||0;st.loans=st.loans||[];st.retained=st.retained||0;st.retCap=st.retCap||0;for(const c of st.cities)for(const l of c.lots)for(const f of (l.fams||[]))if((f.st==='client'||f.st==='late'||f.st==='suspended')&&!f.since)f.since=st.day;st.stock=st.stock||0;st.parcelas=st.parcelas||[];st.recovered=st.recovered||0;st.crisis=st.crisis||null;st.cur=Object.assign(newMonth(),st.cur||{});if(!Number.isFinite(st.cur.novos))st.cur.novos=0;for(const h of st.history||[])if(!Number.isFinite(h.novos))h.novos=0;return st;}
+  st.coins=st.coins||0;st.loans=st.loans||[];st.retained=st.retained||0;st.retCap=st.retCap||0;for(const c of st.cities)for(const l of quadras(c))for(const f of (l.fams||[]))if((f.st==='client'||f.st==='late'||f.st==='suspended')&&!f.since)f.since=st.day;st.stock=st.stock||0;st.parcelas=st.parcelas||[];st.recovered=st.recovered||0;st.crisis=st.crisis||null;st.cur=Object.assign(newMonth(),st.cur||{});if(!Number.isFinite(st.cur.novos))st.cur.novos=0;for(const h of st.history||[])if(!Number.isFinite(h.novos))h.novos=0;return st;}
 function newGame(company,cityName,uf){
   S={v:2,company,phase:'sede',money:START_MONEY,xp:0,rep:50,day:1,speed:1,
      docs:{},cities:[makeCity(cityName,uf,0)],ci:0,sede:null,
@@ -718,13 +737,15 @@ const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const cap=()=>built('noc')&&opsOf('noc')>0?Math.round(CAP*1.5):CAP;
 const monthOf=d=>Math.floor((d-1)/30)+1;
 const dayOf=d=>((d-1)%30)+1;
-const bairroOf=l=>Math.floor(l.y/3)*3+Math.floor(l.x/3);
+const bairroOf=l=>l.b!=null?l.b:clamp(Math.floor(l.y/3),0,2)*3+clamp(Math.floor(l.x/3),0,2);
+const hasBlocks=c=>!!(c&&c.blocks&&c.blocks.length);
+function quadras(c){return hasBlocks(c)?c.blocks:c.lots.filter(l=>l.t==='house');}
 function tpos(t){return {x:t.gx!=null?t.gx:t.x+0.5,y:t.gy!=null?t.gy:t.y+0.5};}
 function tRange(t){return t.range||RANGE;}
 function inSector(t,px,py){const p=tpos(t),d=Math.hypot(px-p.x,py-p.y);if(d>tRange(t))return false;if(!t.beam||t.beam>=360||d<0.35)return true;const brg=(Math.atan2(px-p.x,-(py-p.y))*180/Math.PI+360)%360;return Math.abs(((brg-t.az)+540)%360-180)<=t.beam/2;}
 function coverOf(c,lot){let best=null,bd=99;for(const t of c.towers){if(t.off)continue;if(!inSector(t,lot.x+.5,lot.y+.5))continue;const p=tpos(t),d=Math.hypot(lot.x+.5-p.x,lot.y+.5-p.y);if(d<bd){bd=d;best=t;}}return best?{t:best,d:bd,strong:bd<=tRange(best)*0.58}:null;}
 const isSub=l=>l.st==='client'||l.st==='late'||l.st==='suspended'||l.st==='cancelReq';
-function famsOf(c){const out=[];for(const l of c.lots)if(l.t==='house'&&l.fams)for(const f of l.fams)out.push(f);return out;}
+function famsOf(c){const out=[];for(const l of quadras(c))if(l.fams)for(const f of l.fams)out.push(f);return out;}
 function setQuadraHomes(c,homes){
   const hs=c.lots.filter(l=>l.t==='house');if(!hs.length)return;
   const r=rng(hash(c.name.toLowerCase()+'#dom'));const w=hs.map(()=>0.75+r()*0.5);const W=w.reduce((a,b)=>a+b,0);
@@ -733,12 +754,12 @@ function setQuadraHomes(c,homes){
 const famBusy=f=>f.st&&f.st!=='none'||!!f.cpe;
 function quadraFree(l){return Math.max(0,(l.dom||0)-(l.fams||[]).filter(famBusy).length);}
 function quadraSubs(l){return (l.fams||[]).filter(isSub).length;}
-function cityHomes(c){return c.lots.reduce((s,l)=>s+(l.t==='house'?l.dom||0:0),0);}
+function cityHomes(c){return quadras(c).reduce((s,l)=>s+(l.dom||0),0);}
 function knock(c,l){
   if(!quadraFree(l))return null;
   let f=l.fams.find(x=>(!x.st||x.st==='none')&&!x.cpe);if(f)return f;
   const i=l.fams.length;if(i>=l.dom)return null;
-  f={x:l.x,y:l.y,i,fam:makeFam(rng(hash(c.name+':'+l.x+':'+l.y+':'+i))),st:'none'};l.fams.push(f);return f;
+  f={x:l.x,y:l.y,i,fam:makeFam(rng(hash(c.name+':'+(l.id!=null?'q'+l.id:l.x+':'+l.y)+':'+i))),st:'none'};if(l.b!=null)f.b=l.b;l.fams.push(f);return f;
 }
 const pays=l=>l.st==='client'||l.st==='cancelReq';
 function priceNow(l){return l.disc&&monthOf(S.day)<=l.disc.until?Math.round(l.price*(1-l.disc.pct)*100)/100:l.price;}
@@ -959,7 +980,7 @@ function activate(c,lot,deal,ip){
 }
 function attemptSale(c,who){
   if(signupBlock(c))return false;
-  const qs=c.lots.filter(l=>l.t==='house'&&quadraFree(l)>0&&(coverOf(c,l)||fiberAt(c,l)));
+  const qs=quadras(c).filter(l=>quadraFree(l)>0&&(coverOf(c,l)||fiberAt(c,l)));
   if(!qs.length)return false;
   let tot=qs.reduce((s,l)=>s+quadraFree(l),0),rr=Math.random()*tot,q=qs[0];for(const l of qs){rr-=quadraFree(l);if(rr<=0){q=l;break;}}
   const lot=knock(c,q);if(!lot)return false;
@@ -976,7 +997,7 @@ function attemptSale(c,who){
   }
   lot.st='refused';lot.until=S.day+45;return false;
 }
-function vendorAttempt(){const cs=S.cities.filter(c=>!signupBlock(c)&&c.lots.some(l=>l.t==='house'&&quadraFree(l)>0&&(coverOf(c,l)||fiberAt(c,l))));if(cs.length)attemptSale(cs[Math.floor(Math.random()*cs.length)],'vendedor');}
+function vendorAttempt(){const cs=S.cities.filter(c=>!signupBlock(c)&&quadras(c).some(l=>quadraFree(l)>0&&(coverOf(c,l)||fiberAt(c,l))));if(cs.length)attemptSale(cs[Math.floor(Math.random()*cs.length)],'vendedor');}
 function planLabel(planId,combo){const pl=planById(planId);return pl.name+(combo.length?' + '+combo.map(k=>COMBOS[k].short).join(' + '):'');}
 
 /* ===================== Missões ===================== */
@@ -1046,7 +1067,7 @@ function renderTop(){
 }
 function renderMap(){
   const c=city(),sedeMode=S.phase==='sede'&&S.ci===0;
-  const houses=c.lots.filter(l=>l.t==='house');
+  const houses=quadras(c);
   const homesAll=cityHomes(c),covHomes=houses.filter(l=>coverOf(c,l)||fiberAt(c,l)).reduce((s,l)=>s+(l.dom||0),0);
   const cl=cityClients(c);
   const og=c.outorgaPaid?'<span class="chip ok">Outorga paga</span>':`<span class="chip bad">Sem outorga · ${brl0(c.outorga)}</span>`;
@@ -1055,10 +1076,13 @@ function renderMap(){
    <div class="map-meta"><div class="view-toggle" role="group" aria-label="Visão do mapa"><button data-view="grid" aria-pressed="${mapView==='grid'}">Quadras</button><button data-view="real" aria-pressed="${mapView==='real'}">Mapa real</button></div>${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   $('#crisisBar').innerHTML=cr?`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}</div></div>`:'';
-  $('#sedeBar').innerHTML=sedeMode&&mapView==='real'&&c.geo?`<div class="sede-bar"><p><b>Onde fica a sede?</b> ${sedePick?`Local escolhido: <b>${esc(sedePick.name||'buscando o bairro…')}</b>${sedePick.road?` · ${esc(sedePick.road)}`:''}`:'Toque no mapa no ponto exato do prédio.'}</p>
+  $('#sedeBar').innerHTML=sedeMode&&c.geo&&(mapView==='real'||hasBlocks(c))?`<div class="sede-bar"><p><b>Onde fica a sede?</b> ${sedePick?`Local escolhido: <b>${esc(sedePick.name||'buscando o bairro…')}</b>${sedePick.road?` · ${esc(sedePick.road)}`:''}`:(mapView==='real'?'Toque no mapa no ponto exato do prédio.':'Toque na quadra onde fica o prédio.')}</p>
      <div class="sede-actions"><button class="btn small primary" data-act="declareSede" ${sedePick?'':'disabled'}>Declarar sede aqui</button></div></div>`:sedeMode?`<div class="sede-bar"><p><b>Onde fica a sede?</b> Toque num bairro do mapa. Selecionado: <b>${esc(c.bairros[selBairro])}</b></p>
      <div class="sede-actions"><button class="btn small ghost" data-act="bairros">Nomes dos bairros</button><button class="btn small primary" data-act="declareSede">Declarar sede aqui</button></div></div>`:'';
   const overT=new Set(c.towers.filter(t=>towerLoad(c,t)>cap()).map(t=>t.id));
+  const mapEl=$('#map');
+  if(hasBlocks(c)&&c.geo){renderBoard(c,overT,sedeMode);return;}
+  if(mapEl.classList.contains('svgmode')){mapEl.classList.remove('svgmode');QSig='';}
   const lots=c.lots.map((l,i)=>{
     const col=l.x+Math.floor(l.x/3)+1,row=l.y+Math.floor(l.y/3)+1;
     let cls='lot',inner,label;
@@ -1079,6 +1103,162 @@ function renderMap(){
   const labels=c.bairros.map((b,i)=>{const bx=i%3,by=Math.floor(i/3);const col=bx*4+1,row=by*4+1;
     return (sedeMode?`<button class="bzone ${i===selBairro?'sel':''}" style="grid-column:${col} / span 3;grid-row:${row} / span 3" data-bairro="${i}" aria-label="Bairro ${esc(b)}"></button>`:'')+`<span class="blabel" style="grid-column:${col} / span 3;grid-row:${row}">${esc(b)}</span>`;}).join('');
   $('#map').innerHTML=lots+labels;
+}
+
+/* ===================== Quadras reais (desenhadas pelas ruas do OpenStreetMap) ===================== */
+let QSig='',QV=null,QSel=null,blockBusy=new Set();
+const QPROJ=new WeakMap();
+function blockGrid(c,q){let g=QPROJ.get(q);if(g&&g.k===c.geo.loadedAt+':'+c.geo.side)return g;g={k:c.geo.loadedAt+':'+c.geo.side,pts:q.poly.map(([la,lo])=>{const p=geoToGrid(c.geo,la,lo);return [p.x*100,p.y*100];})};g.d='M'+g.pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join('L')+'Z';QPROJ.set(q,g);return g;}
+function boardBounds(c){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const q of c.blocks)for(const [x,y] of blockGrid(c,q).pts){if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y;}const pad=Math.max(x1-x0,y1-y0)*0.04;return {x:x0-pad,y:y0-pad,w:x1-x0+pad*2,h:y1-y0+pad*2};}
+function fitBoard(c){const b=boardBounds(c);const s=Math.max(b.w,b.h);QV={x:b.x+(b.w-s)/2,y:b.y+(b.h-s)/2,w:s,h:s,full:s*1.6,city:c.idx+':'+c.blocksAt};}
+function mixHex(a,b,t){const pa=[1,3,5].map(i=>parseInt(a.slice(i,i+2),16)),pb=[1,3,5].map(i=>parseInt(b.slice(i,i+2),16));return '#'+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,'0')).join('');}
+function quadraLook(c,q,overT){
+  const fs=q.fams||[],subs=fs.filter(isSub),sh=q.dom?subs.length/q.dom:0,cov=coverOf(c,q),fib=fiberAt(c,q);
+  let fill=cov?'#7dcfae':fib?'#cfe7a6':'#a3cf78';
+  if(subs.length){const anyFib=subs.some(f=>f.tech==='fiber');fill=mixHex(cov||fib?'#7dcfae':'#a3cf78',anyFib?'#e5a21e':'#0f9a8d',Math.min(1,.35+sh*1.6));}
+  let cls='qb';if(fs.some(f=>f.st==='late'||f.st==='suspended'))cls+=' late';else if(fs.some(f=>f.st==='cancelReq'))cls+=' cancelReq';else if(fs.some(f=>f.cpe||f.st==='pending'))cls+=' cpe';
+  if(overT&&subs.some(f=>overT.has(f.tid)))fill=mixHex(fill,'#cf3b3b',.35);
+  return {fill,cls,subs,sh,cov,fib};
+}
+function sectorPath(cx,cy,az,beam,r){if(!beam||beam>=360)return `M${cx-r} ${cy}a${r} ${r} 0 1 0 ${2*r} 0a${r} ${r} 0 1 0 ${-2*r} 0Z`;const n=Math.max(8,Math.round(beam/6));let d=`M${cx} ${cy}`;for(let i=0;i<=n;i++){const a=(az-beam/2+beam*i/n)*Math.PI/180;d+=`L${(cx+Math.sin(a)*r).toFixed(1)} ${(cy-Math.cos(a)*r).toFixed(1)}`;}return d+'Z';}
+function renderBoard(c,overT,sedeMode){
+  const el=$('#map');
+  if(!QV||QV.city!==c.idx+':'+c.blocksAt)fitBoard(c);
+  const sig=JSON.stringify([c.idx,c.blocksAt,QV.x|0,QV.y|0,QV.w|0,c.towers.map(t=>[t.id,t.off,t.az,t.beam,overT.has(t.id)]),c.fiber.ctos,famsOf(c).map(f=>f.st[0]+(f.cpe?'c':'')+(f.tech==='fiber'?'f':'')).join(''),S.sede,c.store,c.bairros,sedeMode,sedePick&&[sedePick.lat,sedePick.lon],QSel]);
+  if(sig===QSig&&el.classList.contains('svgmode'))return;QSig=sig;
+  el.classList.add('svgmode');
+  const fs=QV.w/34; // tamanho de texto proporcional ao zoom
+  const qs=c.blocks.map((q,i)=>{const g=blockGrid(c,q),lk=quadraLook(c,q,overT);return `<path class="${lk.cls}${QSel===i?' sel':''}" d="${g.d}" fill="${lk.fill}" data-q="${i}"><title>${esc(c.bairros[bairroOf(q)])}: ${lk.subs.length} de ${q.dom} domicílios</title></path>`;}).join('');
+  const nums=c.blocks.map(q=>{const n=quadraSubs(q);if(!n)return '';return `<text class="qn" x="${((q.x+.5)*100).toFixed(1)}" y="${((q.y+.5)*100).toFixed(1)}" style="font-size:${(fs*.62).toFixed(1)}px">${n}</text>`;}).join('');
+  const lm=c.geo.side/9;
+  const wedges=c.towers.map(t=>{const p=tpos(t),over=overT.has(t.id),col=t.off?'#7a8288':over?'#cf3b3b':'#0f9a8d';return `<path class="wedge" d="${sectorPath(p.x*100,p.y*100,t.az||0,t.beam||360,tRange(t)*100)}" fill="${col}" fill-opacity="${t.off?.04:.12}" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke" ${t.off?'stroke-dasharray="6 6"':''}/>`;}).join('');
+  const r=fs*.55;
+  const towers=c.towers.map(t=>{const p=tpos(t),over=overT.has(t.id),col=t.off?'#7a8288':over?'#cf3b3b':'#0f9a8d';return `<g class="mk" data-tower="${t.id}" transform="translate(${(p.x*100).toFixed(1)} ${(p.y*100).toFixed(1)})"><circle r="${r}" fill="#fff" stroke="${col}" stroke-width="3" vector-effect="non-scaling-stroke"/><path d="M0 ${-r*.6}L${r*.42} ${r*.55}H${-r*.42}Z" fill="${col}"/><title>Torre ${esc(t.ssid)}</title></g>`;}).join('');
+  let marks='';
+  if(S.sede&&S.sede.ci===c.idx){const g=S.sede.lat!=null?geoToGrid(c.geo,S.sede.lat,S.sede.lon):{x:S.sede.x+.5,y:S.sede.y+.5};marks+=`<g class="mk" data-sedemk="1" transform="translate(${(g.x*100).toFixed(1)} ${(g.y*100).toFixed(1)})"><rect x="${-r}" y="${-r}" width="${2*r}" height="${2*r}" rx="${r*.3}" fill="#f6d7bf" stroke="#c4581b" stroke-width="3" vector-effect="non-scaling-stroke"/><text y="${r*.08}" text-anchor="middle" dominant-baseline="central" style="font-size:${(r*1.1).toFixed(1)}px;font-weight:900;fill:#c4581b;pointer-events:none">S</text><title>Sede da ${esc(S.company)}</title></g>`;}
+  if(c.store){const g=c.store.lat!=null?geoToGrid(c.geo,c.store.lat,c.store.lon):{x:c.store.x+.5,y:c.store.y+.5};marks+=`<g class="mk" data-storemk="1" transform="translate(${(g.x*100).toFixed(1)} ${(g.y*100).toFixed(1)})"><rect x="${-r*.85}" y="${-r*.85}" width="${1.7*r}" height="${1.7*r}" rx="${r*.3}" fill="#fbefd0" stroke="#b07a10" stroke-width="3" vector-effect="non-scaling-stroke"/><text y="${r*.08}" text-anchor="middle" dominant-baseline="central" style="font-size:${r.toFixed(1)}px;font-weight:900;fill:#b07a10;pointer-events:none">L</text><title>Loja filial</title></g>`;}
+  if(sedeMode&&sedePick){const g=geoToGrid(c.geo,sedePick.lat,sedePick.lon);marks+=`<circle cx="${(g.x*100).toFixed(1)}" cy="${(g.y*100).toFixed(1)}" r="${r*.9}" fill="#f0661a" stroke="#fff" stroke-width="3" vector-effect="non-scaling-stroke" pointer-events="none"/>`;}
+  // nomes dos bairros no meio das suas quadras
+  const acc=new Map();for(const q of c.blocks){const b=bairroOf(q);const a=acc.get(b)||{x:0,y:0,n:0};a.x+=q.x+.5;a.y+=q.y+.5;a.n++;acc.set(b,a);}
+  const labels=[...acc.entries()].filter(([b,a])=>a.n>=2).map(([b,a])=>`<text class="bl" x="${(a.x/a.n*100).toFixed(1)}" y="${(a.y/a.n*100).toFixed(1)}" style="font-size:${(fs*.62).toFixed(1)}px">${esc(c.bairros[b]||'')}</text>`).join('');
+  el.innerHTML=`<svg class="qboard" viewBox="${QV.x.toFixed(1)} ${QV.y.toFixed(1)} ${QV.w.toFixed(1)} ${QV.h.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Quadras de ${esc(c.name)}">${qs}${wedges}${nums}${labels}${towers}${marks}</svg>
+    <div class="qzoom"><button data-qz="1" aria-label="Aproximar">+</button><button data-qz="-1" aria-label="Afastar">−</button><button data-qz="0" aria-label="Ver a cidade toda" style="font-size:13px">⤢</button></div>
+    <div class="qnote"><span>${c.blocks.length.toLocaleString('pt-BR')} quadras reais, desenhadas pelas ruas. Arraste para mover.</span>${sedeMode?'':`<button class="btn small primary" data-act="newTowerReal">+ Nova torre</button>`}</div>`;
+}
+function boardZoom(f,cx,cy){if(!QV)return;const nw=clamp(QV.w/f,40,QV.full||1e9);if(cx==null){cx=QV.x+QV.w/2;cy=QV.y+QV.h/2;}const k=nw/QV.w;QV.x=cx-(cx-QV.x)*k;QV.y=cy-(cy-QV.y)*k;QV.w=nw;QV.h=nw;renderMap();}
+function svgPoint(svg,clientX,clientY){const r=svg.getBoundingClientRect();const s=Math.min(r.width,r.height);const ox=(r.width-s)/2,oy=(r.height-s)/2;return {x:QV.x+(clientX-r.left-ox)/s*QV.w,y:QV.y+(clientY-r.top-oy)/s*QV.h,scale:QV.w/s};}
+(function boardInput(){
+  const el=document.getElementById('map');if(!el)return;
+  const pts=new Map();let start=null,moved=false,pinch=null;
+  el.addEventListener('pointerdown',e=>{if(!el.classList.contains('svgmode')||e.target.closest('.qzoom,.qnote'))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1){start={x:e.clientX,y:e.clientY,vx:QV.x,vy:QV.y};moved=false;}
+    if(pts.size===2){const [a,b]=[...pts.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),w:QV.w};}
+  });
+  el.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId)||!QV)return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const svg=el.querySelector('svg');if(!svg)return;
+    if(pts.size>=2&&pinch){const [a,b]=[...pts.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);if(d>10){const m=svgPoint(svg,(a.x+b.x)/2,(a.y+b.y)/2);const target=pinch.w*pinch.d/d;boardZoom(QV.w/target,m.x,m.y);}moved=true;return;}
+    if(!start)return;const dx=e.clientX-start.x,dy=e.clientY-start.y;if(!moved&&Math.hypot(dx,dy)<6)return;
+    if(!moved){moved=true;el.classList.add('dragging');try{el.setPointerCapture(e.pointerId);}catch(_){}}
+    const sc=svgPoint(svg,0,0).scale;QV.x=start.vx-dx*sc;QV.y=start.vy-dy*sc;svg.setAttribute('viewBox',`${QV.x.toFixed(1)} ${QV.y.toFixed(1)} ${QV.w.toFixed(1)} ${QV.h.toFixed(1)}`);
+  });
+  const end=e=>{if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);if(pts.size<2)pinch=null;if(!pts.size){el.classList.remove('dragging');if(moved){QSig='';renderMap();}start=null;}};
+  el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
+  el.addEventListener('click',e=>{if(!el.classList.contains('svgmode')||!S)return;
+    if(moved){moved=false;e.stopPropagation();e.preventDefault();return;}
+    const z=e.target.closest('[data-qz]');if(z){const v=+z.dataset.qz;if(v===0){fitBoard(city());renderMap();}else boardZoom(v>0?1.5:1/1.5);e.stopPropagation();return;}
+    const c=city();
+    const tw=e.target.closest('[data-tower]');if(tw){const t=c.towers.find(x=>String(x.id)===tw.dataset.tower);if(t)towerInfo(c,t);e.stopPropagation();return;}
+    if(e.target.closest('[data-sedemk]')){const i=c.lots.findIndex(l=>l.t==='sede');if(i>=0)onLot(i);e.stopPropagation();return;}
+    if(e.target.closest('[data-storemk]')){openStore(c);e.stopPropagation();return;}
+    const qb=e.target.closest('[data-q]');if(!qb)return;e.stopPropagation();
+    const q=c.blocks[+qb.dataset.q];if(!q)return;
+    if(S.phase==='sede'&&c.idx===0){const g=gridToGeo(c.geo,q.x+.5,q.y+.5);const ib=ibgeAt(c,g.lat,g.lon);sedePick={lat:g.lat,lon:g.lon,name:(ib&&ib.nome)||c.bairros[bairroOf(q)],road:''};QSel=+qb.dataset.q;renderMap();return;}
+    openQuadra(c,q);
+  },true);
+  el.addEventListener('wheel',e=>{if(!el.classList.contains('svgmode')||!QV)return;e.preventDefault();const svg=el.querySelector('svg');const m=svgPoint(svg,e.clientX,e.clientY);boardZoom(e.deltaY<0?1.25:1/1.25,m.x,m.y);},{passive:false});
+})();
+
+/* Malha de ruas -> quarteirões: cada face fechada do grafo de ruas é uma quadra */
+function streetFaces(ways,lat0,lon0){
+  const kx=mPerLon(lat0),P=new Map(),adj=new Map();
+  const link=(a,b)=>{if(a===b)return;if(!adj.has(a))adj.set(a,new Set());if(!adj.has(b))adj.set(b,new Set());adj.get(a).add(b);adj.get(b).add(a);};
+  for(const w of ways){if(w.type!=='way'||!w.nodes||!w.geometry||w.nodes.length!==w.geometry.length)continue;
+    for(let i=0;i<w.nodes.length;i++){const id=w.nodes[i],g=w.geometry[i];if(!g)continue;if(!P.has(id))P.set(id,[(g.lon-lon0)*kx,(g.lat-lat0)*mPerLat]);if(i&&w.geometry[i-1])link(w.nodes[i-1],id);}}
+  // tira ruas sem saída (não fecham quadra)
+  const stack=[...adj.keys()].filter(k=>adj.get(k).size<2);
+  while(stack.length){const k=stack.pop(),st=adj.get(k);if(!st||st.size>=2)continue;for(const n of st){const t=adj.get(n);if(t){t.delete(k);if(t.size<2)stack.push(n);}}adj.delete(k);}
+  const ord=new Map();
+  for(const [k,st] of adj){const p=P.get(k);ord.set(k,[...st].map(n=>[n,Math.atan2(P.get(n)[1]-p[1],P.get(n)[0]-p[0])]).sort((a,b)=>a[1]-b[1]).map(x=>x[0]));}
+  const used=new Set(),faces=[];
+  for(const [u,ns] of ord)for(const v0 of ns){
+    if(used.has(u+'>'+v0))continue;
+    const ring=[];let a=u,b=v0,ok=false,steps=0;
+    while(steps++<3000){const key=a+'>'+b;if(used.has(key)){ok=(a===u&&b===v0);break;}used.add(key);ring.push(a);
+      const L2=ord.get(b);const i=L2.indexOf(a);const nx=L2[(i-1+L2.length)%L2.length];a=b;b=nx;}
+    if(!ok||ring.length<3)continue;
+    const pts=ring.map(id=>P.get(id));let A=0,cx=0,cy=0,per=0;
+    for(let i=0;i<pts.length;i++){const [x1,y1]=pts[i],[x2,y2]=pts[(i+1)%pts.length];const cr=x1*y2-x2*y1;A+=cr;cx+=(x1+x2)*cr;cy+=(y1+y2)*cr;per+=Math.hypot(x2-x1,y2-y1);}
+    A/=2;if(A<=0)continue; // face externa (sentido horário)
+    faces.push({pts,area:A,cx:cx/(6*A),cy:cy/(6*A),per});
+  }
+  return faces;
+}
+function simplifyRing(pts,tol){
+  if(pts.length<=4)return pts;
+  const keep=pts.filter((p,i)=>{const a=pts[(i-1+pts.length)%pts.length],b=pts[(i+1)%pts.length];const L=Math.hypot(b[0]-a[0],b[1]-a[1])||1;const d=Math.abs((b[0]-a[0])*(a[1]-p[1])-(a[0]-p[0])*(b[1]-a[1]))/L;return d>tol;});
+  return keep.length>=3?keep:pts;
+}
+function blockHomes(c,blocks){
+  const homes=(c.geo&&c.geo.homes)||Math.round(c.pop/PEOPLE_PER_HOME);
+  const d=c.geo&&c.geo.ibgeCode&&IBGE_CACHE.get(c.geo.ibgeCode);
+  const totalA=blocks.reduce((s,q)=>s+q.area,0)||1;
+  let dens=Math.min(homes/totalA,1/60); // no máximo 1 domicílio a cada 60 m² de quadra
+  const share=new Map();
+  if(d){for(const q of blocks){const g=gridToGeo(c.geo,q.x+.5,q.y+.5);const ib=ibgeAt(c,g.lat,g.lon);q.ib=ib?ib.nome:null;if(ib){const s=share.get(ib)||{a:0,dom:ib.dom||0};s.a+=q.area;share.set(ib,s);}}}
+  for(const q of blocks){
+    let h=q.area*dens;
+    if(d&&q.ib){const ib=d.bairros.find(b=>b.nome===q.ib),s=ib&&share.get(ib);if(s&&s.dom)h=s.dom*q.area/s.a;}
+    q.dom=Math.max((q.fams||[]).length,2,Math.min(600,Math.round(h)));
+  }
+}
+function blockBairro(c,q){
+  const g=gridToGeo(c.geo,q.x+.5,q.y+.5);
+  if(q.ib){const j=c.bairros.findIndex((n,i)=>normName(n)===normName(q.ib)||normName((c.geo.bairros[i]||{}).name)===normName(q.ib));if(j>=0)return j;}
+  let best=0,bd=1e18;(c.geo.bairros||[]).forEach((b,j)=>{const d=Math.hypot((b.lon-g.lon)*mPerLon(g.lat),(b.lat-g.lat)*mPerLat);if(d<bd){bd=d;best=j;}});return best;
+}
+function rehomeFamilies(c,blocks){
+  const old=quadras(c);let moved=0;
+  for(const o of old){for(const f of (o.fams||[])){if(!famBusy(f))continue;
+      const tw=isSub(f)&&f.tech!=='fiber'&&f.tid?c.towers.find(t=>t.id===f.tid):null;
+      const ok=q=>q.fams.length<q.dom&&(tw?inSector(tw,q.x+.5,q.y+.5):isSub(f)&&f.tech==='fiber'?fiberAt(c,q):true);
+      let best=null,bd=1e9,any=null,ad=1e9;for(const q of blocks){const d=Math.hypot(q.x-f.x,q.y-f.y);if(d<ad){ad=d;any=q;}if(d<bd&&ok(q)){bd=d;best=q;}}
+      best=best||any;
+      if(!best)continue;f.x=best.x;f.y=best.y;f.b=best.b;f.i=best.fams.length;best.fams.push(f);if(best.dom<best.fams.length)best.dom=best.fams.length;moved++;}
+    if(o.t==='house'&&!o.poly)o.fams=[];}
+  return moved;
+}
+async function loadBlocks(c){
+  if(!c||!c.geo||blockBusy.has(c)||!navigator.onLine)return;
+  blockBusy.add(c);c.geoStep='Desenhando as quadras pelas ruas…';
+  try{
+    const R=Math.round(clamp(c.geo.side*0.6,2000,c.pop>200000?2500:4000));
+    const ar=`(around:${R},${c.geo.lat.toFixed(6)},${c.geo.lon.toFixed(6)})`;
+    const r=await overpass(`[out:json][timeout:60];(way${ar}[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|pedestrian|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];way${ar}[railway=rail];);out geom;`,60000);
+    const faces=streetFaces(r.elements||[],c.geo.lat,c.geo.lon)
+      .filter(f=>f.area>=500&&f.area<=60000&&f.area/(f.per*f.per)>0.018&&Math.hypot(f.cx,f.cy)<=R*1.05)
+      .sort((a,b)=>Math.hypot(a.cx,a.cy)-Math.hypot(b.cx,b.cy)).slice(0,1500);
+    if(faces.length<6){c.blocksTried=Date.now();return;}
+    const kx=mPerLon(c.geo.lat);
+    const blocks=faces.map((f,i)=>{const la=c.geo.lat+f.cy/mPerLat,lo=c.geo.lon+f.cx/kx;const g=geoToGrid(c.geo,la,lo);
+      return {id:i,t:'house',x:+(g.x-.5).toFixed(4),y:+(g.y-.5).toFixed(4),area:Math.round(f.area),poly:simplifyRing(f.pts,1.5).map(([x,y])=>[+(c.geo.lat+y/mPerLat).toFixed(6),+(c.geo.lon+x/kx).toFixed(6)]),dom:0,fams:[]};});
+    blockHomes(c,blocks);
+    for(const q of blocks){q.b=blockBairro(c,q);delete q.ib;}
+    const moved=rehomeFamilies(c,blocks);
+    c.blocks=blocks;c.blocksAt=Date.now();delete c.blocksTried;QV=null;QSig='';
+    log(`${c.name}: ${blocks.length} quadras desenhadas pelas ruas do OpenStreetMap, ${cityHomes(c).toLocaleString('pt-BR')} domicílios${moved?`, ${moved} cliente(s) e pendência(s) mantidos`:''}.`);
+    toast(`${blocks.length} quadras reais de ${c.name} no tabuleiro.`);
+    save(true);
+  }catch(e){c.blocksTried=Date.now();}
+  finally{blockBusy.delete(c);c.geoStep='';LSig='';QSig='';renderAll();}
 }
 function floorLabel(f){const list=FLOORS.filter(x=>!x.annex);const i=list.indexOf(f);return i===0?'Térreo':`${i}º andar`;}
 function windowsHtml(n){const k=Math.max(6,Math.min(10,n));return `<div class="windows">${Array.from({length:k},(_,i)=>`<span class="win ${i<n?'':'empty'}">${i<n?'<span class="person"></span>':''}</span>`).join('')}${n>10?`<small>+${n-10}</small>`:''}</div>`;}
@@ -1256,7 +1436,7 @@ function openBairros(){
 function declareSede(){
   const c=S.cities[0];
   let lot,pick=null;
-  if(mapView==='real'&&sedePick&&c.geo){
+  if(sedePick&&c.geo){
     pick=sedePick;const gp=geoToGrid(c.geo,pick.lat,pick.lon);
     const gx=clamp(gp.x,0.01,8.99),gy=clamp(gp.y,0.01,8.99);selBairro=Math.floor(gy/3)*3+Math.floor(gx/3);
     if(pick.name&&(c.namesAuto!==false||!(c.geo.bairros[selBairro]||{}).real)){c.bairros[selBairro]=pick.name;if(c.geo.bairros[selBairro])c.geo.bairros[selBairro].name=pick.name;}
@@ -1267,7 +1447,7 @@ function declareSede(){
     lot=inB.find(l=>l.t==='empty'&&!l.tree)||inB.find(l=>l.t==='empty')||inB[4];
   }
   lot.t='sede';delete lot.fam;delete lot.st;delete lot.fams;delete lot.dom;
-  S.sede={ci:0,b:selBairro,x:lot.x,y:lot.y};if(pick){S.sede.lat=pick.lat;S.sede.lon=pick.lon;S.sede.addr=pick.road||'';}sedePick=null;
+  S.sede={ci:0,b:selBairro,x:lot.x,y:lot.y};if(pick){S.sede.lat=pick.lat;S.sede.lon=pick.lon;S.sede.addr=pick.road||'';if(hasBlocks(c)){let bq=null,bd=1e9;const gp=geoToGrid(c.geo,pick.lat,pick.lon);for(const q of c.blocks){const d=Math.hypot(q.x+.5-gp.x,q.y+.5-gp.y);if(d<bd){bd=d;bq=q;}}if(bq){S.sede.b=selBairro=bq.b;}}}sedePick=null;QSel=null;
   S.phase='play';
   log(`Sede declarada no bairro ${c.bairros[selBairro]}. Recepção aberta!`);event(`Sede aberta no bairro ${c.bairros[selBairro]}`);
   checkMissions();save(true);renderAll();
@@ -1345,7 +1525,7 @@ function blockNotice(c,why){
 function towerOffer(c,lot,onRoof){
   const why=signupBlock(c);
   if(why){openModal(head(onRoof?'Sede':'Terreno vazio','Ainda não dá para subir torre')+blockNotice(c,why));return;}
-  const covQ=c.lots.filter(l=>l.t==='house'&&dist(l,lot)<=RANGE),covHouses=`${covQ.length} quadras, ≈ ${covQ.reduce((s,l)=>s+(l.dom||0),0).toLocaleString('pt-BR')} domicílios`;
+  const covQ=quadras(c).filter(l=>dist(l,lot)<=RANGE),covHouses=`${covQ.length} quadras, ≈ ${covQ.reduce((s,l)=>s+(l.dom||0),0).toLocaleString('pt-BR')} domicílios`;
   openModal(head(onRoof?'Sede':'Terreno vazio',onRoof?'Torre no topo do prédio?':'Instalar uma torre aqui?')+`<p>Uma torre com rádio setorial cobre cerca de 2 quadras e atende até ${cap()} clientes.</p>
     <div class="notice ok">Este ponto alcança <b>${covHouses}</b>.</div>
     <p class="muted">${S.kits?`Reinstalar torre desmontada do galpão: ${brl0(KIT_COST)}`:`Torre e rádio: ${brl0(TOWER_COST)}`}, cobrado só se a configuração der certo. Manutenção: R$ 120/mês.</p>
@@ -1474,7 +1654,7 @@ function openFiber(){
   const c=city(),lvl=levelOf(S.xp);
   if(lvl<FIBRA_LEVEL){toast(`A fibra libera no nível ${FIBRA_LEVEL}.`);return;}
   const tier=FIBER_TIERS[S.fiberTier],next=FIBER_TIERS[S.fiberTier+1];
-  const bairros=c.bairros.map((b,i)=>{const lots=c.lots.filter(l=>bairroOf(l)===i),houses=lots.reduce((s,l)=>s+(l.t==='house'?l.dom||0:0),0),fl=lots.flatMap(l=>l.fams||[]),radio=fl.filter(l=>isSub(l)&&l.tech!=='fiber').length,fib=fl.filter(l=>isSub(l)&&l.tech==='fiber').length,has=c.fiber.ctos.includes(i);
+  const bairros=c.bairros.map((b,i)=>{const lots=quadras(c).filter(l=>bairroOf(l)===i),houses=lots.reduce((s,l)=>s+(l.dom||0),0),fl=lots.flatMap(l=>l.fams||[]),radio=fl.filter(l=>isSub(l)&&l.tech!=='fiber').length,fib=fl.filter(l=>isSub(l)&&l.tech==='fiber').length,has=c.fiber.ctos.includes(i);
     return `<div class="tile ${has?'on':''}"><b>${esc(b)}</b><small>${houses.toLocaleString('pt-BR')} domicílios · ${radio} no rádio · ${fib} na fibra</small>${has?'<span class="chip ok" style="align-self:flex-start">CTO instalada</span>':`<button class="btn small" data-cto="${i}" ${c.fiber.on?'':'disabled'} style="align-self:flex-start">Caixa CTO · ${brl0(CTO_COST)}</button>`}</div>`;}).join('');
   openModal(head('Rede de fibra',esc(c.name))+`
     ${!c.outorgaPaid?'<div class="notice bad">Compre a outorga desta cidade primeiro.</div>':''}
@@ -1857,7 +2037,7 @@ document.addEventListener('click',e=>{
   else if(act==='goBuilding'){if(modalOpen)closeModal();setTab('building');$('#building').scrollIntoView({behavior:'smooth',block:'start'});}
   else if(act==='build'){const f=FLOORS.find(x=>x.id===a.dataset.f);if(built(f.id))return;if(!spend(f.cost))return;S.floors[f.id]={built:true,team:{}};addXp(30);log(`Andar ${f.name} comprado.`);event(`${f.name} montado`);checkMissions();save(true);renderAll();toast(`${f.name} pronto! Toque em Equipe para contratar.`);}
 });
-document.addEventListener('change',e=>{if(e.target.id==='citySel'&&S){S.ci=+e.target.value;clearDraft&&clearDraft();LSig='';save(false);renderAll();autoGeo();}});
+document.addEventListener('change',e=>{if(e.target.id==='citySel'&&S){S.ci=+e.target.value;clearDraft&&clearDraft();LSig='';QSig='';QV=null;save(false);renderAll();autoGeo();}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen&&$('#modal').querySelector('.x'))closeModal();});
 
 
@@ -1870,7 +2050,7 @@ const TOWER_SIZES=[{m2:150,h:18,km:0.8},{m2:300,h:30,km:1.3},{m2:600,h:45,km:2.0
 const BEAMS=[60,90,120];
 const COMPASS=['N','NE','L','SE','S','SO','O','NO'];
 let mapView=(()=>{try{return localStorage.getItem('pt-view')||'real';}catch(e){return 'real';}})();
-let LM=null,LLayers=null,LDraft=null,LSig='',meMarker=null,geoBusy=new Set(),draft=null,sedePick=null,sedeMk=null,lastClick=null,bldTimer=null;
+let QREND=null,LM=null,LLayers=null,LDraft=null,LSig='',meMarker=null,geoBusy=new Set(),draft=null,sedePick=null,sedeMk=null,lastClick=null,bldTimer=null;
 async function fetchJson(url,opts={},ms=25000){
   const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
   try{const r=await fetch(url,{...opts,signal:ac.signal,headers:{'Accept':'application/json',...(opts.headers||{})}});if(!r.ok)throw new Error('http '+r.status);return await r.json();}
@@ -1897,7 +2077,7 @@ async function geocodeCity(name,uf){
   const a=good.address||{};
   return {lat:+good.lat,lon:+good.lon,osmType:good.osm_type,osmId:good.osm_id,pop:parseInt(((good.extratags||{}).population||'').replace(/\D/g,''))||0,name:a.city||a.town||a.village||a.municipality||good.name,uf:ufFrom(a)};
 }
-async function overpass(q){let last;for(const url of OVERPASS){try{return await fetchJson(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},30000);}catch(e){last=e;}}throw last;}
+async function overpass(q,ms){let last;for(const url of OVERPASS){try{return await fetchJson(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},ms||30000);}catch(e){last=e;}}throw last;}
 async function fetchBairros(g){
   const filt='[place~"^(suburb|neighbourhood|quarter)$"][name];out body 300;';
   const q=g.osmType==='relation'?`[out:json][timeout:25];area(${3600000000+Number(g.osmId)})->.a;node(area.a)${filt}`:`[out:json][timeout:25];node(around:7000,${g.lat},${g.lon})${filt}`;
@@ -1931,7 +2111,7 @@ function buildGeo(c,g,raw,fix){
   for(let j=0;j<9;j++)if(!slots[j]){const gg=gridToGeo(geo,(j%3)*3+1.5,Math.floor(j/3)*3+1.5);slots[j]={name:c.bairros[j],lat:gg.lat,lon:gg.lon,real:false};}
   geo.bairros=slots;geo.loadedAt=Date.now();return geo;
 }
-const homesPerLot=c=>cityHomes(c)/Math.max(1,c.lots.filter(l=>l.t==='house').length);
+const homesPerLot=c=>cityHomes(c)/Math.max(1,quadras(c).length);
 function landPrice(c,lat,lon){const d=Math.hypot((lon-c.geo.lon)*mPerLon(c.geo.lat),(lat-c.geo.lat)*mPerLat);return Math.round(6+19*Math.max(0,1-d/(c.geo.side*0.62)));}
 const normName=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/['\-]/g,' ').replace(/\s+/g,' ').trim();
 let ibgeIndex=null;const IBGE_CACHE=new Map();
@@ -2019,6 +2199,7 @@ async function geoLoad(c,opts={}){
     log(`Mapa real de ${c.name}: ${src}, ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
     toast(`Mapa de ${c.name} carregado: ${src}.`);
     save(true);
+    setTimeout(()=>loadBlocks(c),50);
   }catch(e){c.geoError='fail';}
   finally{geoBusy.delete(c);c.geoStep='';LSig='';renderAll();}
 }
@@ -2038,16 +2219,19 @@ function ibgeSamples(c){
     if(!pts.length)pts.push(geoToGrid(c.geo,b.c[0],b.c[1]));return {b,pts};});
   SAMPLE_CACHE.set(key,out);return out;
 }
+function inArea(c,gp){const m=hasBlocks(c)?2:0;return gp.x>=-m&&gp.x<=9+m&&gp.y>=-m&&gp.y<=9+m;}
 function coveredAt(c,gx,gy){return c.towers.some(t=>!t.off&&inSector(t,gx,gy));}
 function draftCoverage(c,d){
   const t={gx:d.gx,gy:d.gy,az:d.az,beam:d.beam,range:d.rangeLots};let houses=0,fresh=0;
+  if(hasBlocks(c)){let homes=0,fh=0;const parts=new Map();for(const q of c.blocks){if(!inSector(t,q.x+.5,q.y+.5))continue;houses++;homes+=q.dom||0;const nm=c.bairros[bairroOf(q)];parts.set(nm,(parts.get(nm)||0)+(q.dom||0));if(!coverOf(c,q)){fresh++;fh+=q.dom||0;}}
+    return {houses,fresh,homes,freshHomes:fh,parts:[...parts.entries()].sort((a,b)=>b[1]-a[1])};}
   let qH=0,qF=0;for(const l of c.lots){if(l.t!=='house')continue;if(!inSector(t,l.x+.5,l.y+.5))continue;houses++;qH+=l.dom||0;if(!coverOf(c,l)){fresh++;qF+=l.dom||0;}}
   const sm=ibgeSamples(c);
   if(sm){let homes=0,freshHomes=0,parts=[];for(const {b,pts} of sm){let a=0,f=0;for(const p of pts)if(inSector(t,p.x,p.y)){a++;if(!coveredAt(c,p.x,p.y))f++;}if(a){const h=(b.dom||0)*a/pts.length;homes+=h;freshHomes+=(b.dom||0)*f/pts.length;parts.push([b.nome,Math.round(h)]);}}
     return {houses,fresh,homes:Math.round(homes),freshHomes:Math.round(freshHomes),parts:parts.sort((a,b)=>b[1]-a[1])};}
   return {houses,fresh,homes:qH,freshHomes:qF};
 }
-function bestAzimuth(c,d){let best=d.az,bv=-1;for(let a=0;a<360;a+=10){const r=draftCoverage(c,{...d,az:a});if(r.fresh>bv){bv=r.fresh;best=a;}}return best;}
+function bestAzimuth(c,d){let best=d.az,bv=-1;for(let a=0;a<360;a+=10){const r=draftCoverage(c,{...d,az:a});const v=r.freshHomes!=null?r.freshHomes:r.fresh;if(v>bv){bv=v;best=a;}}return best;}
 function mkIcon(svg,size){return L.divIcon({className:'mk',html:svg,iconSize:[size,size],iconAnchor:[size/2,size*0.9]});}
 function initLeaflet(){
   if(LM||!window.L)return;
@@ -2056,7 +2240,8 @@ function initLeaflet(){
   LLayers=L.layerGroup().addTo(LM);LDraft=L.layerGroup().addTo(LM);
   LM.on('click',onMapClick);
 }
-async function onMapClick(e){
+function quadraPopHtml(c,i){const q=c.blocks&&c.blocks[i];if(!q)return '';const lk=quadraLook(c,q,null);return `<div class="pop-q"><b>Quadra</b> · ${(q.dom||0).toLocaleString('pt-BR')} domicílios · ${lk.subs.length} cliente(s) (${Math.round(lk.sh*100)}%) · ${lk.cov?'com sinal':lk.fib?'com fibra':'sem sinal'}<br><button class="btn small" data-act="openQuadra" data-q="${i}" style="margin-top:6px">Abrir quadra</button></div>`;}
+async function onMapClick(e,qi){
   const c=city();if(!c.geo)return;
   const {lat,lng}=e.latlng;
   if(S.phase==='sede'&&c.idx===0){
@@ -2066,12 +2251,13 @@ async function onMapClick(e){
   }
   if(draft&&draft.picking){setDraftAt(c,lat,lng);return;}
   lastClick={lat,lon:lng};
-  const gp=geoToGrid(c.geo,lat,lng),inside=gp.x>=0&&gp.x<=9&&gp.y>=0&&gp.y<=9,price=landPrice(c,lat,lng);
-  const pop=L.popup({maxWidth:260}).setLatLng(e.latlng).setContent(`<b>Buscando o bairro…</b><br>Terreno ≈ ${brl0(price)}/m²`).openOn(LM);
+  const gp=geoToGrid(c.geo,lat,lng),inside=inArea(c,gp),price=landPrice(c,lat,lng);
+  const qh=qi!=null?quadraPopHtml(c,qi):'';
+  const pop=L.popup({maxWidth:280}).setLatLng(e.latlng).setContent(`<b>Buscando o bairro…</b><br>Terreno ≈ ${brl0(price)}/m²${qh}`).openOn(LM);
   let place={bairro:'',road:''};try{place=await reversePlace(lat,lng);}catch(err){}
   const ibp=ibgeAt(c,lat,lng);if(ibp)place.bairro=ibp.nome;
   if(!LM.hasLayer(pop))return;
-  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>`);
+  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}${qh}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>${inside&&levelOf(S.xp)>=4&&!hasStore(c)&&c.outorgaPaid&&S.sede?` <button class="btn small" data-act="storeHere" style="margin-top:8px">Loja aqui · ${brl0(STORE_COST)}</button>`:''}`);
 }
 function drawSedePick(){
   if(!LM)return;if(sedeMk){sedeMk.remove();sedeMk=null;}
@@ -2079,7 +2265,7 @@ function drawSedePick(){
 }
 async function setDraftAt(c,lat,lon,keepAz){
   const gp=geoToGrid(c.geo,lat,lon);
-  if(gp.x<0||gp.x>9||gp.y<0||gp.y>9){toast('Esse ponto fica fora da área de atuação desta cidade.');return;}
+  if(!inArea(c,gp)){toast('Esse ponto fica fora da área de atuação desta cidade.');return;}
   const size=draft&&draft.sizeIdx!=null?draft.sizeIdx:0,beam=draft&&draft.beam||90;
   draft={lat,lon,gx:gp.x,gy:gp.y,sizeIdx:size,beam,az:draft&&draft.az!=null?draft.az:0,place:'',road:'',picking:false,blds:null};
   applyDraftSize(c);if(!keepAz)draft.az=bestAzimuth(c,draft);drawDraft(c);renderDraftPanel(c);
@@ -2142,7 +2328,7 @@ function renderReal(){
   if(!window.L){tools.innerHTML='<div class="real-empty"><b>Carregando o mapa…</b></div>';setTimeout(renderReal,400);return;}
   initLeaflet();LM.invalidateSize(false);
   if(LM.getSize().x===0){LSig='';return;}
-  const sig=JSON.stringify([c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,famsOf(c).map(f=>f.st[0]+(f.tid||'')).join(''),c.lots.map(l=>l.t[0]).join(''),S.phase]);
+  const sig=JSON.stringify([c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,famsOf(c).map(f=>f.st[0]+(f.tid||'')).join(''),c.lots.map(l=>l.t[0]).join(''),S.phase,c.blocksAt||0]);
   if(sig!==LSig){const first=!LSig||!LSig.startsWith('['+c.idx+','+c.geo.loadedAt);LSig=sig;drawReal(c,first);}
   if(!$('#draftPanel')||tools.dataset.phase!==S.phase){
     tools.dataset.phase=S.phase;
@@ -2163,7 +2349,7 @@ function drawReal(c,fit){
     const sm=ibgeSamples(c)||[];const many=ibd.bairros.length>25;
     ibd.bairros.forEach((b,i)=>{
       const smp=sm[i]?sm[i].pts:[];const cf=smp.length?smp.filter(p=>coveredAt(c,p.x,p.y)).length/smp.length:0;
-      const lyr=L.polygon(b.rings,{color:cf>0?'#0f9a8d':'#3b4a52',weight:1.5,fillColor:cf>0?'#7dcfae':'#a3cf78',fillOpacity:.12+cf*.25});
+      const lyr=L.polygon(b.rings,{color:cf>0?'#0f9a8d':'#3b4a52',weight:1.5,fillColor:cf>0?'#7dcfae':'#a3cf78',fillOpacity:hasBlocks(c)?.04:.12+cf*.25,interactive:!hasBlocks(c)});
       lyr.bindTooltip(esc(b.nome),{permanent:!many||i<15,direction:'center',className:'bairro-tip'});
       lyr.addTo(LLayers);
     });
@@ -2174,12 +2360,20 @@ function drawReal(c,fit){
     L.circleMarker([b.lat,b.lon],{radius:4,color:fib?'#f0a81a':'#1e2a30',weight:2,fillColor:'#fff',fillOpacity:1,interactive:false})
       .bindTooltip(`${esc(c.bairros[j])}`,{permanent:true,direction:'top',offset:[0,-6],className:'bairro-tip'}).addTo(LLayers);
   });
-  // quadras do jogo: tamanho e cor pela participação
-  for(const l of c.lots){
+  // quadras reais: polígono de cada quarteirão
+  if(hasBlocks(c)){
+    const overT=new Set(c.towers.filter(t=>towerLoad(c,t)>cap()).map(t=>t.id));
+    if(!QREND)QREND=L.canvas({padding:.3});
+    c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT);const st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
+      L.polygon(q.poly,{renderer:QREND,color:st,weight:st==='#ffffff'?1:2.5,fillColor:lk.fill,fillOpacity:lk.subs.length?.85:.55})
+      .on('click',ev=>{L.DomEvent.stopPropagation(ev);onMapClick(ev,i);}).addTo(LLayers);});
+  }
+  // quadras do jogo (sem malha de ruas): tamanho e cor pela participação
+  if(!hasBlocks(c))for(const l of c.lots){
     if(l.t!=='house')continue;const hr=rng(hash(c.name+':'+l.x+':'+l.y)),g=gridToGeo(c.geo,l.x+0.5+(hr()-.5)*.6,l.y+0.5+(hr()-.5)*.6);
     const fs=l.fams||[],subs=fs.filter(isSub),sh=l.dom?subs.length/l.dom:0,cov=coverOf(c,l)||fiberAt(c,l),late=fs.some(f=>f.st==='late'||f.st==='suspended');
     L.circleMarker([g.lat,g.lon],{radius:4+Math.round(sh*9),color:'#fff',weight:1.5,fillColor:late?'#cf3b3b':subs.some(f=>f.tech==='fiber')?'#e5a21e':subs.length?'#0f9a8d':cov?'#7dcfae':'#9aa59a',fillOpacity:subs.length?1:.8})
-      .on('click',ev=>{if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev);return;}L.popup().setLatLng(ev.latlng).setContent(`<b>Quadra em ${esc(c.bairros[bairroOf(l)])}</b><br>${(l.dom||0).toLocaleString('pt-BR')} domicílios · ${subs.length} cliente(s) (${Math.round(sh*100)}%)<br>${cov?'Com sinal':'Sem sinal'}<br><button class="btn small primary" data-act="openQuadra" data-q="${c.lots.indexOf(l)}" style="margin-top:6px">Abrir quadra</button>`).openOn(LM);}).addTo(LLayers);
+      .on('click',ev=>{if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev);return;}L.popup().setLatLng(ev.latlng).setContent(`<b>Quadra em ${esc(c.bairros[bairroOf(l)])}</b><br>${(l.dom||0).toLocaleString('pt-BR')} domicílios · ${subs.length} cliente(s) (${Math.round(sh*100)}%)<br>${cov?'Com sinal':'Sem sinal'}<br><button class="btn small primary" data-act="openQuadra" data-q="${quadras(c).indexOf(l)}" style="margin-top:6px">Abrir quadra</button>`).openOn(LM);}).addTo(LLayers);
   }
   // torres com leque
   for(const t of c.towers){
@@ -2189,7 +2383,7 @@ function drawReal(c,fit){
     L.marker([g.lat,g.lon],{icon:mkIcon(towerSvg,34),title:t.ssid}).bindPopup(`<b>Torre ${esc(t.ssid)}</b>${t.place?` · ${esc(t.place)}`:''}<br>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes<br>${t.beam&&t.beam<360?`Setorial ${t.beam}° apontada para ${t.az}° ${compass(t.az)}`:'Omni (360°)'} · alcance ≈ ${(m/1000).toFixed(1).replace('.',',')} km${t.h?`<br>Torre de ${t.h} m em terreno de ${t.m2} m²`:''}`).addTo(LLayers);
   }
   if(S.sede&&S.sede.ci===c.idx){const g=S.sede.lat!=null?{lat:S.sede.lat,lon:S.sede.lon}:lotGeo(c,{x:S.sede.x,y:S.sede.y});L.marker([g.lat,g.lon],{icon:mkIcon(sedeSvg(false),36),title:'Sede'}).bindPopup(`<b>Sede da ${esc(S.company)}</b><br>${esc(c.bairros[S.sede.b])}${S.sede.addr?' · '+esc(S.sede.addr):''}`).addTo(LLayers);}
-  if(c.store){const g=lotGeo(c,c.store);L.marker([g.lat,g.lon],{icon:mkIcon(storeSvg,30),title:'Loja filial'}).bindPopup('<b>Loja filial</b>').addTo(LLayers);}
+  if(c.store){const g=c.store.lat!=null?{lat:c.store.lat,lon:c.store.lon}:lotGeo(c,c.store);L.marker([g.lat,g.lon],{icon:mkIcon(storeSvg,30),title:'Loja filial'}).bindPopup('<b>Loja filial</b>').addTo(LLayers);}
   drawSedePick();
   if(fit){const h=c.geo.side/2,dLat=h/mPerLat,dLon=h/mPerLon(c.geo.lat);LM.fitBounds([[c.geo.lat-dLat,c.geo.lon-dLon],[c.geo.lat+dLat,c.geo.lon+dLon]],{padding:[4,4]});}
   if(draft)drawDraft(c);
@@ -2201,7 +2395,11 @@ document.addEventListener('click',e=>{
   const a=e.target.closest('[data-act]');if(!a)return;
   const act=a.dataset.act;
   if(act==='geoLoad'){geoLoad(c,{rename:c.namesAuto});}
-  else if(act==='openQuadra'){LM&&LM.closePopup();openQuadra(c,c.lots[+a.dataset.q]);}
+  else if(act==='openQuadra'){LM&&LM.closePopup();const q=quadras(c)[+a.dataset.q];if(q)openQuadra(c,q);}
+  else if(act==='newTowerReal'){if(!c.geo)return;setView('real');clearDraft();draft={picking:true};renderReal();renderDraftPanel(c);}
+  else if(act==='storeHere'){if(!lastClick||hasStore(c))return;LM.closePopup();
+    if(!spend(STORE_COST))return;let lot=null,bd=1e9;const gp=geoToGrid(c.geo,lastClick.lat,lastClick.lon);for(const l of c.lots){if(l.t==='sede'||l.t==='tower'||l.t==='store')continue;const d=Math.hypot(l.x+.5-gp.x,l.y+.5-gp.y);if(d<bd){bd=d;lot=l;}}
+    if(lot){lot.t='store';delete lot.fams;}c.store={x:lot?lot.x:4,y:lot?lot.y:4,lat:lastClick.lat,lon:lastClick.lon};addXp(40);log(`Loja filial aberta em ${c.name}.`);event(`Loja filial em ${c.name}`);checkMissions();save(true);LSig='';renderAll();toast('Loja aberta! Agora dá para fazer carreata.');}
   else if(act==='newTower'){if(!c.geo)return;clearDraft();draft={picking:true};renderReal();renderDraftPanel(c);}
   else if(act==='draftHere'){if(!lastClick)return;LM.closePopup();draft=null;setDraftAt(c,lastClick.lat,lastClick.lon);renderReal();}
   else if(act==='cancelDraft'){clearDraft();renderReal();}
@@ -2245,7 +2443,7 @@ if('serviceWorker' in navigator&&location.protocol!=='file:'){
 }
 setOnline();
 function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{if(S&&sp>0&&!modalOpen)tick();loop();},sp>0?1000/sp:500);}
-function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});}
+function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&!hasBlocks(c)&&!geoBusy.has(c)&&navigator.onLine&&(!c.blocksTried||Date.now()-c.blocksTried>600000))loadBlocks(c);}
 function start(data){
   setTab('map');
   S=(data&&validSave(data.S))?data.S:loadLocal();

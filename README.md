@@ -33,9 +33,14 @@ O jogo abre no **Mapa real** da cidade (OpenStreetMap). O botão **Quadras** mos
   - a direção da antena, arrastando a bolinha laranja ou usando **Melhor direção**.
 - **Cobertura:** o leque mostra quantos domicílios a torre alcança e quantos ainda estão sem sinal, além das construções mapeadas no OpenStreetMap dentro do leque.
 - O custo é o terreno (m² × preço) mais torre e rádio. Depois vem a configuração do rádio, como sempre.
-- **Quadras:** os domicílios da cidade são divididos entre as quadras do tabuleiro (cerca de 60 a 100 por quadra numa cidade de 12 mil habitantes). Cada quadra mostra quantos já são seus clientes; no mapa, o ponto cresce conforme a sua participação. Isso prepara o jogo para dividir o mercado com outras provedoras no futuro.
+- **Quadras reais:** o jogo baixa as ruas da cidade no OpenStreetMap e desenha cada quarteirão fechado por ruas como uma quadra. O tabuleiro **Quadras** mostra esses mesmos quarteirões, então o leque da torre cobre no tabuleiro exatamente as quadras que cobre no mapa.
+  - Os domicílios da cidade são divididos entre as quadras pelo tamanho de cada uma (com o IBGE, pelos domicílios de cada bairro).
+  - No tabuleiro: arraste para mover, use **+** e **−** para aproximar e **⤢** para ver a cidade toda. Toque numa quadra para bater nas portas.
+  - Cada quadra mostra quantos já são seus clientes e fica mais escura conforme a sua participação. Isso prepara o jogo para dividir o mercado com outras provedoras no futuro.
+  - Jogos salvos antes desta versão ganham as quadras reais sozinhos na próxima vez que abrirem com internet; clientes e pendências passam para a quadra real mais próxima, dentro do sinal da mesma torre.
+  - Sem internet ou numa cidade sem ruas no OpenStreetMap, o jogo usa o tabuleiro simples de 9 × 9.
 
-O mapa real precisa de internet. Sem conexão, o jogo continua normalmente nas quadras.
+O mapa real precisa de internet. Sem conexão, o jogo continua normalmente no tabuleiro de quadras já baixado.
 
 ## Bairros do IBGE
 
