@@ -27,7 +27,9 @@ Funciona no computador e no celular, salva o progresso no próprio aparelho e co
 | 14 | OLT 2ª geração (Fibra 300 Mega) |
 | 16 | OLT XGS-PON (Fibra 600 Mega) |
 
-Os níveis ímpares dão bônus de caixa. O botão **Ver níveis** mostra a lista completa. Jogos salvos antes desta versão têm o XP ajustado para não perder o que já estava liberado.
+Os níveis ímpares dão bônus de caixa (R$ 600 por nível, até R$ 15 mil). O botão **Ver níveis** mostra a lista completa.
+
+**Ritmo:** o nível N começa em 100 × N × (N − 1) XP (`XP_STEP` no código). Cada nível leva o dobro do tempo das versões antigas, e torres, andares, contratações, campanhas, fibra, interligações e expansão custam cerca de 50% a mais. A ideia é obrigar o jogador a planejar o caixa antes de crescer. Jogos salvos antes disso continuam no mesmo nível e com o mesmo progresso dentro dele.
 
 ## Expansão para outras cidades
 
@@ -178,8 +180,8 @@ O IBGE só tem bairros onde a prefeitura definiu bairros oficialmente. Nas cidad
 ## Onde o progresso fica salvo
 
 - O jogo salva sozinho no navegador do aparelho (`localStorage`). Fechar a aba ou ficar sem internet não perde nada.
-- Em **Menu → Exportar JSON** você baixa um arquivo com todo o progresso. Em **Importar JSON** você carrega esse arquivo em outro aparelho ou navegador.
-- Limpar os dados do navegador apaga o progresso. Exporte o JSON antes, se quiser guardar uma cópia.
+- Com a conta (Supabase), o progresso também vai para a nuvem e continua em qualquer aparelho.
+- Sem conta, limpar os dados do navegador apaga o progresso.
 
 ## Jogar sem internet e instalar como app
 

@@ -5,9 +5,12 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda o jogo offline. **A cada versão publicada, suba o número em `VERSION`** (hoje `v14`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda o jogo offline. **A cada versão publicada, suba o número em `VERSION`** (hoje `v15`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Layout pensado para celular deitado; em pé aparece aviso para girar.
+- Visual de jogo (último bloco `<style>` do `index.html`): fundo azul de mar, HUD em pílulas com ícones SVG (`HUD_ICO`), botões com contorno escuro, fonte Lilita One. Inspirado em jogos tycoon de celular.
+- Balanceamento: `XP_STEP` (curva de nível), `bonusFor` e as constantes de custo no topo do script. O save guarda `xp3` para converter o XP de jogos antigos para a curva atual.
+- Não há mais exportar/importar JSON: o progresso fica no aparelho e na nuvem (Supabase).
 
 ## Mapa e dados
 - Leaflet (`vendor/leaflet`) + OpenStreetMap.
@@ -24,7 +27,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Pendências de configuração (em 2026-10-02)
 - [ ] Rodar `supabase/schema.sql` no Supabase, se ainda não rodou.
 - [ ] Colar a Publishable key no `config.js` (`supabaseAnonKey`) e nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
-- [ ] Publicar a v14 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v15 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô.
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Monte seu provedor de internet: torres de rádio, fibra, porta a porta, equipe e expansão por cidades.">
-<meta name="theme-color" content="#1e2a30">
+<meta name="theme-color" content="#2a83d8">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -18,7 +18,7 @@
 <title>Provedor Tycoon</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Figtree:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Lilita+One&family=Figtree:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
 /* Layout: prédio da empresa (esq.) · mapa da cidade em bairros (centro) · missões, relatório e registro (dir.); no celular, abas. Visual diurno único, de propósito. */
 :root{
@@ -533,6 +533,141 @@ body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))
   .building .floor-desc{font-size:12.5px}
 }
 </style>
+<style>
+/* ============ Visual de jogo: céu/mar azul, HUD em pílulas, botões gordinhos com contorno escuro ============ */
+:root{
+  --navy:#1b2a4a; --navy-2:#2b3f6b;
+  --sea-1:#63c6f7; --sea-2:#2a83d8; --sea-3:#1f6cc0;
+  --cream:#fff8ea; --cream-2:#f6e9cc; --cream-line:#d9bf8c; --wood:#8a5a2b;
+  --go:#52cc3a; --go-dark:#2c8f1f; --sun:#ffc72c; --sun-dark:#d98a00;
+  --bg:var(--sea-2); --panel:var(--cream); --line:#e3d2ae; --ink:#1b2a4a;
+  --accent:#ff8a1f; --accent-dark:#c25e00;
+  --display:'Lilita One','Bungee','Arial Black',sans-serif;
+}
+body{background:
+  radial-gradient(120px 18px at 12% 22%,rgba(255,255,255,.22),transparent 70%),
+  radial-gradient(160px 20px at 78% 64%,rgba(255,255,255,.16),transparent 70%),
+  radial-gradient(90px 14px at 40% 88%,rgba(255,255,255,.18),transparent 70%),
+  linear-gradient(180deg,var(--sea-1),var(--sea-2) 45%,var(--sea-3));background-attachment:fixed}
+
+/* HUD do topo */
+.top{background:linear-gradient(180deg,rgba(18,64,128,.94),rgba(31,108,192,.86));border-bottom:3px solid var(--navy);box-shadow:0 4px 0 rgba(10,30,70,.25)}
+.brand h1{font-family:var(--display);font-size:20px;letter-spacing:.01em;color:#fff;text-shadow:0 2px 0 var(--navy),2px 0 0 var(--navy),-2px 0 0 var(--navy),0 -2px 0 var(--navy)}
+.brand small{color:#d7ecff}
+.brand-mark{filter:drop-shadow(0 3px 0 var(--navy))}
+.stats{gap:10px}
+.pill{position:relative;display:flex;align-items:center;gap:6px;height:38px;padding:0 6px 0 34px;margin-left:14px;border-radius:999px;background:linear-gradient(180deg,#fff,#e6eef8);border:3px solid var(--navy);box-shadow:0 3px 0 var(--navy);color:var(--navy);font:inherit;cursor:default;white-space:nowrap;flex:0 0 auto}
+button.pill{cursor:pointer}
+.pill b{font-family:var(--display);font-weight:400;font-size:17px;line-height:1;padding-right:6px;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.pill-ico{position:absolute;left:-16px;top:50%;transform:translateY(-50%);width:42px;height:42px;filter:drop-shadow(0 2px 0 rgba(27,42,74,.55))}
+.pill-ico svg{width:100%;height:100%;display:block}
+.pill-plus{width:28px;height:28px;margin-right:-2px;border-radius:50%;border:2.5px solid var(--navy);background:radial-gradient(circle at 40% 30%,#8ff07a,var(--go) 55%,var(--go-dark));color:#fff;font-family:var(--display);font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer;padding:0 0 2px;text-shadow:0 2px 0 var(--go-dark);box-shadow:0 2px 0 var(--navy);flex:none}
+.pill-plus:active{transform:translateY(2px);box-shadow:none}
+.pill.money b{color:#1f7a2e}
+.pill.money.neg b{color:#d6283b}
+.pill.coin b{color:#b86200}
+.pill.dia b{color:#8a2bc2}
+.pill.date b{font-size:14px}
+.pill-bar{width:42px;height:9px;border-radius:6px;background:#cfdbe8;border:2px solid var(--navy);overflow:hidden;margin-right:6px}
+.pill-bar i{display:block;height:100%;background:linear-gradient(180deg,#ff8fa3,#ff5c7a)}
+.pill.link-warn{background:linear-gradient(180deg,#fff4cc,#ffd76a)}
+.pill.link-bad{background:linear-gradient(180deg,#ffd6d6,#ff8787)}
+.hud-lvl{display:flex;align-items:center;border:0;background:transparent;padding:0;cursor:pointer;color:#fff;font:inherit;flex:0 0 auto}
+.hud-ava{width:46px;height:46px;border-radius:12px;border:3px solid var(--navy);background:linear-gradient(180deg,#bfe6ff,#7cc3f2);box-shadow:0 3px 0 var(--navy);padding:3px;position:relative;z-index:2;display:block}
+.hud-ava svg{width:100%;height:100%;display:block}
+.hud-xp{display:flex;flex-direction:column;gap:0;margin-left:-6px}
+.hud-xpbar{position:relative;display:block;width:128px;height:22px;border-radius:0 999px 999px 0;border:3px solid var(--navy);border-left:0;background:#cfe0ef;overflow:hidden}
+.hud-xpbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(180deg,#5fc7ff,#1c8be6)}
+.hud-xpbar b{position:relative;display:block;text-align:center;font-family:var(--display);font-weight:400;font-size:13px;line-height:16px;color:#fff;text-shadow:0 1.5px 0 var(--navy),1.5px 0 0 var(--navy),-1.5px 0 0 var(--navy),0 -1.5px 0 var(--navy)}
+.hud-star{align-self:flex-start;margin-left:6px;font-family:var(--display);font-size:13px;line-height:1;padding:3px 9px;border-radius:0 0 10px 10px;background:linear-gradient(180deg,#fff7d6,#ffd76a);border:2.5px solid var(--navy);border-top:0;color:var(--navy)}
+.hud-gear{position:relative;width:44px;height:44px;border-radius:50%;border:3px solid var(--navy);background:radial-gradient(circle at 40% 30%,#9bd8ff,#3a9be8);box-shadow:0 3px 0 var(--navy);padding:4px;cursor:pointer;flex:none}
+.hud-gear svg{width:100%;height:100%;display:block}
+.hud-gear .save-dot{position:absolute;right:-2px;top:-2px;width:13px;height:13px;border:2.5px solid var(--navy)}
+.hud-cta{height:40px;padding:0 16px;border-radius:12px;border:3px solid var(--navy);background:linear-gradient(180deg,#ffe066,var(--sun));box-shadow:0 3px 0 var(--navy);font-family:var(--display);font-size:17px;color:var(--navy);cursor:pointer;flex:none}
+.speed{background:var(--navy);border:3px solid var(--navy);border-radius:12px;box-shadow:0 3px 0 rgba(10,20,40,.5);padding:2px;flex:0 0 auto}
+.speed button{font-family:var(--display);font-weight:400;font-size:14px;color:#cfe3ff}
+.speed button[aria-pressed="true"]{background:linear-gradient(180deg,#ffe066,var(--sun));color:var(--navy)}
+
+/* Painéis: creme com contorno escuro, título com fonte de jogo */
+.card{background:var(--cream);border:3px solid var(--navy);border-radius:18px;box-shadow:0 5px 0 rgba(15,35,80,.45)}
+.card h3,.mhead h2,.map-head h2,.start-hero h2{font-family:var(--display);font-weight:400;letter-spacing:.01em;color:var(--wood)}
+.card h3{font-size:18px}
+.mhead h2{font-size:24px}
+.map-head h2{color:var(--navy)}
+.modal{background:var(--cream);border:4px solid var(--navy);border-radius:22px;box-shadow:0 8px 0 rgba(15,35,80,.5),0 24px 60px rgba(0,0,0,.35)}
+.modal-wrap{background:rgba(10,30,70,.55)}
+.x{background:radial-gradient(circle at 40% 30%,#ff9a9a,#e03131);border:3px solid var(--navy);color:#fff;font-weight:900;box-shadow:0 2px 0 var(--navy)}
+.choice,.role-row,.loan-row,.tile,.fam-row,.opt label,.neg-opt{background:#fff;border:2.5px solid var(--cream-line);border-radius:14px}
+.tile.on{background:#e6fcf5;border-color:var(--signal)}
+.tile.warn{background:#fff3bf;border-color:var(--gold)}
+.opt input:checked+label{border-color:var(--accent);background:#fff4e6}
+.kpi{background:#fff;border:2px solid var(--cream-line)}
+.notice{border:2.5px solid rgba(27,42,74,.18)}
+
+/* Botões gordinhos */
+.btn{border:2.5px solid var(--navy);border-radius:12px;background:linear-gradient(180deg,#fff,#e3ebf5);color:var(--navy);box-shadow:0 3px 0 var(--navy);font-weight:800;transition:transform .06s}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--navy)}
+.btn:hover{filter:brightness(1.04)}
+.btn.primary{background:linear-gradient(180deg,#86e86f,var(--go) 60%,#3fb62a);color:#fff;text-shadow:0 1.5px 0 var(--go-dark);box-shadow:0 3px 0 var(--navy)}
+.btn.primary:active{box-shadow:0 1px 0 var(--navy)}
+.btn.signal{background:linear-gradient(180deg,#6fd6ff,#1c9be6);color:#fff;text-shadow:0 1.5px 0 #0b5e9a}
+.btn.ghost{background:rgba(255,255,255,.7);border:2.5px solid var(--navy);box-shadow:0 2px 0 var(--navy)}
+.btn:disabled{box-shadow:0 2px 0 rgba(27,42,74,.4)}
+.chip{border:2px solid var(--navy);background:#fff;color:var(--navy);box-shadow:0 2px 0 rgba(27,42,74,.5)}
+.chip.ok{background:#d3f9d8;color:#1e6b2a}
+.chip.warn{background:#fff3bf;color:#7a4b00}
+.chip.bad{background:#ffe3e3;color:#a61e2d}
+.view-toggle,.seg{background:var(--navy);border:2.5px solid var(--navy);border-radius:12px}
+.view-toggle button,.seg button{color:#cfe3ff}
+.view-toggle button[aria-pressed="true"],.seg button[aria-pressed="true"]{background:linear-gradient(180deg,#ffe066,var(--sun));color:var(--navy);box-shadow:none}
+
+/* Tutorial com cara de balão de missão */
+.tut{background:linear-gradient(180deg,var(--cream),var(--cream-2));color:var(--navy);border:3px solid var(--wood);box-shadow:0 4px 0 rgba(90,55,20,.45)}
+.tut .tut-body b{font-family:var(--display);font-weight:400;font-size:17px;color:#d9480f}
+.tut .tut-body p{color:#5c4326}
+.tut .tut-n{background:linear-gradient(180deg,#ffe066,var(--sun));color:var(--navy);border:2.5px solid var(--navy);font-family:var(--display);font-weight:400}
+.tut .tut-dots i{background:rgba(90,55,20,.2)}
+.tut .btn.ghost{color:var(--navy);border-color:var(--navy);background:#fff}
+.tut code{background:rgba(90,55,20,.12);color:var(--navy)}
+
+/* Mapa com moldura */
+.realmap,.map{border:3px solid var(--navy);box-shadow:0 4px 0 rgba(15,35,80,.45)}
+
+/* Prédio */
+.sign{font-family:var(--display);font-size:16px;font-weight:400;background:linear-gradient(180deg,#ffb35c,var(--accent));border:3px solid var(--navy);border-bottom:0;text-shadow:0 2px 0 var(--accent-dark)}
+.floor-name{font-family:var(--display);font-weight:400;font-size:16px;color:var(--navy)}
+.floor-lvl{color:var(--wood)}
+
+/* Abas: blocos quadrados como a barra de botões do print, com selo vermelho de alerta */
+.tabs button{position:relative}
+.tabs button[data-badge]:not([data-badge=""])::after{content:attr(data-badge);position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#ff3b5c;border:2.5px solid #fff;color:#fff;font:400 12px/15px var(--display);text-align:center;box-shadow:0 2px 0 var(--navy)}
+.tabs button,.tabs button[aria-selected]{background:linear-gradient(180deg,#7fd3ff,#2f8fe0);border:3px solid var(--navy);color:#fff;font-family:var(--display);font-weight:400;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),0 3px 0 var(--navy);text-shadow:0 1.5px 0 var(--navy)}
+.tabs button[aria-selected="true"]{background:linear-gradient(180deg,#ffe066,var(--sun));color:var(--navy);text-shadow:none}
+.tabs button[aria-selected="true"] .rail-ico{filter:none}
+@media (min-width:821px) and (max-width:1700px){.top{flex-wrap:nowrap}.brand{display:none}.stats{flex-wrap:nowrap;margin-left:0;justify-content:space-between;flex:1;gap:4px}.pill{margin-left:12px}}
+@media (min-width:1701px){.top{flex-wrap:nowrap}.stats{flex-wrap:nowrap}}
+@media (max-width:820px){
+  .tabs{background:linear-gradient(180deg,rgba(18,64,128,.96),#123f80);border-top:3px solid var(--navy);gap:10px;padding-top:10px}
+  .tabs button{font-size:15px}
+  .pill{height:34px;padding-left:28px;margin-left:12px}.pill b{font-size:15px}.pill-ico{width:36px;height:36px;left:-13px}
+  .hud-xpbar{width:100px}
+}
+@media (orientation:landscape) and (max-height:560px){
+  .top{height:calc(58px + env(safe-area-inset-top,0px));padding-left:calc(84px + env(safe-area-inset-left,0px))}
+  .stats{align-items:center;padding:6px 0 6px 2px}
+  .pill{height:32px;padding-left:26px;margin-left:12px}.pill b{font-size:14px}.pill-ico{width:34px;height:34px;left:-12px}.pill-plus{width:24px;height:24px;font-size:18px}
+  .hud-ava{width:40px;height:40px}.hud-xpbar{width:92px;height:19px}.hud-xpbar b{font-size:11.5px;line-height:13px}.hud-star{font-size:11px;padding:2px 7px}
+  .hud-gear{width:38px;height:38px}
+  .speed{height:36px}
+  .tabs{width:calc(76px + env(safe-area-inset-left,0px));background:linear-gradient(90deg,#123f80,rgba(18,64,128,.96));border-right:3px solid var(--navy);border-top:0;gap:12px}
+  .tabs button{width:62px;height:62px;justify-content:center;padding:4px 2px;font-size:12px;border-radius:14px}
+  .rail-ico{width:26px;height:26px;filter:drop-shadow(0 1.5px 0 var(--navy))}
+  .layout{top:calc(58px + env(safe-area-inset-top,0px));left:calc(76px + env(safe-area-inset-left,0px))}
+  .modal-wrap{padding-left:calc(84px + env(safe-area-inset-left,0px))}
+  .toast{left:calc(50% + 38px)}
+}
+@media (prefers-reduced-motion:reduce){.btn,.pill-plus{transition:none}}
+</style>
 </head>
 <body>
 
@@ -586,72 +721,71 @@ body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))
 
 <div class="modal-wrap" id="modalWrap" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" hidden></div>
-<input type="file" id="importFile" accept=".json,application/json" hidden>
 
 <script>
 /* ===================== Regras do jogo ===================== */
 const SAVE_KEY='provedor-tycoon-v2';
 const START_MONEY=20000, RANGE=2.6, CAP=64;
-const TOWER_COST=3000, CPE_COST=200, THIRD_COST=120, HIRE_COST=500, NEWCITY_COST=1500, FIBRA_LEVEL=12, EXPAND_LEVEL=4, STORE_LEVEL=8, EXPAND_KM=200;
+const TOWER_COST=4500, CPE_COST=300, THIRD_COST=180, HIRE_COST=750, NEWCITY_COST=2500, FIBRA_LEVEL=12, EXPAND_LEVEL=4, STORE_LEVEL=8, EXPAND_KM=200;
 const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900},{g:1,name:'1 Giga',price:1500},{g:2,name:'2 Gigas',price:2600},{g:5,name:'5 Gigas',price:5500},{g:10,name:'10 Gigas',price:9000},{g:20,name:'20 Gigas',price:16000},{g:40,name:'40 Gigas',price:28000},{g:100,name:'100 Gigas',price:60000}];
 const START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
 const BIG_CITY=50000, REGION_POP=20000;
-const CITY_LINKS=[{name:'Enlace de rádio 300 Mega',g:0.3,cost:12000,price:350},{name:'Enlace de rádio 1 Giga',g:1,cost:30000,price:700},{name:'Fibra alugada 10 Gigas',g:10,cost:90000,price:3500},{name:'Backbone próprio 40 Gigas',g:40,cost:250000,price:6000}];
-const NET_FIRST=8000, NET_LAST=1000000, CAREER_COST=15000, PROMO_COST=300, GOALS_AT=5000;
-const BACKBONE_COST=100000, CTO_COST=6000, ONU_COST=250, KIT_COST=800, DISMANTLE_COST=500, STORE_COST=15000, PARTNER_CASH=25000, PARTNER_PAY=3000;
+const CITY_LINKS=[{name:'Enlace de rádio 300 Mega',g:0.3,cost:18000,price:350},{name:'Enlace de rádio 1 Giga',g:1,cost:45000,price:700},{name:'Fibra alugada 10 Gigas',g:10,cost:135000,price:3500},{name:'Backbone próprio 40 Gigas',g:40,cost:375000,price:6000}];
+const NET_FIRST=12000, NET_LAST=1000000, CAREER_COST=22000, PROMO_COST=300, GOALS_AT=5000;
+const BACKBONE_COST=150000, CTO_COST=9000, ONU_COST=350, KIT_COST=1200, DISMANTLE_COST=750, STORE_COST=25000, PARTNER_CASH=25000, PARTNER_PAY=3000;
 const PLANS=[
   {id:'r10',name:'Rádio 10 Mega',mb:10,price:59.9},
   {id:'r20',name:'Rádio 20 Mega',mb:20,price:79.9},
   {id:'r35',name:'Rádio 35 Mega',mb:35,price:99.9},
 ];
 const COMBOS={
-  tv:{name:'TV · 60 canais',short:'TV',price:39.9,level:6,cost:2500,unit:18,who:'programadora de TV'},
-  fone:{name:'Telefone fixo',short:'Fone',price:19.9,level:10,cost:1500,unit:6,who:'operadora de telefonia'},
+  tv:{name:'TV · 60 canais',short:'TV',price:39.9,level:6,cost:3800,unit:18,who:'programadora de TV'},
+  fone:{name:'Telefone fixo',short:'Fone',price:19.9,level:10,cost:2300,unit:6,who:'operadora de telefonia'},
 };
 const FLOORS=[
   {id:'recepcao',name:'Recepção',level:1,cost:0,desc:'Sede da empresa. Daqui saem a outorga e a documentação.'},
-  {id:'callcenter',name:'Call Center',level:2,cost:1500,desc:'Atendimento. N1 voz atende até 40 clientes, N1 texto (chat) até 50. N2 resolve problema técnico e evita cancelamentos.',
+  {id:'callcenter',name:'Call Center',level:2,cost:2300,desc:'Atendimento. N1 voz atende até 40 clientes, N1 texto (chat) até 50. N2 resolve problema técnico e evita cancelamentos.',
     roles:{voz:{t:'N1 voz',sal:300},texto:{t:'N1 texto (chat)',sal:250},n2:{t:'N2 suporte técnico',sal:450},sup:{t:'Supervisor',sal:700},ger:{t:'Gerente',sal:1200}}},
-  {id:'comercial',name:'Comercial',level:2,cost:2000,op:'Vendedor',sal:350,desc:'Vendedores fazem porta a porta sozinhos nas casas com sinal.'},
-  {id:'marketing',name:'Marketing',level:8,cost:3000,op:'Analista de marketing',sal:400,desc:'Campanhas nas cidades: panfletos, carro de som, rádio, redes, eventos e carreatas. Cada analista toca uma campanha por vez.'},
-  {id:'retencao',name:'Retenção',level:6,cost:2500,op:'Retentor',sal:350,desc:'Setor de cancelamento: cada retentor atende até 5 pedidos por mês e tenta todas as propostas.'},
-  {id:'recuperacao',name:'Recuperação',level:8,cost:2500,op:'Cobrador',sal:320,desc:'Recupera inadimplentes: cada cobrador negocia até 3 dívidas por mês e reativa o assinante.'},
-  {id:'tecnico',name:'Técnico',level:4,cost:3000,op:'Técnico de campo',sal:400,desc:'Instala e configura rádio e fibra do cliente sem pagar terceirizado.'},
-  {id:'rh',name:'RH',level:6,cost:2000,op:'Analista de RH',sal:380,desc:'Cada analista libera +4 vagas por setor, segura pedidos de demissão e barateia contratações. Sócios entram por aqui.'},
-  {id:'migracao',name:'Migração e Upgrade',level:12,cost:8000,op:'Operador de migração',sal:380,desc:'Liga para a base: migra clientes do rádio para a fibra (pode manter o mesmo preço) e oferece upgrade de plano para aumentar o ticket médio. Cada operador faz 30 ligações por mês.'},
-  {id:'ouvidoria',name:'Ouvidoria',level:11,cost:5000,op:'Ouvidor',sal:420,desc:'Recebe as reclamações dos clientes e mostra o que a empresa precisa melhorar. Cada ouvidor trata até 60 manifestações por mês; reclamação sem resposta vira queixa na Anatel e pode dar multa.'},
-  {id:'noc',name:'NOC',level:10,cost:6000,op:'Analista de NOC',sal:500,desc:'Monitoramento 24h: torres aguentam 50% mais clientes. Aqui ficam os servidores de cache.'},
-  {id:'logistica',annex:true,name:'Logística',level:4,cost:2500,op:'Motorista',sal:300,desc:'Galpão dos equipamentos em comodato. Cada motorista recolhe até 6 rádios por mês.'},
+  {id:'comercial',name:'Comercial',level:2,cost:3000,op:'Vendedor',sal:350,desc:'Vendedores fazem porta a porta sozinhos nas casas com sinal.'},
+  {id:'marketing',name:'Marketing',level:8,cost:4500,op:'Analista de marketing',sal:400,desc:'Campanhas nas cidades: panfletos, carro de som, rádio, redes, eventos e carreatas. Cada analista toca uma campanha por vez.'},
+  {id:'retencao',name:'Retenção',level:6,cost:3800,op:'Retentor',sal:350,desc:'Setor de cancelamento: cada retentor atende até 5 pedidos por mês e tenta todas as propostas.'},
+  {id:'recuperacao',name:'Recuperação',level:8,cost:3800,op:'Cobrador',sal:320,desc:'Recupera inadimplentes: cada cobrador negocia até 3 dívidas por mês e reativa o assinante.'},
+  {id:'tecnico',name:'Técnico',level:4,cost:4500,op:'Técnico de campo',sal:400,desc:'Instala e configura rádio e fibra do cliente sem pagar terceirizado.'},
+  {id:'rh',name:'RH',level:6,cost:3000,op:'Analista de RH',sal:380,desc:'Cada analista libera +4 vagas por setor, segura pedidos de demissão e barateia contratações. Sócios entram por aqui.'},
+  {id:'migracao',name:'Migração e Upgrade',level:12,cost:12000,op:'Operador de migração',sal:380,desc:'Liga para a base: migra clientes do rádio para a fibra (pode manter o mesmo preço) e oferece upgrade de plano para aumentar o ticket médio. Cada operador faz 30 ligações por mês.'},
+  {id:'ouvidoria',name:'Ouvidoria',level:11,cost:7500,op:'Ouvidor',sal:420,desc:'Recebe as reclamações dos clientes e mostra o que a empresa precisa melhorar. Cada ouvidor trata até 60 manifestações por mês; reclamação sem resposta vira queixa na Anatel e pode dar multa.'},
+  {id:'noc',name:'NOC',level:10,cost:9000,op:'Analista de NOC',sal:500,desc:'Monitoramento 24h: torres aguentam 50% mais clientes. Aqui ficam os servidores de cache.'},
+  {id:'logistica',annex:true,name:'Logística',level:4,cost:3800,op:'Motorista',sal:300,desc:'Galpão dos equipamentos em comodato. Cada motorista recolhe até 6 rádios por mês.'},
 ];
 const ROLE_HINT={voz:'Atende até 40 clientes',texto:'Atende até 50 clientes, salário menor',n2:'Menos cancelamentos por problema técnico',sup:'1 para cada 5 operadores',ger:'Obrigatório a partir de 8 pessoas no setor',
   comercial:'3 portas a cada 4 dias',marketing:'Uma campanha ativa por vez',retencao:'5 pedidos de cancelamento por mês',recuperacao:'3 dívidas por mês',tecnico:'Instala sem terceirizado',ouvidoria:'60 manifestações por mês',migracao:'30 ligações por mês',rh:'+4 vagas por setor e menos demissões',noc:'Monitora a rede',logistica:'Recolhe 6 rádios por mês'};
 const FIBER_TIERS=[
   {name:'OLT GPON básica',level:12,cost:0,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:149.9}]},
-  {name:'OLT GPON 2ª geração',level:14,cost:30000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:119.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:139.9}]},
-  {name:'OLT XGS-PON',level:16,cost:60000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:99.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:119.9},{id:'f600',name:'Fibra 600 Mega',mb:600,price:149.9}]},
+  {name:'OLT GPON 2ª geração',level:14,cost:45000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:119.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:139.9}]},
+  {name:'OLT XGS-PON',level:16,cost:90000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:99.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:119.9},{id:'f600',name:'Fibra 600 Mega',mb:600,price:149.9}]},
 ];
 const FIBER_NAMES={f100:['Fibra 100 Mega',100],f300:['Fibra 300 Mega',300],f600:['Fibra 600 Mega',600]};
 const SERVERS=[
-  {id:'meta',name:'Facebook, Instagram e WhatsApp',use:.95,share:.14,cost:6000,min:10},
-  {id:'yt',name:'YouTube',use:.9,share:.22,cost:8000,min:15},
-  {id:'nf',name:'Netflix',use:.55,share:.18,cost:10000,min:20},
-  {id:'tt',name:'TikTok',use:.5,share:.1,cost:6000,min:20},
-  {id:'game',name:'Jogos online',use:0,share:.06,cost:5000,min:6},
+  {id:'meta',name:'Facebook, Instagram e WhatsApp',use:.95,share:.14,cost:9000,min:10},
+  {id:'yt',name:'YouTube',use:.9,share:.22,cost:12000,min:15},
+  {id:'nf',name:'Netflix',use:.55,share:.18,cost:15000,min:20},
+  {id:'tt',name:'TikTok',use:.5,share:.1,cost:9000,min:20},
+  {id:'game',name:'Jogos online',use:0,share:.06,cost:7500,min:6},
 ];
 const CAMPAIGNS=[
-  {id:'panfleto',name:'Panfletagem',cost:800,boost:.05,months:1,desc:'Folhetos de porta em porta.'},
-  {id:'som',name:'Carro de som',cost:1500,boost:.08,months:1,desc:'Anúncio rodando pelos bairros.'},
-  {id:'redes',name:'Anúncios nas redes',cost:2000,boost:.07,months:2,rep:2,desc:'Instagram e Facebook da região.'},
-  {id:'radio',name:'Comercial na rádio local',cost:3000,boost:.1,months:2,desc:'A cidade inteira ouve.'},
-  {id:'evento',name:'Patrocínio de evento',cost:6000,boost:.12,months:1,rep:5,desc:'Festa da cidade com a sua marca.'},
-  {id:'carreata',name:'Carreata',cost:2500,boost:.15,months:1,store:true,desc:'Sai da loja, passa nos bairros e já fecha vendas na rua.'},
+  {id:'panfleto',name:'Panfletagem',cost:1200,boost:.05,months:1,desc:'Folhetos de porta em porta.'},
+  {id:'som',name:'Carro de som',cost:2300,boost:.08,months:1,desc:'Anúncio rodando pelos bairros.'},
+  {id:'redes',name:'Anúncios nas redes',cost:3000,boost:.07,months:2,rep:2,desc:'Instagram e Facebook da região.'},
+  {id:'radio',name:'Comercial na rádio local',cost:4500,boost:.1,months:2,desc:'A cidade inteira ouve.'},
+  {id:'evento',name:'Patrocínio de evento',cost:9000,boost:.12,months:1,rep:5,desc:'Festa da cidade com a sua marca.'},
+  {id:'carreata',name:'Carreata',cost:3800,boost:.15,months:1,store:true,desc:'Sai da loja, passa nos bairros e já fecha vendas na rua.'},
 ];
 const DOCS=[
   {id:'contrato',name:'Contrato social',cost:300,days:3,info:'Cria a empresa e define sócios, capital e atividade.'},
   {id:'cnpj',name:'CNPJ na Receita Federal',cost:0,days:2,req:'contrato',info:'Registro da empresa, com o CNAE de serviço de comunicação multimídia (SCM).'},
   {id:'alvara',name:'Licenciamento: alvará da prefeitura',cost:250,days:4,req:'cnpj',out:true,info:'Licença para funcionar no endereço da sede e instalar as torres. Pede a outorga paga.'},
 ];
-const bonusFor=l=>Math.min(25000,l*1000);
+const bonusFor=l=>Math.min(15000,l*600);
 const LEVELS=[
   {l:1,items:['Tutorial: CNPJ, outorga, licenciamento, primeira torre e primeiro cliente','Recepção (grátis) e venda porta a porta']},
   {l:2,items:['1º e 2º andar: Call Center e Comercial']},
@@ -707,13 +841,12 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 function hash(str){let h=2166136261;for(const ch of str){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
 function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const pick=(r,arr)=>arr[Math.floor(r()*arr.length)];
-const slug=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'jogo';
 
 /* ===================== Estado ===================== */
 let S=null, modalOpen=false, timer=null, toastT=null, repView=null, showDone=false, selBairro=4;
 
 function outorgaFor(pop){return Math.round(clamp(pop*0.3*(1+Math.log10(1+pop/20000)),2000,300000)/100)*100;}
-function studyFor(pop){return Math.round(clamp(1000+pop*0.04,1500,25000)/100)*100;}
+function studyFor(pop){return Math.round(clamp(1500+pop*0.06,2500,40000)/100)*100;}
 function makeFam(r){
   const need=pick(r,Object.keys(NEED));
   const ranges={work:[95,135],game:[90,130],tv:[110,165],budget:[55,72],basic:[62,92]};
@@ -748,17 +881,18 @@ function migrate(st){
   for(const [id,f] of Object.entries(st.floors||{})){if(id==='recepcao')continue;if(f.staff!=null&&!f.team){f.team=id==='callcenter'?{voz:f.staff}:{op:f.staff};delete f.staff;}if(f.built&&!f.team)f.team={};}
   st.coins=st.coins||0;st.shield=st.shield||{};if(st.diamonds==null)st.diamonds=START_DIAMONDS;
   if(!st.lv2){const old=levelOf(st.xp||0);if(old>=2){const n=old*2;st.xp=Math.max(st.xp,50*n*(n-1));}st.lv2=true;}
+  if(!st.xp3){const x=st.xp||0;let l=1;while(x>=50*(l+1)*l)l++;const lo=50*l*(l-1),hi=50*(l+1)*l;st.xp=Math.round(xpFor(l)+(x-lo)/(hi-lo)*(xpFor(l+1)-xpFor(l)));st.xp3=true;}
   if(st.tut===undefined)st.tut=(st.towersBuilt>0||st.signed>0)?{done:true}:{};st.loans=st.loans||[];st.retained=st.retained||0;st.retCap=st.retCap||0;for(const c of st.cities)for(const l of quadras(c))for(const f of (l.fams||[]))if((f.st==='client'||f.st==='late'||f.st==='suspended')&&!f.since)f.since=st.day;st.stock=st.stock||0;st.parcelas=st.parcelas||[];st.recovered=st.recovered||0;st.crisis=st.crisis||null;st.cur=Object.assign(newMonth(),st.cur||{});if(!Number.isFinite(st.cur.novos))st.cur.novos=0;for(const h of st.history||[])if(!Number.isFinite(h.novos))h.novos=0;return st;}
 function newGame(company,cityName,uf){
   S={v:2,company,phase:'sede',money:START_MONEY,xp:0,rep:50,day:1,speed:1,
      docs:{},cities:[makeCity(cityName,uf,0)],ci:0,sede:null,
      floors:{recepcao:{built:true,staff:0}},combos:{tv:false,fone:false},
-     manualInstalls:0,towersBuilt:0,signed:0,lv2:true,diamonds:START_DIAMONDS,link:0,tut:{},shield:{},peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
+     manualInstalls:0,towersBuilt:0,signed:0,lv2:true,xp3:true,diamonds:START_DIAMONDS,link:0,tut:{},shield:{},peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
   log(`A ${company} nasceu em ${cityName}. Escolha o bairro da sede.`);
   save(true);
 }
 
-/* ===================== Salvamento: navegador + nuvem + JSON ===================== */
+/* ===================== Salvamento: navegador + nuvem ===================== */
 
 /* ===================== Supabase: conta, salvamento online e cache das quadras ===================== */
 const SB={url:'',key:'',session:null};
@@ -899,40 +1033,13 @@ async function initCloud(){
   }catch(e){cloud.status='local';renderSaveDot();}
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&S&&cloud.ref){cloud.dirty=true;flushCloud();}});
-async function exportJson(){
-  const json=JSON.stringify(S,null,2);
-  const filename=`provedor-tycoon-${slug(S.company)}-mes-${monthOf(S.day)}.json`;
-  let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;}catch(e){}
-  if(dl){
-    try{const r=await dl.save({filename,data:new Blob([json],{type:'application/json'})});toast(r&&r.status==='saved'?'Arquivo JSON salvo.':'Arquivo enviado.');return;}
-    catch(e){if(!e||e.code!=='unavailable'){toast('Download não concluído.');return;}}
-  }
-  try{
-    const url=URL.createObjectURL(new Blob([json],{type:'application/json'}));
-    const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),4000);toast('Arquivo JSON baixado.');return;
-  }catch(e){}
-  openModal(head('Salvar','Progresso em JSON')+`<p>Copie o texto e guarde num arquivo <b>.json</b>. Para continuar depois, use "Importar JSON" no menu.</p>
-    <textarea class="input" id="jsonOut" readonly>${esc(json)}</textarea>
-    <div class="foot"><span class="muted">${(json.length/1024).toFixed(1)} KB</span><button class="btn primary" id="copyJson">Copiar</button></div>`,m=>{
-    m.querySelector('#copyJson').onclick=async()=>{const ta=m.querySelector('#jsonOut');try{await navigator.clipboard.writeText(ta.value);toast('Copiado!');}catch(e){ta.focus();ta.select();toast('Texto selecionado: use Ctrl+C.');}};
-  });
-}
-function applyImport(text){
-  let d=null;try{d=JSON.parse(text);}catch(e){toast('Esse arquivo não é um JSON válido.');return;}
-  if(!validSave(d)){toast('Esse JSON não é um progresso do Provedor Tycoon (versão 2).');return;}
-  openModal(head('Importar','Carregar este progresso?')+`<div class="notice warn"><b>${esc(d.company)}</b> · ${esc(d.cities[0].name)} · mês ${monthOf(d.day)} · ${brl0(d.money)} em caixa.</div><p>O jogo atual será substituído.</p>
-    <div class="foot"><button class="btn" id="impNo">Cancelar</button><button class="btn primary" id="impYes">Carregar</button></div>`,m=>{
-    m.querySelector('#impNo').onclick=()=>{if(S)closeModal();else showStart();};
-    m.querySelector('#impYes').onclick=()=>{S=migrate(d);S.savedAt=Date.now();save(true);closeModal();toast('Progresso importado.');};
-  });
-}
-$('#importFile').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const rd=new FileReader();rd.onload=()=>applyImport(String(rd.result));rd.readAsText(f);});
 
 /* ===================== Consultas ===================== */
 const city=()=>S.cities[S.ci];
-const levelOf=xp=>{let l=1;while(xp>=50*(l+1)*l)l++;return l;};
-const xpFor=l=>50*l*(l-1);
+/* Curva de XP: o nível l começa em XP_STEP·l·(l−1). Era 50; com 100 cada nível leva o dobro. */
+const XP_STEP=100;
+const xpFor=l=>XP_STEP*l*(l-1);
+const levelOf=xp=>{let l=1;while(xp>=xpFor(l+1))l++;return l;};
 const docsDone=()=>DOCS.every(d=>S.docs[d.id]&&S.docs[d.id].done);
 const companyLicensed=()=>cityLicensed(S.cities[0]);
 const cnpjDone=()=>!!(S.docs.cnpj&&S.docs.cnpj.done);
@@ -1522,6 +1629,19 @@ const treeSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="18.5" y="22"
 const storeSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="17" width="24" height="17" rx="1.5" fill="#fff" stroke="#1e2a30" stroke-opacity=".35"/><path d="M6 17 L9 10 H31 L34 17 Z" fill="var(--accent)"/><path d="M10 17v3M15 17v3M20 17v3M25 17v3M30 17v3" stroke="#fff" stroke-width="2"/><rect x="11" y="23" width="8" height="6" fill="var(--window)"/><rect x="22" y="23" width="6" height="11" fill="var(--door)"/></svg>`;
 const lotSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="9" y="12" width="22" height="16" rx="2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-dasharray="3 3"/><path d="M20 16v8M16 20h8" stroke="#fff" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/></svg>`;
 
+/* Ícones do HUD (topo), desenhados em SVG para não depender de imagens */
+const HUD_ICO={
+  tower:'<svg viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#ffb02e"/><path d="M20 12 14 33M20 12l6 21M15.7 26h8.6M17.3 19.5h5.4" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M13 11a9.5 9.5 0 0 1 14 0M10 8a14 14 0 0 1 20 0" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>',
+  cash:'<svg viewBox="0 0 40 40"><g transform="rotate(-18 20 20)"><rect x="5" y="11" width="30" height="18" rx="3" fill="#2f9e44" stroke="#1b5e2b" stroke-width="2.2"/><rect x="8.5" y="14.5" width="23" height="11" rx="2" fill="#69db7c"/><circle cx="20" cy="20" r="4" fill="#2f9e44"/></g></svg>',
+  people:'<svg viewBox="0 0 40 40"><circle cx="26" cy="13" r="6" fill="#ffc9a0" stroke="#1b2a4a" stroke-width="2"/><path d="M15 33c0-7 5-11 11-11s11 4 11 11z" fill="#4dabf7" stroke="#1b2a4a" stroke-width="2"/><circle cx="14" cy="15" r="6" fill="#ffd8b5" stroke="#1b2a4a" stroke-width="2"/><path d="M3 35c0-7 5-11 11-11s11 4 11 11z" fill="#ff6b6b" stroke="#1b2a4a" stroke-width="2"/></svg>',
+  heart:'<svg viewBox="0 0 40 40"><path d="M20 34 6 20a8 8 0 0 1 14-10 8 8 0 0 1 14 10z" fill="#ff5c7a" stroke="#1b2a4a" stroke-width="2.2" stroke-linejoin="round"/><path d="M11 15a4 4 0 0 1 4-3" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>',
+  coin:'<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="#ffd43b" stroke="#1b2a4a" stroke-width="2.2"/><circle cx="20" cy="20" r="9.5" fill="none" stroke="#f08c00" stroke-width="2.2"/><path d="M20 14v12M17 17h5a2 2 0 0 1 0 4h-4a2 2 0 0 0 0 4h5" stroke="#f08c00" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  gem:'<svg viewBox="0 0 40 40"><path d="M20 35 4 16l6-9h20l6 9z" fill="#b14cf0" stroke="#1b2a4a" stroke-width="2.2" stroke-linejoin="round"/><path d="M4 16h32M14 7l-3 9 9 19 9-19-3-9" stroke="#e5b3ff" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>',
+  cal:'<svg viewBox="0 0 40 40"><rect x="6" y="9" width="28" height="25" rx="4" fill="#fff" stroke="#1b2a4a" stroke-width="2.2"/><path d="M6 13a4 4 0 0 1 4-4h20a4 4 0 0 1 4 4v4H6z" fill="#ff6b6b" stroke="#1b2a4a" stroke-width="2.2"/><path d="M13 6v6M27 6v6" stroke="#1b2a4a" stroke-width="2.6" stroke-linecap="round"/><path d="M13 25l4 4 9-9" stroke="#2f9e44" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  signal:'<svg viewBox="0 0 40 40"><path d="M7 33h6V25H7zM17 33h6V17h-6zM27 33h6V8h-6z" fill="#4dabf7" stroke="#1b2a4a" stroke-width="2.2" stroke-linejoin="round"/></svg>',
+  gear:'<svg viewBox="0 0 40 40"><path d="M17 4h6l1 5 4 2 4-3 4 4-3 4 2 4 5 1v6l-5 1-2 4 3 4-4 4-4-3-4 2-1 5h-6l-1-5-4-2-4 3-4-4 3-4-2-4-5-1v-6l5-1 2-4-3-4 4-4 4 3 4-2z" fill="#fff" stroke="#1b2a4a" stroke-width="2.2" stroke-linejoin="round"/><circle cx="20" cy="20" r="5.5" fill="#4dabf7" stroke="#1b2a4a" stroke-width="2.2"/></svg>',
+};
+
 /* ===================== Render ===================== */
 function fixNet(){for(const c of S.cities)if(c.idx>0&&c.ilink==null){const t=cityTraffic(c)*1.2;if(famsOf(c).some(isSub)){let i=0;while(i<CITY_LINKS.length-1&&CITY_LINKS[i].g<t)i++;c.ilink=i;}else c.ilink=-1;}
   for(const c of S.cities)if(c.net==null){const st=netSteps(c),u=netUsed(c);let k=0;while(k<st.length-1&&st[k].cap<u+5)k++;c.net=k;}if(S.link==null||S.link<0){const t=trafficGbps()*1.2;let i=0;while(i<LINKS.length-1&&LINKS[i].g<t)i++;S.link=i;}}
@@ -1532,19 +1652,22 @@ function renderTop(){
   $('#companyName').textContent=`${S.company} · ${c.name}${c.uf?'/'+c.uf:''}`;
   const lvl=levelOf(S.xp),lo=xpFor(lvl),hi=xpFor(lvl+1);
   const pct=Math.round((S.xp-lo)/(hi-lo)*100);
+  const lu=trafficGbps()/linkNow().g,dt=S.phase==='play'?`Mês ${monthOf(S.day)} · ${dayOf(S.day)}/30`:'Antes de abrir';
+  const rf=(()=>{let r=0,f=0;for(const c of S.cities){const x=radioFiber(c);r+=x.r;f+=x.f;}return {r,f};})();
+  const plus=(act,lab)=>`<button class="pill-plus" data-act="${act}" aria-label="${lab}">+</button>`;
   $('#stats').innerHTML=`
-    <div class="stat money ${S.money<0?'neg':''}"><span>Caixa</span><b>${brl0(S.money)}</b></div>
-    <div class="stat" title="Rádio e fibra"><span>Clientes</span><b>${allClients()}</b>${(()=>{let r=0,f=0;for(const c of S.cities){const x=radioFiber(c);r+=x.r;f+=x.f;}return f?`<small class="stat-sub">R ${r} · F ${f}</small>`:'';})()}</div>
-    <div class="stat"><span>Reputação</span><b>${Math.round(S.rep)}</b><div class="bar"><i style="width:${S.rep}%"></i></div></div>
-    <button class="stat" data-act="levels" aria-label="Ver níveis"><span>Nível ${lvl}</span><b>${S.xp} XP</b><div class="bar"><i style="width:${pct}%;background:var(--gold)"></i></div></button>
-    <div class="stat"><span>Data</span><b>${S.phase==='play'?`Mês ${monthOf(S.day)} · ${dayOf(S.day)}/30`:'Antes de abrir'}</b></div>
-    <button class="stat coin" data-act="coins" aria-label="Selos de fidelidade"><span>Selos</span><b><i class="coin-ico"></i>${S.coins}</b></button>
-    <button class="stat dia" data-act="diamonds" aria-label="Diamantes"><span>Diamantes</span><b><i class="dia-ico"></i>${S.diamonds||0}</b></button>
+    <button class="hud-lvl" data-act="levels" aria-label="Nível ${lvl}, ver níveis"><span class="hud-ava">${HUD_ICO.tower}</span><span class="hud-xp"><span class="hud-xpbar"><i style="width:${pct}%"></i><b>${(S.xp-lo).toLocaleString('pt-BR')}/${(hi-lo).toLocaleString('pt-BR')}</b></span><span class="hud-star">★ Nv.${lvl}</span></span></button>
+    <div class="pill money ${S.money<0?'neg':''}" title="Caixa"><span class="pill-ico">${HUD_ICO.cash}</span><b>${brl0(S.money)}</b>${plus('bank','Banco e empréstimos')}</div>
+    <div class="pill" title="Clientes${rf.f?` · rádio ${rf.r}, fibra ${rf.f}`:''}"><span class="pill-ico">${HUD_ICO.people}</span><b>${allClients().toLocaleString('pt-BR')}</b></div>
+    <div class="pill" title="Reputação"><span class="pill-ico">${HUD_ICO.heart}</span><b>${Math.round(S.rep)}</b><span class="pill-bar"><i style="width:${S.rep}%"></i></span></div>
+    <div class="pill coin" title="Selos de fidelidade"><span class="pill-ico">${HUD_ICO.coin}</span><b>${S.coins}</b>${plus('coins','Selos de fidelidade')}</div>
+    <div class="pill dia" title="Diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${S.diamonds||0}</b>${plus('diamonds','Diamantes')}</div>
+    <div class="pill date" title="Data"><span class="pill-ico">${HUD_ICO.cal}</span><b>${dt}</b></div>
     <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
-    <button class="icon-btn ${trafficGbps()>linkNow().g?'link-bad':trafficGbps()>linkNow().g*0.85?'link-warn':''}" data-act="link" aria-label="Link de internet">Link ${Math.round(trafficGbps()/linkNow().g*100)}%</button>
-    <button class="icon-btn" data-act="bank" aria-label="Banco">Banco${S.loans.length?` · ${S.loans.length}`:''}</button>
-    ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="icon-btn" data-act="login" aria-label="Entrar na conta" style="background:var(--accent);color:#fff">Entrar</button>':''}
-    <button class="icon-btn" data-act="menu" aria-label="Menu e salvamento"><span class="save-dot" id="saveDot"></span>Menu</button>`;
+    <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b>Link ${Math.round(lu*100)}%</b></button>
+    ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
+    <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
+  const tm=document.querySelector(".tabs [data-tab=\"map\"]");if(tm)tm.dataset.badge=lateCount()||"";
   renderSaveDot();
 }
 function renderMap(){
@@ -1912,7 +2035,7 @@ function showStart(){
    <div class="field"><label for="stUf">Estado</label><select class="input" id="stUf">${UFS.map(u=>`<option ${u==='SP'?'selected':''}>${u}</option>`).join('')}</select></div></div>
    <button class="btn small ghost" id="stGps" type="button">📍 Usar minha localização</button><p class="geo-note" id="stGeoNote">A cidade precisa existir: o jogo confere na lista de municípios do IBGE e depois carrega o mapa real.</p>
    ${sbOn()?`<p class="geo-note">${SB.session&&SB.session.user?`Conectado como <b>${esc(SB.session.user.email||'')}</b>: o progresso fica salvo online.`:'Jogando sem conta: o progresso fica só neste aparelho. <button class="btn small ghost" type="button" id="stLogin">Entrar</button>'}</p>`:''}
-   <div class="foot"><button class="btn ghost" id="stImport">Importar JSON</button><button class="btn primary" id="stGo">Começar</button></div>`,m=>{
+   <div class="foot"><span></span><button class="btn primary" id="stGo">Começar</button></div>`,m=>{
     const sl=m.querySelector('#stLogin');if(sl)sl.onclick=()=>openLogin(true);
     m.querySelector('#stGps').onclick=async()=>{
       const note=m.querySelector('#stGeoNote');note.textContent='Pegando sua localização…';
@@ -1934,27 +2057,20 @@ function showStart(){
         return;}
       newGame(co,v.name,uf);const c0=S.cities[0];c0.ibgeCode=v.code;cityPopulation(c0);geoLoad(c0,{rename:true});selBairro=4;closeModal();setTab('map');toast('Agora escolha o ponto da sede no mapa.');
     };
-    m.querySelector('#stImport').onclick=()=>$('#importFile').click();
   });
 }
 function openMenu(){
-  const st=cloud.status==='cloud'?`Salvo online na sua conta${cloud.last?` às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}. Você continua de onde parou em qualquer aparelho.`:cloud.status==='erro'?'Não deu para salvar na sua conta agora. O progresso segue salvo neste navegador.':'Salvo automaticamente neste aparelho e funciona sem internet. Para levar a outro aparelho, exporte o JSON.';
+  const st=cloud.status==='cloud'?`Salvo online na sua conta${cloud.last?` às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}. Você continua de onde parou em qualquer aparelho.`:cloud.status==='erro'?'Não deu para salvar na sua conta agora. O progresso segue salvo neste navegador.':'Salvo automaticamente neste aparelho e funciona sem internet. Para levar a outro aparelho, entre na sua conta.';
   openModal(head('Jogo','Menu')+`<div class="notice ${cloud.status==='cloud'?'ok':'warn'}">${st}</div>
     <div class="choice-list">
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
       ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
       <div class="choice"><div><b>Testar conexões</b><small>Confere o Supabase (login) e o banco de quadras no Drive.</small></div><button class="btn small" data-act="connTest">Testar</button></div>
-      <div class="choice"><div><b>Exportar JSON</b><small>Baixa todo o progresso num arquivo .json.</small></div><button class="btn small primary" id="mExp">Exportar</button></div>
-      <div class="choice"><div><b>Importar JSON</b><small>Carrega um progresso salvo antes.</small></div><button class="btn small" id="mImp">Escolher arquivo</button></div>
-      <div class="choice"><div><b>Colar JSON</b><small>Se o arquivo não abrir, cole o texto.</small></div><button class="btn small" id="mPaste">Colar</button></div>
       ${document.fullscreenEnabled?`<div class="choice"><div><b>Tela cheia na horizontal</b><small>Esconde a barra do navegador e deita a tela (Android).</small></div><button class="btn small" data-act="fullscreen">Tela cheia</button></div>`:''}
       <div class="choice"><div><b>Níveis e XP</b><small>O que cada nível libera.</small></div><button class="btn small" data-act="levels">Ver níveis</button></div>
       <div class="choice"><div><b>Recomeçar do zero</b><small>Apaga o progresso salvo.</small></div><button class="btn small" id="mReset">Recomeçar</button></div>
     </div><div id="mConfirm"></div>`,m=>{
-    m.querySelector('#mExp').onclick=exportJson;
     const mi=m.querySelector('#mInstall');if(mi)mi.onclick=async()=>{const ev=deferredInstall;deferredInstall=null;closeModal();if(ev){ev.prompt();try{await ev.userChoice;}catch(e){}}};
-    m.querySelector('#mImp').onclick=()=>$('#importFile').click();
-    m.querySelector('#mPaste').onclick=()=>openModal(head('Importar','Colar JSON')+`<textarea class="input" id="pasteTa" placeholder='{"v":2, ...}'></textarea><div class="foot"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="pasteGo">Carregar</button></div>`,mm=>{mm.querySelector('#pasteGo').onclick=()=>applyImport(mm.querySelector('#pasteTa').value);});
     m.querySelector('#mReset').onclick=()=>{m.querySelector('#mConfirm').innerHTML=`<div class="notice bad" style="margin-top:12px">Tem certeza? O progresso deste navegador e da sua conta será apagado.<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn small primary" id="mYes">Sim, recomeçar</button><button class="btn small" data-close>Cancelar</button></div></div>`;
       m.querySelector('#mYes').onclick=async()=>{try{localStorage.removeItem(SAVE_KEY);}catch(e){}clearTimeout(cloud.t);cloud.dirty=false;if(cloud.ref){try{await cloud.ref.delete();}catch(e){}}S=null;$('#modalWrap').hidden=true;modalOpen=false;showStart();};};
   });
