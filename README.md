@@ -28,6 +28,7 @@ Funciona no computador e no celular, salva o progresso no próprio aparelho e co
 | 16 | OLT XGS-PON (Fibra 600 Mega) |
 | 18 | Concorrência entre jogadores |
 | 22 | Empresa rende offline e CEO com diamantes |
+| 100 | Promoções de contratação (Comercial) e campanhas para clientes (Marketing) |
 
 Os níveis ímpares dão bônus de caixa (R$ 600 por nível, até R$ 15 mil). O botão **Ver níveis** mostra a lista completa.
 
@@ -101,6 +102,15 @@ A partir do **nível 18**, jogadores logados que atendem a mesma cidade disputam
 - No mapa real, as torres dos rivais aparecem em roxo com o leque tracejado, e as caixas CTO deles como pontos roxos. Tocar mostra de quem é.
 
 Para ligar, rode de novo o `supabase/schema.sql` no SQL Editor (ele cria a tabela `presenca` e não apaga nada). **Menu → Testar conexões** mostra se as tabelas `saves` e `presenca` respondem.
+
+## Teto de clientes e promoções
+
+- O teto de clientes de uma cidade é o número de **habitantes**: cada quadra guarda os moradores (domicílios × 2,8). Duartina, com 12.328 habitantes, aceita até cerca de 12,3 mil assinantes.
+- A rede cresce junto: as caixas de expansão vão do /24 até o bloco que cobre a cidade inteira (em Duartina, a 7ª caixa, /18, por cerca de R$ 1,7 milhão).
+- O topo do mapa mostra habitantes, clientes (e a % da cidade) e a rede da cidade aberta.
+- **Nível 100, Comercial → Equipe → Promoção na contratação:** sem oferta, 1ª mensalidade grátis, 6 meses com 30% off, fidelidade de 12 meses com 15% off (fidelizado cancela menos) ou um plano em oferta com 20% off por 3 meses, mais instalação grátis (R$ 150 por cliente). A promoção aumenta a chance de fechar e, no fechamento do mês, traz procura espontânea: moradores com sinal ligam para assinar.
+- **Nível 100, Marketing → Campanhas para clientes:** clube de vantagens (menos cancelamentos, R$ 1,50 por cliente/mês), indique um amigo (cerca de 1% dos clientes trazem alguém por mês) e migração premiada (1 mês grátis para quem vai para a fibra).
+- Os custos aparecem no relatório do mês como **Promoções**.
 
 ## Empresa offline e CEO (nível 22)
 

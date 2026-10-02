@@ -756,6 +756,7 @@ const TOWER_COST=4500, CPE_COST=300, THIRD_COST=180, HIRE_COST=750, NEWCITY_COST
 const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900},{g:1,name:'1 Giga',price:1500},{g:2,name:'2 Gigas',price:2600},{g:5,name:'5 Gigas',price:5500},{g:10,name:'10 Gigas',price:9000},{g:20,name:'20 Gigas',price:16000},{g:40,name:'40 Gigas',price:28000},{g:100,name:'100 Gigas',price:60000}];
 const START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
 const BIG_CITY=50000, REGION_POP=20000;
+const PROMO_LEVEL=100;
 const RIVAL_LEVEL=18, OFFLINE_LEVEL=22, OFFLINE_CAP=10000, OFFLINE_MIN_MIN=10, OFFLINE_RATE=0.1, CEO_DIAMONDS=20, CEO_MAX_H=8;
 const CITY_LINKS=[{name:'Enlace de rádio 300 Mega',g:0.3,cost:18000,price:350},{name:'Enlace de rádio 1 Giga',g:1,cost:45000,price:700},{name:'Fibra alugada 10 Gigas',g:10,cost:135000,price:3500},{name:'Backbone próprio 40 Gigas',g:40,cost:375000,price:6000}];
 const NET_FIRST=12000, NET_LAST=1000000, CAREER_COST=22000, PROMO_COST=300, GOALS_AT=5000;
@@ -831,6 +832,7 @@ const LEVELS=[
   {l:15,items:['Bônus de caixa']},
   {l:16,items:['OLT XGS-PON: Fibra 600 Mega']},
   {l:18,items:['Concorrência entre jogadores: disputa por assinantes com quem atende a mesma cidade']},
+  {l:100,items:['Promoções de contratação no Comercial (instalação grátis, mensalidades com desconto, fidelidade, plano em oferta)','Campanhas para clientes no Marketing (clube de vantagens, indique um amigo, migração premiada)']},
   {l:22,items:['Empresa rende offline: até R$ 10 mil enquanto você está fora','CEO contratado com diamantes administra a empresa quando você sai']},
 ];
 const XP_TABLE=[['Documento pronto',15],['Andar comprado',30],['Combo lançado',40],['Torre no ar',50],['Outorga paga',60],['Nova cidade',80],['Cliente novo',20],['Instalar o rádio você mesmo','+10 extra'],['Mês com lucro',10],['Recuperar inadimplente',15],['Recolher rádio',5],['Reter um cliente',10],['Migrar cliente para fibra',15],['Backbone de fibra',150],['Caixa CTO',20]];
@@ -910,13 +912,14 @@ function migrate(st){
   for(const [id,f] of Object.entries(st.floors||{})){if(id==='recepcao')continue;if(f.staff!=null&&!f.team){f.team=id==='callcenter'?{voz:f.staff}:{op:f.staff};delete f.staff;}if(f.built&&!f.team)f.team={};}
   st.coins=st.coins||0;st.shield=st.shield||{};if(st.diamonds==null)st.diamonds=START_DIAMONDS;
   if(!st.lv2){const old=levelOf(st.xp||0);if(old>=2){const n=old*2;st.xp=Math.max(st.xp,50*n*(n-1));}st.lv2=true;}
+  if(!st.pot2){for(const c of st.cities){for(const q of (c.blocks||[]))q.dom=Math.max((q.fams||[]).length,Math.round((q.dom||0)*POT_PER_HOME));for(const l of c.lots)if(l.t==='house')l.dom=Math.max((l.fams||[]).length,Math.round((l.dom||0)*POT_PER_HOME));c.regionsAt=null;}st.pot2=true;}
   if(!st.xp3){const x=st.xp||0;let l=1;while(x>=50*(l+1)*l)l++;const lo=50*l*(l-1),hi=50*(l+1)*l;st.xp=Math.round(xpFor(l)+(x-lo)/(hi-lo)*(xpFor(l+1)-xpFor(l)));st.xp3=true;}
   if(st.tut===undefined)st.tut=(st.towersBuilt>0||st.signed>0)?{done:true}:{};st.loans=st.loans||[];st.retained=st.retained||0;st.retCap=st.retCap||0;for(const c of st.cities)for(const l of quadras(c))for(const f of (l.fams||[]))if((f.st==='client'||f.st==='late'||f.st==='suspended')&&!f.since)f.since=st.day;st.stock=st.stock||0;st.parcelas=st.parcelas||[];st.recovered=st.recovered||0;st.crisis=st.crisis||null;st.cur=Object.assign(newMonth(),st.cur||{});if(!Number.isFinite(st.cur.novos))st.cur.novos=0;for(const h of st.history||[])if(!Number.isFinite(h.novos))h.novos=0;return st;}
 function newGame(company,cityName,uf){
   S={v:2,company,phase:'sede',money:START_MONEY,xp:0,rep:50,day:1,speed:1,
      docs:{},cities:[makeCity(cityName,uf,0)],ci:0,sede:null,
      floors:{recepcao:{built:true,staff:0}},combos:{tv:false,fone:false},
-     manualInstalls:0,towersBuilt:0,signed:0,lv2:true,xp3:true,diamonds:START_DIAMONDS,link:0,tut:{},shield:{},peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
+     manualInstalls:0,towersBuilt:0,signed:0,lv2:true,xp3:true,pot2:true,diamonds:START_DIAMONDS,link:0,tut:{},shield:{},peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
   log(`A ${company} nasceu em ${cityName}. Escolha o bairro da sede.`);
   save(true);
 }
@@ -1143,7 +1146,7 @@ function openRivals(){
   const tips=[];if(best){if((+best.price||0)<meS.price-5)tips.push('o rival cobra menos: veja os preços em Planos');if((+best.support||0)>citySupport()+0.1)tips.push('o atendimento dele é melhor: reforce o Call Center');if((+best.rep||0)>S.rep+5)tips.push('a reputação dele é maior');if((+best.fiber||0)/Math.max(1,(+best.radio||0)+(+best.fiber||0))>(meS.fiber/Math.max(1,meS.clients))+0.2)tips.push('ele tem mais clientes na fibra');if((+best.mkt||0)>cityBoost(c))tips.push('ele está com campanha de marketing na cidade');}
   openModal(head('Concorrência',esc(c.name))+(!logged?'<div class="notice warn">Entre na sua conta para ver e disputar com outros jogadores. A concorrência só existe entre jogadores logados.</div>':'')+
     (RIVAL.err?`<div class="notice bad">Não deu para atualizar a concorrência: ${esc(RIVAL.err)}.</div>`:'')+
-    `<p class="muted" style="font-size:13px">Quem atende a mesma cidade divide os mesmos domicílios. Os clientes dão uma nota para cada empresa (reputação, atendimento, fibra, campanhas e preço). Com nota menor que a do rival, parte dos seus clientes pede para trocar todo mês; com nota maior, você ganha clientes dele.</p>`+
+    `<p class="muted" style="font-size:13px">Quem atende a mesma cidade divide os mesmos moradores. Os clientes dão uma nota para cada empresa (reputação, atendimento, fibra, campanhas e preço). Com nota menor que a do rival, parte dos seus clientes pede para trocar todo mês; com nota maior, você ganha clientes dele.</p>`+
     row(S.company,meS,me,true)+(rp.rs.length?rp.rs.map(r=>row(r.company||'Provedor sem nome',r,provScore(r),false)).join(''):'<div class="notice">Nenhum outro jogador atende esta cidade agora.</div>')+
     (tips.length?`<div class="notice warn"><b>Para ganhar a disputa:</b> ${tips.join('; ')}.</div>`:rp.rs.length?'<div class="notice ok">Você está na frente na nota dos clientes.</div>':'')+
     `<div class="foot"><span class="muted" style="font-size:12.5px">${RIVAL.at?'Atualizado às '+new Date(RIVAL.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Ainda não atualizado'} · este mês: ${S.cur.paraConc||0} saíram, ${S.cur.daConc||0} chegaram</span>${logged?'<button class="btn small" id="rvSync">Atualizar agora</button>':'<button class="btn small primary" data-act="login">Entrar</button>'}</div>`,m=>{
@@ -1214,7 +1217,7 @@ function famsOf(c){const out=[];for(const l of quadras(c))if(l.fams)for(const f 
 function setQuadraHomes(c,homes){
   const hs=c.lots.filter(l=>l.t==='house');if(!hs.length)return;
   const r=rng(hash(c.name.toLowerCase()+'#dom'));const w=hs.map(()=>0.75+r()*0.5);const W=w.reduce((a,b)=>a+b,0);
-  hs.forEach((l,i)=>{l.fams=l.fams||[];l.dom=Math.max(l.fams.length,8,Math.round(homes*w[i]/W));});
+  hs.forEach((l,i)=>{l.fams=l.fams||[];l.dom=Math.max(l.fams.length,8,Math.round(homes*POT_PER_HOME*w[i]/W));});
 }
 const famBusy=f=>f.st&&f.st!=='none'||!!f.cpe;
 function quadraFree(l){return Math.max(0,(l.dom||0)-(l.fams||[]).filter(famBusy).length);}
@@ -1329,6 +1332,7 @@ function monthEnd(){
       }
       let p=0.012;if(!fib&&overT.has(l.tid))p+=0.07;if(S.rep<40)p+=0.03;if(!built('tecnico'))p+=0.01;if(built('noc'))p-=0.008;if(effect('chuva')&&!fib)p+=0.02;if(offline)p+=0.35;
       if(fib)p-=0.008;p-=Math.min(n2,4)*0.003*ccE;p+=prevCompl*0.004+congP-(S.ouvBonus||0);{const cu=cityU.get(c)||0;if(cu>1)p+=Math.min(0.08,(cu-1)*0.2);}
+      if(l.fidUntil&&l.fidUntil>=m)p*=0.5;if(cpOn('clube'))p*=0.6;
       if(Math.random()<p){requestCancel(c,l,congP&&Math.random()<0.6?'lenta':reasonFor(c,l,offline,!fib&&overT.has(l.tid)));continue;}
       if(offline)continue;
       let q=0.025;if(effect('crise'))q+=0.05;if(l.fam.need==='budget')q+=0.02;if(l.price>l.fam.budget)q+=0.03;if(S.rep<40)q+=0.01;q-=Math.min(ccOps,4)*0.004;
@@ -1385,7 +1389,8 @@ function monthEnd(){
   S.coins+=coinsNow;S.cur.coins+=coinsNow;
   if(S.autoCoins){const keep=S.coinKeep||0,n=Math.max(0,S.coins-keep);if(n){S.coins-=n;S.money+=n*COIN_RATE;S.cur.coinCash=(S.cur.coinCash||0)+n*COIN_RATE;log(`Conversão automática: ${n} selos viraram ${brl0(n*COIN_RATE)}.`);}}
   S.retCap=capOf('retencao',5);
-  const exp=staffCost+link+maint+content+fiberMaint+serverCost+storeCost+Math.round(loanPay);
+  const promoCost=clientCampaignsMonth();
+  const exp=staffCost+link+maint+content+fiberMaint+serverCost+storeCost+promoCost+Math.round(loanPay);
   S.money+=rev+parc-exp;
   // reputação
   let dRep=0;
@@ -1411,7 +1416,7 @@ function monthEnd(){
   const saldo=rev+parc-exp;
   const payCl=S.cities.reduce((s,c)=>s+famsOf(c).filter(pays).length,0),ticket=payCl?rev/payCl:0,sla=clients?Math.min(1,ccCap/clients):1,cac=cacNow();
   const metas=evalGoals({ticket,sla,cac,clients,m});
-  S.history.push({m,traf:+peakT.toFixed(3),linkG:linkNow().g,ticket,sla,cac,metas,loanPay:Math.round(loanPay),staff:staffCost,link,maint,content,fiberMaint,serverCost,storeCost,exp,saldo,lateUnpaid,inad:lateCount(),stock:S.stock,clientes:allClients(),fibra:fiberCl,rep:Math.round(S.rep),caixa:S.money,...S.cur});
+  S.history.push({m,traf:+peakT.toFixed(3),linkG:linkNow().g,ticket,sla,cac,metas,loanPay:Math.round(loanPay),staff:staffCost,link,maint,content,fiberMaint,serverCost,storeCost,promoCost:(S.cur.promoCost||0),exp,saldo,lateUnpaid,inad:lateCount(),stock:S.stock,clientes:allClients(),fibra:fiberCl,rep:Math.round(S.rep),caixa:S.money,...S.cur});
   S.history=S.history.slice(-24);
   S.cur=newMonth();repView=null;setGoalTargets();
   if(saldo>0)addXp(10);
@@ -1431,7 +1436,7 @@ function monthEnd(){
 const hostsOf=p=>Math.pow(2,32-p)-2;
 const maskOf=p=>p>=24?'255.255.255.0':p>=16?`255.255.${256-Math.pow(2,24-p)}.0`:'255.255.0.0';
 function netSteps(c){
-  const homes=Math.max(300,cityHomes(c)||Math.round(c.pop/2.8));
+  const homes=Math.max(300,cityHomes(c)||c.pop);
   const ps=[24];while(hostsOf(ps[ps.length-1])-12<homes&&ps[ps.length-1]>16)ps.push(ps[ps.length-1]-1);
   const n=ps.length-1,last=NET_LAST*clamp(Math.sqrt(homes/4400),0.35,8);
   const r=n>1?Math.pow(last/NET_FIRST,1/(n-1)):1;
@@ -1447,9 +1452,9 @@ function radioFiber(c){let r=0,f=0;for(const l of famsOf(c))if(isSub(l)){if(l.te
 function openNet(ci){
   const c=typeof ci==='number'?S.cities[ci]:city(),st=netSteps(c),k=Math.min(c.net||0,st.length-1),used=netUsed(c),cp=st[k].cap,pct=Math.min(100,Math.round(used/Math.max(1,cp)*100));
   const rows=st.map((x,i)=>{const own=i<=k,next=i===k+1;return `<div class="choice"><div><b>${i===0?'Rede inicial':`Caixa ${i}${i===st.length-1?' · última':''}`}: bloco /${x.p}</b><small>${ipStr(c,0)}/${x.p} · máscara ${maskOf(x.p)} · até ${x.cap.toLocaleString('pt-BR')} assinantes${i===st.length-1?' (a cidade inteira)':''}</small></div>${own?'<span class="chip ok">Ativa</span>':next?`<button class="btn small primary" data-netbuy="${i}">${brl0(x.cost)}</button>`:`<span class="chip">${brl0(x.cost)}</span>`}</div>`;}).join('');
-  openModal(head('Rede',`Capacidade de ${esc(c.name)}`)+`<div class="kpis"><div class="kpi"><span>Assinantes</span><b>${used.toLocaleString('pt-BR')}</b></div><div class="kpi"><span>Capacidade</span><b>${cp.toLocaleString('pt-BR')}</b></div><div class="kpi"><span>Domicílios</span><b>${cityHomes(c).toLocaleString('pt-BR')}</b></div></div>
+  openModal(head('Rede',`Capacidade de ${esc(c.name)}`)+`<div class="kpis"><div class="kpi"><span>Assinantes</span><b>${used.toLocaleString('pt-BR')}</b></div><div class="kpi"><span>Capacidade</span><b>${cp.toLocaleString('pt-BR')}</b></div><div class="kpi"><span>Moradores</span><b>${cityHomes(c).toLocaleString('pt-BR')}</b></div></div>
     <div class="share" aria-hidden="true"><i style="width:${pct}%;${pct>=90?'background:var(--danger)':''}"></i></div>
-    <p class="muted" style="font-size:13px">Cada caixa de expansão traz um bloco de IP maior (máscara menor), portas novas na OLT e caixas de atendimento nas ruas. Com a rede cheia, ninguém novo consegue assinar nesta cidade. A última caixa cobre todos os domicílios.</p>
+    <p class="muted" style="font-size:13px">Cada caixa de expansão traz um bloco de IP maior (máscara menor), portas novas na OLT e caixas de atendimento nas ruas. Com a rede cheia, ninguém novo consegue assinar nesta cidade. A última caixa cobre todos os moradores.</p>
     ${netFull(c)?'<div class="notice bad">Rede cheia: compre a próxima caixa para voltar a vender.</div>':''}
     <div class="choice-list">${rows}</div>${ilinkHtml(c)}`,m=>{
     m.querySelectorAll('[data-ilink]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ilink,x=CITY_LINKS[i];if(!spend(x.cost))return;c.ilink=i;addXp(40);log(`Interligação até ${c.name}: ${x.name} (${brl0(x.price)}/mês).`);event(`Interligação: ${x.name}`);checkMissions();save(true);renderAll();openNet(c.idx);});
@@ -1496,7 +1501,7 @@ function migrateClient(c,l,same){
   const fp=fiberPlans()[0],oldPrice=l.price;
   if(S.money<ONU_COST)return false;S.money-=ONU_COST;S.cur.inv+=ONU_COST;if(!opsOf('tecnico')){S.money-=THIRD_COST;}
   l.tech='fiber';l.tid=null;l.plan=fp.id;l.price=same?oldPrice:Math.round((pp(fp)+l.combo.reduce((s,k)=>s+cbPrice(k),0))*100)/100;delete l.disc;
-  S.stock++;S.migrated=(S.migrated||0)+1;S.cur.migrados++;addXp(15);return true;
+  S.stock++;S.migrated=(S.migrated||0)+1;S.cur.migrados++;if(cpOn('migra'))l.disc={pct:1,until:monthOf(S.day)};addXp(15);return true;
 }
 function migrationCalls(){
   const calls=capOf('migracao',30);if(!calls)return;
@@ -1508,7 +1513,7 @@ function migrationCalls(){
     const [c,l]=pickOut(pool);if(l.calledM===S.day){i--;continue;}l.calledM=S.day;did++;
     if(pool===mig){
       const fp=fiberPlans()[0],newP=pp(fp)+l.combo.reduce((s,k)=>s+cbPrice(k),0);
-      let p=cfg.same?0.62:(newP<=l.fam.budget*1.25?0.42:0.15);if(!cfg.same&&newP<=l.price)p+=0.15;if(l.fam.need==='work'||l.fam.need==='game')p+=0.15;p+=(S.rep-50)/250;
+      let p=cfg.same?0.62:(newP<=l.fam.budget*1.25?0.42:0.15);if(cpOn('migra'))p+=0.2;if(!cfg.same&&newP<=l.price)p+=0.15;if(l.fam.need==='work'||l.fam.need==='game')p+=0.15;p+=(S.rep-50)/250;
       if(Math.random()<p&&migrateClient(c,l,cfg.same))okM++;else l.migNo=S.day;
     }else{
       const cur=planById(l.plan),nx=nextPlan(l),diff=nx.price-cur.price;
@@ -1604,7 +1609,7 @@ const isBig=c=>(c.pop||0)>=BIG_CITY;
 function cityRegions(c){
   if(!isBig(c)||!hasBlocks(c))return null;
   if(c.regions&&c.regionsAt===c.blocksAt)return c.regions;
-  const target=REGION_POP/PEOPLE_PER_HOME,groups=new Map();
+  const target=REGION_POP*POT_PER_HOME/PEOPLE_PER_HOME,groups=new Map();
   for(const q of c.blocks){const b=bairroOf(q);if(!groups.has(b))groups.set(b,[]);groups.get(b).push(q);}
   const regions=[];
   for(const b of [...groups.keys()].sort((a,z)=>a-z)){
@@ -1614,7 +1619,7 @@ function cityRegions(c){
     let acc=0,k=0,start=regions.length;for(let i=0;i<nR;i++)regions.push({name:c.bairros[b]+(nR>1?` · parte ${i+1}`:''),b,homes:0,n:0});
     for(const q of qs){const idx=start+Math.min(nR-1,Math.floor(acc/(homes/nR||1)));q.r=idx;regions[idx].homes+=q.dom||0;regions[idx].n++;acc+=q.dom||0;}
   }
-  regions.forEach(r=>{r.pop=Math.round(r.homes*PEOPLE_PER_HOME);r.price=outorgaFor(Math.max(5000,r.pop));});
+  regions.forEach(r=>{r.pop=Math.round(r.homes*PEOPLE_PER_HOME/POT_PER_HOME);r.price=outorgaFor(Math.max(5000,r.pop));});
   c.regions=regions;c.regionsAt=c.blocksAt;return regions;
 }
 const cityLicensed=c=>!!(c&&(c.outorgaPaid||((c.regionsPaid||[]).length>0)));
@@ -1658,6 +1663,7 @@ function chance(c,lot,planId,combo){
   if(!fib&&cov&&towerLoad(c,cov.t)>=cap())p-=0.15;
   if(effect('crise'))p-=0.1;if(effect('boom'))p+=0.1;
   p+=cityBoost(c);
+  p+=promoChance(planId);
   {const rp=rivalPressure(c);if(rp.occ)p*=1-rp.occ*clamp(0.55+rp.edge,0.15,0.95);}
   return {p:clamp(p,0.03,0.92),price};
 }
@@ -1677,6 +1683,7 @@ function activate(c,lot,deal,ip){
   lot.tech=isFiberPlan(deal.plan)?'fiber':'radio';
   lot.st='client';lot.plan=deal.plan;lot.combo=deal.combo;lot.price=deal.price;lot.tid=deal.tid;lot.ip=ip;delete lot.deal;
   if(!c.used.includes(ip))c.used.push(ip);
+  applyEntryPromo(lot);
   S.signed++;S.cur.novos++;addXp(20);S.peak=Math.max(S.peak,allClients());
 }
 function attemptSale(c,who,sure){
@@ -1693,7 +1700,7 @@ function attemptSale(c,who,sure){
     if(fib)spend(ONU_COST);else takeCpe();
     if(!opsOf('tecnico'))spend(THIRD_COST);
     activate(c,lot,{plan:o.plan,combo:o.combo,price:o.price,tid:fib?null:coverOf(c,lot).t.id},nextIp(c));
-    log(`${who==='loja'?'Loja':who==='carreata'?'Carreata':who==='conc'?'Portabilidade: veio da concorrência':'Vendedor'} fechou com ${lot.fam.name} (${c.name}): ${planLabel(o.plan,o.combo)}.`);save(true);
+    if(who!=='promo')log(`${who==='loja'?'Loja':who==='carreata'?'Carreata':who==='conc'?'Portabilidade: veio da concorrência':who==='indica'?'Indicação de cliente':'Vendedor'} fechou com ${lot.fam.name} (${c.name}): ${planLabel(o.plan,o.combo)}.`);save(true);
     return true;
   }
   lot.st='refused';lot.until=S.day+45;return false;
@@ -1807,7 +1814,7 @@ function renderMap(){
   const og=c.outorgaPaid?'<span class="chip ok">Outorga paga</span>':(c.regionsPaid||[]).length?`<button class="chip warn" data-act="outorga" style="border:0;cursor:pointer">Outorga: ${c.regionsPaid.length}/${(cityRegions(c)||[]).length} regiões</button>`:`<button class="chip bad" data-act="outorga" style="border:0;cursor:pointer">Sem outorga · ${isBig(c)?'por região ou cidade':brl0(c.outorga)}</button>`;
   const il=c.idx>0?(c.ilink>=0?(()=>{const u=cityTraffic(c)/CITY_LINKS[c.ilink].g;return `<button class="chip ${u>1?'bad':u>0.85?'warn':''}" data-act="net" style="border:0;cursor:pointer">Interligação ${gb(CITY_LINKS[c.ilink].g)} · ${Math.round(u*100)}%</button>`;})():'<button class="chip bad" data-act="net" style="border:0;cursor:pointer">Sem interligação</button>'):'';
   const sel=S.cities.length>1?`<select class="input" id="citySel" style="width:auto;padding:5px 8px" aria-label="Trocar cidade">${S.cities.map((cc,i)=>`<option value="${i}" ${i===S.ci?'selected':''}>${esc(cc.name)}</option>`).join('')}</select>`:'';
-  $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
+  $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · ${cl.toLocaleString('pt-BR')} clientes (${homesAll?Math.round(cl/homesAll*100):0}%) · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
    <div class="map-meta">${c.geo?'':`<button class="btn small primary" data-act="geoLoad" ${geoBusy.has(c)?'disabled':''}>${geoBusy.has(c)?'Carregando mapa…':'Carregar mapa real'}</button>`}${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${(()=>{const rp=rivalPressure(c);return rp.rs.length?`<button class="chip ${rp.edge>0.03?'bad':rp.edge<-0.03?'ok':'warn'}" data-act="rivals" style="cursor:pointer">Concorrentes ${rp.rs.length} · ${Math.round(rp.occ*100)}% da cidade</button>`:(rivalsOn()&&sbOn()&&SB.session&&SB.session.user&&!sedeMode?'<button class="chip" data-act="rivals" style="cursor:pointer">Sem concorrentes</button>':'');})()}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
@@ -1834,7 +1841,7 @@ function renderMap(){
       if(fs.some(f=>f.st==='late'||f.st==='suspended'))cls+=' late';else if(fs.some(f=>f.st==='cancelReq'))cls+=' cancelReq';else if(fs.some(f=>f.cpe||f.st==='pending'))cls+=' cpe';
       if(subs.length)cls+=' client';if(subs.some(f=>f.tech==='fiber'))cls+=' fiber';if(subs.some(f=>overT.has(f.tid)))cls+=' overload';
       inner=houseSvg({fam:l.fam,st:subs.length?'client':'none'})+`<span class="qbar"><i style="width:${Math.round(sh*100)}%"></i></span>${subs.length?`<span class="qn">${subs.length}</span>`:''}`;
-      label=`Quadra em ${c.bairros[bairroOf(l)]}: ${subs.length} de ${l.dom} domicílios são clientes`;}
+      label=`Quadra em ${c.bairros[bairroOf(l)]}: ${subs.length} de ${l.dom} moradores são clientes`;}
     if(!sedeMode&&fiberAt(c,l))cls+=' fib';
     const tag=sedeMode?'div':'button';
     return `<${tag} class="${cls}" style="grid-column:${col};grid-row:${row}" ${sedeMode?'':`data-lot="${i}"`} aria-label="${esc(label)}">${inner}</${tag}>`;
@@ -1876,7 +1883,7 @@ function renderBoard(c,overT,sedeMode){
   QSig=sig;
   el.classList.add('svgmode');
   const fs=QV.w/34; // tamanho de texto proporcional ao zoom
-  const qs=c.blocks.map((q,i)=>{const g=blockGrid(c,q),lk=quadraLook(c,q,overT);return `<path class="${lk.cls}${QSel===i?' sel':''}" d="${g.d}" fill="${lk.fill}" data-q="${i}"><title>${esc(c.bairros[bairroOf(q)])}: ${lk.subs.length} de ${q.dom} domicílios</title></path>`;}).join('');
+  const qs=c.blocks.map((q,i)=>{const g=blockGrid(c,q),lk=quadraLook(c,q,overT);return `<path class="${lk.cls}${QSel===i?' sel':''}" d="${g.d}" fill="${lk.fill}" data-q="${i}"><title>${esc(c.bairros[bairroOf(q)])}: ${lk.subs.length} de ${q.dom} moradores</title></path>`;}).join('');
   const nums=c.blocks.map(q=>{const n=quadraSubs(q);if(!n)return '';return `<text class="qn" x="${((q.x+.5)*100).toFixed(1)}" y="${((q.y+.5)*100).toFixed(1)}" style="font-size:${(fs*.62).toFixed(1)}px">${n}</text>`;}).join('');
   const lm=c.geo.side/9;
   const wedges=c.towers.map(t=>{const p=tpos(t),over=overT.has(t.id),col=t.off?'#7a8288':over?'#cf3b3b':'#0f9a8d';return `<path class="wedge" d="${sectorPath(p.x*100,p.y*100,t.az||0,t.beam||360,tRange(t)*100)}" fill="${col}" fill-opacity="${t.off?.04:.12}" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke" ${t.off?'stroke-dasharray="6 6"':''}/>`;}).join('');
@@ -1965,7 +1972,7 @@ function blockHomes(c,blocks){
   for(const q of blocks){
     let h=q.area*dens;
     if(d&&q.ib){const ib=d.bairros.find(b=>b.nome===q.ib),s=ib&&share.get(ib);if(s&&s.dom)h=s.dom*q.area/s.a;}
-    q.dom=Math.max((q.fams||[]).length,2,Math.min(600,Math.round(h)));
+    q.dom=Math.max((q.fams||[]).length,2,Math.min(1700,Math.round(h*POT_PER_HOME)));
   }
 }
 function blockBairro(c,q){
@@ -2016,7 +2023,7 @@ async function loadBlocks(c){
     for(const q of blocks){q.b=blockBairro(c,q);delete q.ib;}
     const moved=rehomeFamilies(c,blocks);
     c.blocks=blocks;c.blocksAt=Date.now();delete c.blocksTried;BSTAT.delete(c);QV=null;QSig='';
-    log(`${c.name}: ${blocks.length} quadras ${src==='cache'?'carregadas do banco de quadras (Drive)':'desenhadas pelas ruas do OpenStreetMap'}, ${cityHomes(c).toLocaleString('pt-BR')} domicílios${moved?`, ${moved} cliente(s) e pendência(s) mantidos`:''}.`);
+    log(`${c.name}: ${blocks.length} quadras ${src==='cache'?'carregadas do banco de quadras (Drive)':'desenhadas pelas ruas do OpenStreetMap'}, ${cityHomes(c).toLocaleString('pt-BR')} moradores${moved?`, ${moved} cliente(s) e pendência(s) mantidos`:''}.`);
     toast(`${blocks.length} quadras reais de ${c.name} no tabuleiro.`);
     save(true);
   }catch(e){c.blocksTried=Date.now();retryBlocks(c,navigator.onLine?'busy':'offline');}
@@ -2201,7 +2208,7 @@ function renderReport(){
   const r=hist[idx];
   $('#repTitle').textContent=`Mês ${r.m} · fechado`;
   $('#report').innerHTML=`<div class="kpis"><div class="kpi"><span>Novos</span><b>${r.novos}</b></div><div class="kpi"><span>Cancel.</span><b>${r.cancel}</b></div><div class="kpi"><span>Clientes</span><b>${r.clientes}</b></div></div>
-    <dl class="finance"><dt>Assinaturas</dt><dd>${brl0(r.rev)}</dd>${r.parc?`<dt>Acordos e cobranças</dt><dd>${brl0(r.parc)}</dd>`:''}${r.lateUnpaid?`<dt>Não pago (inadimplência)</dt><dd style="color:var(--danger)">${brl0(r.lateUnpaid)}</dd>`:''}<dt>Salários e sócios</dt><dd>−${brl0(r.staff)}</dd><dt>Link de internet</dt><dd>−${brl0(r.link)}</dd><dt>Manutenção de torres</dt><dd>−${brl0(r.maint)}</dd>${r.fiberMaint?`<dt>Rede de fibra</dt><dd>−${brl0(r.fiberMaint)}</dd>`:''}${r.serverCost?`<dt>Servidores de cache</dt><dd>−${brl0(r.serverCost)}</dd>`:''}${r.storeCost?`<dt>Lojas filiais</dt><dd>−${brl0(r.storeCost)}</dd>`:''}<dt>TV e telefone</dt><dd>−${brl0(r.content)}</dd><dt><b>Saldo operacional</b></dt><dd style="color:${r.saldo>=0?'var(--signal)':'var(--danger)'}">${brl0(r.saldo)}</dd><dt>Investimentos</dt><dd>${brl0(r.inv)}</dd>${r.bonus?`<dt>Bônus de nível</dt><dd style="color:var(--signal)">+${brl0(r.bonus)}</dd>`:''}${r.loanPay?`<dt>Parcelas do empréstimo</dt><dd>−${brl0(r.loanPay)}</dd>`:''}<dt>Pedidos de cancelamento · retidos</dt><dd>${r.pedidos||0} · ${r.retidos||0}</dd><dt>Selos ganhos</dt><dd>${r.coins||0}</dd><dt>Clientes na fibra · migrados</dt><dd>${r.fibra||0} · ${r.migrados||0}</dd><dt>Reclamações · demissões</dt><dd>${r.complaints||0} · ${r.quits||0}</dd><dt>Novos inadimplentes</dt><dd>${r.calotes||0}</dd><dt>Rádios recolhidos · perdidos</dt><dd>${r.recolhidos||0} · ${r.perdidos||0}</dd><dt>Torres novas</dt><dd>${r.torres}</dd><dt>Reputação · caixa</dt><dd>${r.rep} · ${brl0(r.caixa)}</dd></dl>
+    <dl class="finance"><dt>Assinaturas</dt><dd>${brl0(r.rev)}</dd>${r.parc?`<dt>Acordos e cobranças</dt><dd>${brl0(r.parc)}</dd>`:''}${r.lateUnpaid?`<dt>Não pago (inadimplência)</dt><dd style="color:var(--danger)">${brl0(r.lateUnpaid)}</dd>`:''}<dt>Salários e sócios</dt><dd>−${brl0(r.staff)}</dd><dt>Link de internet</dt><dd>−${brl0(r.link)}</dd><dt>Manutenção de torres</dt><dd>−${brl0(r.maint)}</dd>${r.fiberMaint?`<dt>Rede de fibra</dt><dd>−${brl0(r.fiberMaint)}</dd>`:''}${r.serverCost?`<dt>Servidores de cache</dt><dd>−${brl0(r.serverCost)}</dd>`:''}${r.storeCost?`<dt>Lojas filiais</dt><dd>−${brl0(r.storeCost)}</dd>`:''}${r.promoCost?`<dt>Promoções</dt><dd>−${brl0(r.promoCost)}</dd>`:''}<dt>TV e telefone</dt><dd>−${brl0(r.content)}</dd><dt><b>Saldo operacional</b></dt><dd style="color:${r.saldo>=0?'var(--signal)':'var(--danger)'}">${brl0(r.saldo)}</dd><dt>Investimentos</dt><dd>${brl0(r.inv)}</dd>${r.bonus?`<dt>Bônus de nível</dt><dd style="color:var(--signal)">+${brl0(r.bonus)}</dd>`:''}${r.loanPay?`<dt>Parcelas do empréstimo</dt><dd>−${brl0(r.loanPay)}</dd>`:''}<dt>Pedidos de cancelamento · retidos</dt><dd>${r.pedidos||0} · ${r.retidos||0}</dd><dt>Selos ganhos</dt><dd>${r.coins||0}</dd><dt>Clientes na fibra · migrados</dt><dd>${r.fibra||0} · ${r.migrados||0}</dd><dt>Reclamações · demissões</dt><dd>${r.complaints||0} · ${r.quits||0}</dd><dt>Novos inadimplentes</dt><dd>${r.calotes||0}</dd><dt>Rádios recolhidos · perdidos</dt><dd>${r.recolhidos||0} · ${r.perdidos||0}</dd><dt>Torres novas</dt><dd>${r.torres}</dd><dt>Reputação · caixa</dt><dd>${r.rep} · ${brl0(r.caixa)}</dd></dl>
     ${evBlock(r)}`;
 }
 function renderLog(){$('#log').innerHTML=S.log.slice(0,16).map(e=>`<li><time>M${monthOf(e.d)}·${String(dayOf(e.d)).padStart(2,'0')}</time><span>${esc(e.m)}</span></li>`).join('');}
@@ -2483,7 +2490,7 @@ function blockNotice(c,why){
 function towerOffer(c,lot,onRoof){
   const why=signupBlock(c);
   if(why){openModal(head(onRoof?'Sede':'Terreno vazio','Ainda não dá para subir torre')+blockNotice(c,why));return;}
-  const covQ=quadras(c).filter(l=>dist(l,lot)<=RANGE),covHouses=`${covQ.length} quadras, ≈ ${covQ.reduce((s,l)=>s+(l.dom||0),0).toLocaleString('pt-BR')} domicílios`;
+  const covQ=quadras(c).filter(l=>dist(l,lot)<=RANGE),covHouses=`${covQ.length} quadras, ≈ ${covQ.reduce((s,l)=>s+(l.dom||0),0).toLocaleString('pt-BR')} moradores`;
   openModal(head(onRoof?'Sede':'Terreno vazio',onRoof?'Torre no topo do prédio?':'Instalar uma torre aqui?')+`<p>Uma torre com rádio setorial cobre cerca de 2 quadras e atende até ${cap()} clientes.</p>
     <div class="notice ok">Este ponto alcança <b>${covHouses}</b>.</div>
     <p class="muted">${S.kits?`Reinstalar torre desmontada do galpão: ${brl0(KIT_COST)}`:`Torre e rádio: ${brl0(TOWER_COST)}`}, cobrado só se a configuração der certo. Manutenção: R$ 120/mês.</p>
@@ -2644,7 +2651,7 @@ function openTeam(id){
   openModal(head(`${f.annex?'Galpão':floorLabel(f)} · ${f.name}`,'Equipe')+`<div class="kpis"><div class="kpi"><span>Pessoas</span><b>${hc}/${capN}</b></div><div class="kpi"><span>Eficiência</span><b>${hc?Math.round(e*100)+'%':'—'}</b></div><div class="kpi"><span>Folha</span><b>${brl0(rolesSum(f))}</b></div></div>
     ${iss.length?`<div class="notice warn">Falta gente na liderança: ${iss.join(' e ')}. A eficiência do setor cai.</div>`:''}
     ${hc>=capN?`<div class="notice bad">Limite de ${capN} pessoas por setor. ${built('rh')?'Contrate mais analistas de RH para abrir vagas.':'Monte o RH para abrir mais vagas.'}</div>`:''}
-    ${id==='comercial'?salesTechHtml():''}${rows}${partners}${careerHtml(id)}
+    ${id==='comercial'?salesTechHtml()+promoHtml():''}${rows}${partners}${careerHtml(id)}
     <p class="muted" style="font-size:12.5px;margin-top:8px">Regras: 1 supervisor para cada 5 operadores; com 8 pessoas ou mais, o setor precisa de um gerente. Todo mês alguém pode pedir demissão, menos com RH. Cada contratação fica mais cara conforme a empresa cresce.</p>`,m=>{
     m.querySelectorAll('[data-stech]').forEach(b=>b.onclick=()=>{S.salesTech=b.dataset.stech;log(`Comercial passa a vender ${STECH[S.salesTech].toLowerCase()}.`);save(true);openTeam(id);});
     m.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{if(headcount(id)>=sectorCap())return;const k=b.dataset.add;if(!spend(hireCost()))return;t[k]=(t[k]||0)+1;S.floors[id].team=t;if(id==='retencao'&&k==='op')S.retCap=(S.retCap||0)+5;log(`Contratou ${R[k].t} no ${f.name}.`);event(`Contratou ${R[k].t} (${f.name})`);save(true);openTeam(id);});
@@ -2662,6 +2669,59 @@ const STECH={both:'Rádio e fibra',radio:'Só rádio',fiber:'Só fibra'};
 function salesTechHtml(){const t=salesTech(),fib=S.cities.some(c=>c.fiber&&c.fiber.on);
   return `<div class="field"><label>O que os vendedores oferecem</label><div class="seg">${Object.entries(STECH).map(([k,v])=>`<button data-stech="${k}" aria-pressed="${t===k}">${v}</button>`).join('')}</div>
     <small class="muted">Vale para vendedores, loja e carreata. ${fib?'Só fibra deixa de vender rádio onde não há fibra; só rádio guarda a fibra para a migração.':'A fibra chega no nível '+FIBRA_LEVEL+' com o backbone; até lá, só rádio e os dois vendem igual.'} O porta a porta feito por você continua livre.</small></div>`;}
+/* Ofertas de entrada (Comercial): uma oferta por vez, mais a instalação grátis. Vendem mais, mas custam receita. */
+const ENTRY_OFFERS={
+  none:{name:'Sem oferta',p:0,desc:'Preço cheio desde o primeiro mês.'},
+  m1:{name:'1ª mensalidade grátis',p:0.08,disc:1,months:1,desc:'O cliente não paga o primeiro mês.'},
+  d6:{name:'6 meses com 30% off',p:0.12,disc:0.3,months:6,desc:'Desconto nos seis primeiros meses.'},
+  d12:{name:'Fidelidade 12 meses · 15% off',p:0.1,disc:0.15,months:12,fid:12,desc:'Um ano de desconto; fidelizado cancela bem menos.'},
+  plano:{name:'Plano em oferta · 20% off por 3 meses',p:0.06,disc:0.2,months:3,plan:true,desc:'Só no plano escolhido; puxa as vendas para ele.'},
+};
+const INSTALL_FREE_COST=150;
+const promosOn=()=>!!S&&levelOf(S.xp)>=PROMO_LEVEL;
+function entryOffer(){return promosOn()?(ENTRY_OFFERS[(S.promo&&S.promo.offer)||'none']||ENTRY_OFFERS.none):ENTRY_OFFERS.none;}
+function promoChance(planId){if(!promosOn())return 0;const o=entryOffer(),pr=S.promo||{};let p=0;if(o.plan){if(planId===pr.plan)p+=o.p+0.04;}else p+=o.p;if(pr.inst)p+=0.06;return p;}
+function applyEntryPromo(l){if(!promosOn())return;const o=entryOffer(),pr=S.promo||{},m=monthOf(S.day);
+  if(o.disc&&(!o.plan||l.plan===pr.plan))l.disc={pct:o.disc,until:m+o.months-1};if(o.fid)l.fidUntil=m+o.fid-1;
+  if(pr.inst){S.money-=INSTALL_FREE_COST;S.cur.promoCost=(S.cur.promoCost||0)+INSTALL_FREE_COST;}}
+function promoHtml(){
+  if(!promosOn())return `<div class="notice">Promoções de contratação liberam no nível ${PROMO_LEVEL}.</div>`;
+  const pr=S.promo||{},cur=pr.offer||'none',plans=[...PLANS,...(levelOf(S.xp)>=FIBRA_LEVEL?fiberPlans():[])];
+  return `<div class="field"><label>Promoção na contratação</label><div class="choice-list">${Object.entries(ENTRY_OFFERS).map(([k,o])=>`<label class="choice" style="cursor:pointer"><div><b>${o.name}</b><small>${o.desc}${o.p?' · +'+Math.round(o.p*100)+'% de chance de fechar':''}</small></div><input type="radio" name="eoff" data-eoff="${k}" ${cur===k?'checked':''}></label>`).join('')}</div></div>
+    ${cur==='plano'?`<div class="field"><label for="eoPlan">Plano em oferta</label><select class="input" id="eoPlan" data-eoplan>${plans.map(p=>`<option value="${p.id}" ${pr.plan===p.id?'selected':''}>${p.name} · ${brl(pp(p))}</option>`).join('')}</select></div>`:''}
+    <label class="choice" style="cursor:pointer"><div><b>Instalação grátis</b><small>A empresa paga ${brl0(INSTALL_FREE_COST)} por cliente novo · +6% de chance de fechar.</small></div><input type="checkbox" data-einst ${pr.inst?'checked':''}></label>
+    <p class="muted" style="font-size:12.5px">Vale para vendedores, loja, carreata e o seu porta a porta. Com uma promoção no ar, moradores com sinal também ligam para assinar no fechamento do mês (procura espontânea), sem depender só dos vendedores. Os descontos entram no preço dos primeiros meses de cada cliente novo.</p>`;
+}
+document.addEventListener('change',e=>{if(!S)return;const t=e.target;
+  if(t.dataset&&t.dataset.eoff!=null){S.promo=S.promo||{};S.promo.offer=t.dataset.eoff;if(t.dataset.eoff==='plano'&&!S.promo.plan)S.promo.plan=PLANS[PLANS.length-1].id;log(`Comercial: promoção "${ENTRY_OFFERS[t.dataset.eoff].name}".`);save(true);openTeam('comercial');}
+  else if(t.dataset&&t.dataset.einst!=null){S.promo=S.promo||{};S.promo.inst=t.checked;save(true);}
+  else if(t.dataset&&t.dataset.eoplan!=null){S.promo=S.promo||{};S.promo.plan=t.value;save(true);}
+});
+/* Campanhas para clientes (Marketing): valem para toda a base enquanto ligadas; custo mensal. */
+const CLIENT_CAMPAIGNS={
+  clube:{name:'Clube de vantagens',desc:'Cinema, farmácia e descontos para quem é cliente: menos pedidos de cancelamento.',cost:l=>l*1.5,unit:'R$ 1,50 por cliente/mês'},
+  indica:{name:'Indique um amigo',desc:'Todo mês cerca de 1% dos clientes trazem alguém; quem indica ganha 50% off na mensalidade seguinte.',cost:()=>0,unit:'custo no desconto de quem indica'},
+  migra:{name:'Migração premiada',desc:'Quem migra do rádio para a fibra ganha 1 mês grátis: a Migração convence muito mais.',cost:()=>0,unit:'custo no mês grátis de quem migra'},
+};
+const cpOn=k=>promosOn()&&!!(S.cpromo&&S.cpromo[k]);
+function clientCampaignsHtml(){
+  if(!promosOn())return `<div class="notice">Campanhas para clientes liberam no nível ${PROMO_LEVEL}.</div>`;
+  const cl=allClients();
+  return `<h3 style="margin:14px 0 6px">Campanhas para clientes</h3><div class="choice-list">${Object.entries(CLIENT_CAMPAIGNS).map(([k,cp])=>`<label class="choice" style="cursor:pointer"><div><b>${cp.name}${cpOn(k)?' · ligada':''}</b><small>${cp.desc} Custo: ${cp.unit}${cp.cost(cl)?' (hoje ≈ '+brl0(cp.cost(cl))+'/mês)':''}.</small></div><input type="checkbox" data-cpromo="${k}" ${cpOn(k)?'checked':''}></label>`).join('')}</div>`;
+}
+document.addEventListener('change',e=>{const t=e.target;if(!S||!t.dataset||t.dataset.cpromo==null)return;S.cpromo=S.cpromo||{};S.cpromo[t.dataset.cpromo]=t.checked;log(`Marketing: ${CLIENT_CAMPAIGNS[t.dataset.cpromo].name} ${t.checked?'ligada':'desligada'}.`);save(true);});
+function clientCampaignsMonth(){
+  if(!promosOn())return 0;let cost=0;const m=monthOf(S.day);
+  if(cpOn('clube'))cost+=Math.round(CLIENT_CAMPAIGNS.clube.cost(allClients()));
+  if(cpOn('indica'))for(const c of S.cities){const subs=famsOf(c).filter(l=>l.st==='client');let n=0;for(const l of subs)if(Math.random()<0.01){if(attemptSale(c,'indica',true)){n++;l.disc={pct:0.5,until:m+1};}}if(n)event(`Indique um amigo: ${n} cliente(s) novo(s) em ${c.name}`);}
+  // procura espontânea: com uma promoção de entrada no ar, parte dos moradores com sinal liga para assinar
+  const o=entryOffer(),lead=(o.plan?o.p*0.6:o.p)+((S.promo&&S.promo.inst)?0.06:0);
+  if(lead>0)for(const c of S.cities){if(saleBlock(c))continue;
+    const free=quadras(c).filter(l=>regionOk(c,l)&&sellable(c,l)).reduce((t,l)=>t+quadraFree(l),0),n=Math.min(600,Math.round(free*lead*0.1));
+    let got=0;for(let i=0;i<n;i++){if(attemptSale(c,'promo',true))got++;else if(saleBlock(c)||S.money<0)break;}
+    if(got){S.cur.promoLeads=(S.cur.promoLeads||0)+got;log(`Promoção "${o.name}"${S.promo&&S.promo.inst?' + instalação grátis':''} trouxe ${got} assinante(s) em ${c.name}.`);event(`Promoção: +${got} assinantes em ${c.name}`);}}
+  S.cur.promoCost=(S.cur.promoCost||0)+cost;return cost;
+}
 function serviceUsers(sv){const cl=allClients();return sv.id==='game'?S.cities.reduce((s,c)=>s+famsOf(c).filter(l=>isSub(l)&&l.fam.need==='game').length,0):Math.round(cl*sv.use);}
 function openServers(){
   if(!built('noc')){toast(`O NOC libera no nível ${FLOORS.find(f=>f.id==='noc').level}.`);return;}
@@ -2681,7 +2741,7 @@ function openMarketing(){
   openModal(head('Marketing',`Campanhas em ${esc(c.name)}`)+`<div class="kpis"><div class="kpi"><span>Campanhas</span><b>${active}/${slots}</b></div><div class="kpi"><span>Bônus na cidade</span><b>+${Math.round(cityBoost(c)*100)}%</b></div><div class="kpi"><span>Loja</span><b>${c.store?'Filial':hasStore(c)?'Sede':'Não'}</b></div></div>
     ${slots===0?'<div class="notice bad">Contrate analistas de marketing: cada um toca uma campanha por vez.</div>':active>=slots?'<div class="notice warn">Todos os analistas estão ocupados. Contrate mais ou espere uma campanha acabar.</div>':''}
     <p class="muted">As campanhas valem para a cidade aberta no mapa. Troque a cidade no mapa para anunciar em outra.</p>
-    <div class="grid3">${tiles}</div>`,m=>{
+    <div class="grid3">${tiles}</div>${clientCampaignsHtml()}`,m=>{
     m.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{
       const cp=CAMPAIGNS.find(x=>x.id===b.dataset.cp);if(!spend(cp.cost))return;
       c.campaigns.push({id:cp.id,boost:cp.boost,until:m0+cp.months-1});S.cur.mkt=(S.cur.mkt||0)+cp.cost;if(cp.rep)S.rep=clamp(S.rep+cp.rep,0,100);
@@ -2709,7 +2769,7 @@ function openFiber(){
   if(lvl<FIBRA_LEVEL){toast(`A fibra libera no nível ${FIBRA_LEVEL}.`);return;}
   const tier=FIBER_TIERS[S.fiberTier],next=FIBER_TIERS[S.fiberTier+1];
   const bairros=c.bairros.map((b,i)=>{const lots=quadras(c).filter(l=>bairroOf(l)===i),houses=lots.reduce((s,l)=>s+(l.dom||0),0),fl=lots.flatMap(l=>l.fams||[]),radio=fl.filter(l=>isSub(l)&&l.tech!=='fiber').length,fib=fl.filter(l=>isSub(l)&&l.tech==='fiber').length,has=c.fiber.ctos.includes(i);
-    return `<div class="tile ${has?'on':''}"><b>${esc(b)}</b><small>${houses.toLocaleString('pt-BR')} domicílios · ${radio} no rádio · ${fib} na fibra</small>${has?'<span class="chip ok" style="align-self:flex-start">CTO instalada</span>':`<button class="btn small" data-cto="${i}" ${c.fiber.on?'':'disabled'} style="align-self:flex-start">Caixa CTO · ${brl0(CTO_COST)}</button>`}</div>`;}).join('');
+    return `<div class="tile ${has?'on':''}"><b>${esc(b)}</b><small>${houses.toLocaleString('pt-BR')} moradores · ${radio} no rádio · ${fib} na fibra</small>${has?'<span class="chip ok" style="align-self:flex-start">CTO instalada</span>':`<button class="btn small" data-cto="${i}" ${c.fiber.on?'':'disabled'} style="align-self:flex-start">Caixa CTO · ${brl0(CTO_COST)}</button>`}</div>`;}).join('');
   openModal(head('Rede de fibra',esc(c.name))+`
     ${!cityLicensed(c)?'<div class="notice bad">Compre a outorga desta cidade primeiro.</div>':''}
     ${c.fiber.on?`<div class="notice ok">Backbone ativo em ${esc(c.name)}. Manutenção: ${brl0(1000)}/mês + ${brl0(40)} por caixa CTO.</div>`:`<div class="notice warn"><b>Primeiro investimento: backbone de ${brl0(BACKBONE_COST)}.</b> É o cabo principal que traz a fibra até a cidade. Depois, cada bairro precisa de uma caixa CTO.<div style="margin-top:8px"><button class="btn small primary" id="fbBack" ${c.outorgaPaid?'':'disabled'}>Construir backbone · ${brl0(BACKBONE_COST)}</button></div></div>`}
@@ -2827,10 +2887,10 @@ function openQuadra(c,lot){
   const tag=f=>f.st==='pending'?'Instalar':f.st==='late'?'Inadimplente':f.st==='suspended'?'Suspenso':f.st==='cancelReq'?'Quer cancelar':'Rádio para recolher';
   const clients=fs.map((f,i)=>[f,i]).filter(([f])=>f.st==='client');
   const refused=fs.filter(f=>f.st==='refused').length;
-  openModal(head(`Quadra · ${esc(c.bairros[bairroOf(lot)])}`,`${(lot.dom||0).toLocaleString('pt-BR')} domicílios`)+`
+  openModal(head(`Quadra · ${esc(c.bairros[bairroOf(lot)])}`,`${(lot.dom||0).toLocaleString('pt-BR')} moradores`)+`
     <div class="kpis"><div class="kpi"><span>Clientes</span><b>${subs.length}</b></div><div class="kpi"><span>Participação</span><b>${Math.round(sh*100)}%</b></div><div class="kpi"><span>Livres</span><b>${free}</b></div></div>
     <div class="share" aria-hidden="true"><i style="width:${Math.round(sh*100)}%"></i></div>
-    <p class="muted" style="font-size:13px">${cov?`Sinal de rádio: torre ${esc(cov.t.ssid)}${cov.strong?' (forte)':''}.`:'Sem sinal de rádio.'}${fib?' Fibra disponível neste bairro.':''}${refused?` ${refused} família(s) recusaram há pouco.`:''} Os domicílios da cidade foram divididos entre as quadras.</p>
+    <p class="muted" style="font-size:13px">${cov?`Sinal de rádio: torre ${esc(cov.t.ssid)}${cov.strong?' (forte)':''}.`:'Sem sinal de rádio.'}${fib?' Fibra disponível neste bairro.':''}${refused?` ${refused} família(s) recusaram há pouco.`:''} Os moradores da cidade foram divididos entre as quadras.</p>
     ${block?blockNotice(c,block):''}
     ${issues.length?`<p class="eyebrow">Precisa de atenção</p><div class="fam-list">${issues.map(([f,i])=>`<div class="fam-row"><div><b>${esc(f.fam.name)}</b><small>${tag(f)}</small></div><button class="btn small ${f.st==='pending'?'primary':''}" data-fam="${i}">Resolver</button></div>`).join('')}</div>`:''}
     <div class="foot" style="border-top:0;padding-top:0"><span class="muted" style="font-size:13px">${!cov&&!fib?'Instale uma torre que alcance esta quadra.':free?'Cada visita é uma família diferente.':'Todas as famílias já foram visitadas.'}</span><button class="btn primary" id="qKnock" ${(!cov&&!fib)||!free||block?'disabled':''}>Bater na próxima porta</button></div>
@@ -3125,6 +3185,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen&&$('#moda
 const NOMI='https://nominatim.openstreetmap.org';
 const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 const PEOPLE_PER_HOME=2.8, EQUIP_COST=2000;
+/* Cada quadra guarda o potencial de assinantes = moradores (domicílios × POT_PER_HOME): a cidade inteira chega perto dos habitantes. */
+const POT_PER_HOME=PEOPLE_PER_HOME;
 const TOWER_SIZES=[{m2:150,h:18,km:0.8},{m2:300,h:30,km:1.3},{m2:600,h:45,km:2.0}];
 const BEAMS=[60,90,120];
 const COMPASS=['N','NE','L','SE','S','SO','O','NO'];
@@ -3324,7 +3386,7 @@ function initLeaflet(){
   LLayers=L.layerGroup().addTo(LM);LDraft=L.layerGroup().addTo(LM);
   LM.on('click',onMapClick);
 }
-function quadraPopHtml(c,i){const q=c.blocks&&c.blocks[i];if(!q)return '';const lk=quadraLook(c,q,null);return `<div class="pop-q"><b>Quadra</b> · ${(q.dom||0).toLocaleString('pt-BR')} domicílios · ${lk.subs.length} cliente(s) (${Math.round(lk.sh*100)}%) · ${lk.cov?'com sinal':lk.fib?'com fibra':'sem sinal'}<br><button class="btn small" data-act="openQuadra" data-q="${i}" style="margin-top:6px">Abrir quadra</button></div>`;}
+function quadraPopHtml(c,i){const q=c.blocks&&c.blocks[i];if(!q)return '';const lk=quadraLook(c,q,null);return `<div class="pop-q"><b>Quadra</b> · ${(q.dom||0).toLocaleString('pt-BR')} moradores · ${lk.subs.length} cliente(s) (${Math.round(lk.sh*100)}%) · ${lk.cov?'com sinal':lk.fib?'com fibra':'sem sinal'}<br><button class="btn small" data-act="openQuadra" data-q="${i}" style="margin-top:6px">Abrir quadra</button></div>`;}
 async function onMapClick(e,qi){
   const c=city();if(!c.geo)return;
   const {lat,lng}=e.latlng;
@@ -3395,7 +3457,7 @@ function renderDraftPanel(c,light){
   if(r)r.onchange=()=>{drawDraft(c);queueBuildingCount(c);};
 }
 function drawDraftHandleOnly(c){/* o leque é atualizado em renderDraftPanel(light); a bolinha se ajusta ao soltar */}
-function covHtml(cov){return `<b>${cov.homes.toLocaleString('pt-BR')} domicílios</b> no leque (${cov.houses} quadras), sendo <b>${cov.freshHomes.toLocaleString('pt-BR')}</b> ainda sem sinal.${cov.parts&&cov.parts.length?`<br><small class="muted">${cov.parts.slice(0,4).map(x=>`${esc(x[0])}: ${x[1].toLocaleString('pt-BR')}`).join(' · ')}</small>`:''}${draft&&draft.blds!=null?`<br><small class="muted">${draft.blds.toLocaleString('pt-BR')} construções mapeadas no OpenStreetMap dentro do leque.</small>`:''}`;}
+function covHtml(cov){return `<b>${cov.homes.toLocaleString('pt-BR')} moradores</b> no leque (${cov.houses} quadras), sendo <b>${cov.freshHomes.toLocaleString('pt-BR')}</b> ainda sem sinal.${cov.parts&&cov.parts.length?`<br><small class="muted">${cov.parts.slice(0,4).map(x=>`${esc(x[0])}: ${x[1].toLocaleString('pt-BR')}`).join(' · ')}</small>`:''}${draft&&draft.blds!=null?`<br><small class="muted">${draft.blds.toLocaleString('pt-BR')} construções mapeadas no OpenStreetMap dentro do leque.</small>`:''}`;}
 function renderReal(){
   if(!S)return;
   const grid=mapView!=='real';
@@ -3449,7 +3511,7 @@ function drawReal(c,fit){
     const overT=new Set(c.towers.filter(t=>towerLoad(c,t)>cap()).map(t=>t.id));
     if(!QREND)QREND=L.canvas({padding:.3});
     if(!LQN){LQN=L.layerGroup();LM.on('zoomend',qnZoom);}LQN.clearLayers();
-    c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT);if(lk.subs.length){const ce=qCenter(q),fib=lk.subs.some(f=>f.tech==='fiber');L.marker(ce,{interactive:false,keyboard:false,icon:L.divIcon({className:'qn-wrap',iconSize:[0,0],html:`<span class="qn-tag${fib?' fib':''}" title="${lk.subs.length} de ${q.dom||0} domicílios">${lk.subs.length}</span>`})}).addTo(LQN);}const st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
+    c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT);if(lk.subs.length){const ce=qCenter(q),fib=lk.subs.some(f=>f.tech==='fiber');L.marker(ce,{interactive:false,keyboard:false,icon:L.divIcon({className:'qn-wrap',iconSize:[0,0],html:`<span class="qn-tag${fib?' fib':''}" title="${lk.subs.length} de ${q.dom||0} moradores">${lk.subs.length}</span>`})}).addTo(LQN);}const st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
       L.polygon(q.poly,{renderer:QREND,color:st,weight:st==='#ffffff'?1:2.5,fillColor:lk.fill,fillOpacity:lk.subs.length?.85:.55})
       .on('click',ev=>{L.DomEvent.stopPropagation(ev);if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev,i);return;}LM.closePopup();const ql=quadras(c)[i];if(ql)openQuadra(c,ql);}).addTo(LLayers);});
   }
@@ -3458,7 +3520,7 @@ function drawReal(c,fit){
     if(l.t!=='house')continue;const hr=rng(hash(c.name+':'+l.x+':'+l.y)),g=gridToGeo(c.geo,l.x+0.5+(hr()-.5)*.6,l.y+0.5+(hr()-.5)*.6);
     const fs=l.fams||[],subs=fs.filter(isSub),sh=l.dom?subs.length/l.dom:0,cov=coverOf(c,l)||fiberAt(c,l),late=fs.some(f=>f.st==='late'||f.st==='suspended');
     L.circleMarker([g.lat,g.lon],{radius:4+Math.round(sh*9),color:'#fff',weight:1.5,fillColor:late?'#cf3b3b':subs.some(f=>f.tech==='fiber')?'#e5a21e':subs.length?'#0f9a8d':cov?'#7dcfae':'#9aa59a',fillOpacity:subs.length?1:.8})
-      .on('click',ev=>{if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev);return;}L.popup().setLatLng(ev.latlng).setContent(`<b>Quadra em ${esc(c.bairros[bairroOf(l)])}</b><br>${(l.dom||0).toLocaleString('pt-BR')} domicílios · ${subs.length} cliente(s) (${Math.round(sh*100)}%)<br>${cov?'Com sinal':'Sem sinal'}<br><button class="btn small primary" data-act="openQuadra" data-q="${quadras(c).indexOf(l)}" style="margin-top:6px">Abrir quadra</button>`).openOn(LM);}).addTo(LLayers);
+      .on('click',ev=>{if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev);return;}L.popup().setLatLng(ev.latlng).setContent(`<b>Quadra em ${esc(c.bairros[bairroOf(l)])}</b><br>${(l.dom||0).toLocaleString('pt-BR')} moradores · ${subs.length} cliente(s) (${Math.round(sh*100)}%)<br>${cov?'Com sinal':'Sem sinal'}<br><button class="btn small primary" data-act="openQuadra" data-q="${quadras(c).indexOf(l)}" style="margin-top:6px">Abrir quadra</button>`).openOn(LM);}).addTo(LLayers);
   }
   // concorrência: torres e caixas CTO dos outros jogadores (roxo, tracejado)
   for(const r of rivalsOf(c)){const inf=r.infra||{},nm=esc(r.company||'Concorrente');
