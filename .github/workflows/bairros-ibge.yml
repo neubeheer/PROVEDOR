@@ -1,0 +1,37 @@
+name: Bairros do IBGE
+
+# Rode em Actions → "Bairros do IBGE" → Run workflow.
+# Baixa a malha de bairros do Censo 2022 do IBGE e grava os arquivos em data/bairros/.
+on:
+  workflow_dispatch:
+    inputs:
+      uf:
+        description: 'Estado (sigla, ex.: SP) ou BR para o Brasil inteiro'
+        required: true
+        default: 'SP'
+
+permissions:
+  contents: write
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Gerar bairros
+        env:
+          UF: ${{ inputs.uf }}
+        run: python3 scripts/ibge_bairros.py --uf "$UF"
+      - name: Salvar no repositório
+        env:
+          UF: ${{ inputs.uf }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/bairros
+          if git diff --cached --quiet; then echo "Nada mudou."; exit 0; fi
+          git commit -m "Bairros do IBGE ($UF)"
+          git push

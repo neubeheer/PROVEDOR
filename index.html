@@ -1860,13 +1860,13 @@ function geoToGrid(geo,lat,lon){const dx=(lon-geo.lon)*mPerLon(geo.lat),dy=(lat-
 function gridToGeo(geo,x,y){const lm=geo.side/9;return {lat:geo.lat+(4.5-y)*lm/mPerLat,lon:geo.lon+(x-4.5)*lm/mPerLon(geo.lat)};}
 function lotGeo(c,l){return gridToGeo(c.geo,l.x+0.5,l.y+0.5);}
 function towerGeo(c,t){if(t.lat!=null)return {lat:t.lat,lon:t.lon};const p=tpos(t);return gridToGeo(c.geo,p.x,p.y);}
-function buildGeo(c,g,raw){
+function buildGeo(c,g,raw,fix){
   const dist=b=>Math.hypot((b.lon-g.lon)*mPerLon(g.lat),(b.lat-g.lat)*mPerLat);
   const list=raw.map(b=>({...b,d:dist(b)})).sort((a,b)=>a.d-b.d).slice(0,9);
   const far=list.length>=4?Math.max(...list.map(b=>b.d)):0;
   const pop=g.pop||c.pop;
-  const side=clamp(far?far*2.3:Math.sqrt(pop)*22,2400,14000);
-  const geo={lat:g.lat,lon:g.lon,side,source:'osm',bairros:[],pop,homes:Math.round(pop/PEOPLE_PER_HOME)};
+  const side=fix&&fix.side?fix.side:clamp(far?far*2.3:Math.sqrt(pop)*22,2400,14000);
+  const geo={lat:fix&&fix.lat!=null?fix.lat:g.lat,lon:fix&&fix.lon!=null?fix.lon:g.lon,side,source:'osm',bairros:[],pop,homes:Math.round(pop/PEOPLE_PER_HOME)};
   const slots=new Array(9).fill(null);
   list.forEach((b,i)=>{
     const p=geoToGrid(geo,b.lat,b.lon);let k=clamp(Math.floor(p.y/3),0,2)*3+clamp(Math.floor(p.x/3),0,2);if(i===0)k=4;
@@ -1878,29 +1878,91 @@ function buildGeo(c,g,raw){
 }
 const homesPerLot=c=>c.geo?c.geo.homes/Math.max(1,c.lots.filter(l=>l.t==='house').length):0;
 function landPrice(c,lat,lon){const d=Math.hypot((lon-c.geo.lon)*mPerLon(c.geo.lat),(lat-c.geo.lat)*mPerLat);return Math.round(6+19*Math.max(0,1-d/(c.geo.side*0.62)));}
+const normName=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/['\-]/g,' ').replace(/\s+/g,' ').trim();
+let ibgeIndex=null;const IBGE_CACHE=new Map();
+async function ibgeIndexGet(){if(ibgeIndex)return ibgeIndex;try{const r=await fetch('data/bairros/index.json');ibgeIndex=r.ok?await r.json():{};}catch(e){ibgeIndex={};}return ibgeIndex;}
+async function ibgeCity(code){
+  if(!code)return null;if(IBGE_CACHE.has(code))return IBGE_CACHE.get(code);
+  try{const r=await fetch(`data/bairros/${code}.json`);if(!r.ok)return null;const d=await r.json();
+    for(const b of d.bairros){b.rings=(b.poly||[]).map(rg=>rg.map(([x,y])=>[y,x]));}
+    IBGE_CACHE.set(code,d);return d;}catch(e){return null;}
+}
+async function ibgeLookup(name,uf){const idx=await ibgeIndexGet();const code=idx[`${normName(name)}|${(uf||'').toUpperCase()}`];return code?{code,data:await ibgeCity(code)}:null;}
+function pip(lat,lon,ring){let ins=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const [yi,xi]=ring[i],[yj,xj]=ring[j];if(((yi>lat)!==(yj>lat))&&(lon<(xj-xi)*(lat-yi)/((yj-yi)||1e-12)+xi))ins=!ins;}return ins;}
+function ibgeAt(c,lat,lon){const d=c.geo&&c.geo.ibgeCode&&IBGE_CACHE.get(c.geo.ibgeCode);if(!d)return null;return d.bairros.find(b=>b.rings.some(r=>pip(lat,lon,r)))||null;}
+function buildGeoIbge(c,g,d){
+  let s0=90,n0=-90,w0=180,e0=-180;
+  for(const b of d.bairros)for(const r of b.rings)for(const [la,lo] of r){if(la<s0)s0=la;if(la>n0)n0=la;if(lo<w0)w0=lo;if(lo>e0)e0=lo;}
+  const lat=(s0+n0)/2,lon=(w0+e0)/2,ext=Math.max((n0-s0)*mPerLat,(e0-w0)*mPerLon(lat));
+  const side=clamp(ext*1.04,2400,20000);
+  const top=[...d.bairros].sort((a,b)=>(b.dom||0)-(a.dom||0)).slice(0,9).map(b=>({name:b.nome,lat:b.c[0],lon:b.c[1]}));
+  const center=[...top].sort((a,b)=>Math.hypot(a.lat-lat,a.lon-lon)-Math.hypot(b.lat-lat,b.lon-lon));
+  const geo=buildGeo(c,{lat,lon,pop:0},center,{lat,lon,side});
+  const homes=d.bairros.reduce((t,b)=>t+(b.dom||0),0),pop=d.bairros.reduce((t,b)=>t+(b.pop||0),0);
+  geo.source='ibge';geo.ibgeCode=d.cd_mun;geo.homes=homes||Math.round((pop||c.pop)/PEOPLE_PER_HOME);geo.pop=pop||c.pop;geo.nBairros=d.bairros.length;
+  geo.bairros.forEach(b=>{if(!b.real)b.name='';});
+  return geo;
+}
+const STREET_TYPES=/^(rua|avenida|av\.?|travessa|alameda|estrada|rodovia|praça|praca|largo|viela|via)\s+/i;
+async function cepBairros(g,cityName,uf){
+  if(!uf)return [];
+  const r=await overpass(`[out:json][timeout:25];way(around:3500,${g.lat},${g.lon})[highway~"^(residential|tertiary|secondary|primary|living_street|unclassified)$"][name];out center 600;`);
+  const streets=new Map();
+  for(const e of r.elements||[]){if(!e.center||!e.tags||!e.tags.name)continue;const k=e.tags.name;if(!streets.has(k))streets.set(k,[]);streets.get(k).push([e.center.lat,e.center.lon]);}
+  const list=[...streets.entries()].map(([name,pts])=>{const la=pts.reduce((a,p)=>a+p[0],0)/pts.length,lo=pts.reduce((a,p)=>a+p[1],0)/pts.length;return {name,lat:la,lon:lo,d:Math.hypot(la-g.lat,lo-g.lon)};}).sort((a,b)=>a.d-b.d);
+  const pick=[];const step=Math.max(1,Math.floor(list.length/24));for(let i=0;i<list.length&&pick.length<24;i+=step)pick.push(list[i]);
+  const groups=new Map();let empty=0,tried=0;
+  for(const st of pick){
+    const term=st.name.replace(STREET_TYPES,'').trim();if(term.length<3)continue;
+    tried++;
+    try{
+      const res=await fetchJson(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cityName)}/${encodeURIComponent(term)}/json/`,{},12000);
+      const hit=Array.isArray(res)?res.find(x=>x.bairro&&normName(x.localidade)===normName(cityName)&&normName(x.logradouro).includes(normName(term))):null;
+      if(hit){const k=hit.bairro.trim();if(!groups.has(k))groups.set(k,[]);groups.get(k).push([st.lat,st.lon]);}else empty++;
+    }catch(e){empty++;}
+    if(tried>=4&&groups.size===0)break; // cidade com CEP único: os Correios não têm bairro por rua
+    await new Promise(r=>setTimeout(r,250));
+  }
+  return [...groups.entries()].map(([name,pts])=>({name,lat:pts.reduce((a,p)=>a+p[0],0)/pts.length,lon:pts.reduce((a,p)=>a+p[1],0)/pts.length,n:pts.length}));
+}
 async function geoLoad(c,opts={}){
   if(!c||geoBusy.has(c))return;
   if(!navigator.onLine){c.geoError='offline';renderReal();return;}
   geoBusy.add(c);c.geoError=null;c.geoStep='Procurando a cidade…';renderReal();
   try{
-    const g=await geocodeCity(c.name,c.uf);
-    if(!g){c.geoError='notfound';return;}
-    c.geoStep='Carregando bairros do OpenStreetMap…';renderReal();
-    let raw=[];try{raw=await fetchBairros(g);}catch(e){raw=[];}
-    const geo=buildGeo(c,g,raw);
+    let g=null;try{g=await geocodeCity(c.name,c.uf);}catch(e){g=null;}
+    const uf=(c.uf||(g&&g.uf)||'').toUpperCase();
+    c.geoStep='Procurando os bairros oficiais do IBGE…';renderReal();
+    const ib=await ibgeLookup(c.name,uf);
+    let geo=null;
+    if(ib&&ib.data&&ib.data.bairros.length){
+      geo=buildGeoIbge(c,g||{},ib.data);
+    }else{
+      if(!g){c.geoError='notfound';return;}
+      c.geoStep='Carregando bairros do OpenStreetMap…';renderReal();
+      let raw=[];try{raw=await fetchBairros(g);}catch(e){raw=[];}
+      let source='osm';
+      if(raw.length<5){
+        c.geoStep='Cruzando ruas com os CEPs dos Correios…';renderReal();
+        let cep=[];try{cep=await cepBairros(g,c.name,uf);}catch(e){cep=[];}
+        if(cep.length>=3){const seen=new Set(raw.map(b=>normName(b.name)));for(const b of cep.sort((a,b)=>b.n-a.n))if(!seen.has(normName(b.name))){raw.push(b);seen.add(normName(b.name));}source=raw.length?'cep':'osm';}
+      }
+      geo=buildGeo(c,g,raw);geo.source=source;
+    }
     const rename=(opts.rename||c.namesAuto)&&c.namesAuto!==false;
-    // bairros que o OSM não tem: pergunta o nome do lugar no centro de cada setor
     const missing=geo.bairros.map((b,j)=>[b,j]).filter(([b])=>!b.real);
     let n=0;
     for(const [b,j] of missing){
-      n++;c.geoStep=`Identificando bairros (${n}/${missing.length})…`;renderReal();
+      n++;c.geoStep=`Identificando regiões sem bairro (${n}/${missing.length})…`;renderReal();
       try{const r=await reversePlace(b.lat,b.lon);const nm=r.bairro;if(nm&&!geo.bairros.some((x,i)=>i!==j&&x.name===nm)){b.name=nm;b.real=true;}else b.name=j===4?'Centro':`Setor ${DIRS[j]}`;}catch(e){b.name=j===4?'Centro':`Setor ${DIRS[j]}`;}
     }
     c.geo=geo;
     if(rename){geo.bairros.forEach((b,j)=>{c.bairros[j]=b.name;});c.namesAuto=true;}
-    if(g.pop){c.pop=g.pop;if(!c.outorgaPaid)c.outorga=Math.round(clamp(g.pop*0.3,2000,60000)/100)*100;}
-    log(`Mapa real de ${c.name} carregado: cerca de ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
-    toast(`Mapa de ${c.name} carregado.`);
+    const pop=geo.source==='ibge'?geo.pop:(g&&g.pop);
+    if(pop){c.pop=pop;if(!c.outorgaPaid)c.outorga=Math.round(clamp(pop*0.3,2000,60000)/100)*100;}
+    const src={ibge:`${geo.nBairros} bairros oficiais do IBGE (Censo 2022)`,cep:'bairros cruzando ruas com os CEPs',osm:'bairros do OpenStreetMap'}[geo.source];
+    log(`Mapa real de ${c.name}: ${src}, ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
+    toast(`Mapa de ${c.name} carregado: ${src}.`);
     save(true);
   }catch(e){c.geoError='fail';}
   finally{geoBusy.delete(c);c.geoStep='';LSig='';renderAll();}
@@ -1912,9 +1974,22 @@ function sectorLatLngs(lat,lon,az,beam,m){
   for(let i=0;i<=n;i++){const a=(az-beam/2+beam*i/n)*Math.PI/180;pts.push([lat+Math.cos(a)*m/mPerLat,lon+Math.sin(a)*m/mPerLon(lat)]);}
   return pts;
 }
+const SAMPLE_CACHE=new Map();
+function ibgeSamples(c){
+  const d=c.geo&&c.geo.ibgeCode&&IBGE_CACHE.get(c.geo.ibgeCode);if(!d)return null;
+  const key=c.geo.ibgeCode+':'+c.geo.loadedAt;if(SAMPLE_CACHE.has(key))return SAMPLE_CACHE.get(key);
+  const out=d.bairros.map(b=>{let s0=90,n0=-90,w0=180,e0=-180;for(const r of b.rings)for(const [la,lo] of r){if(la<s0)s0=la;if(la>n0)n0=la;if(lo<w0)w0=lo;if(lo>e0)e0=lo;}
+    const pts=[];const N=7;for(let i=0;i<N;i++)for(let k=0;k<N;k++){const la=s0+(n0-s0)*(i+.5)/N,lo=w0+(e0-w0)*(k+.5)/N;if(b.rings.some(r=>pip(la,lo,r)))pts.push(geoToGrid(c.geo,la,lo));}
+    if(!pts.length)pts.push(geoToGrid(c.geo,b.c[0],b.c[1]));return {b,pts};});
+  SAMPLE_CACHE.set(key,out);return out;
+}
+function coveredAt(c,gx,gy){return c.towers.some(t=>!t.off&&inSector(t,gx,gy));}
 function draftCoverage(c,d){
   const t={gx:d.gx,gy:d.gy,az:d.az,beam:d.beam,range:d.rangeLots};let houses=0,fresh=0;
   for(const l of c.lots){if(l.t!=='house')continue;if(!inSector(t,l.x+.5,l.y+.5))continue;houses++;if(!coverOf(c,l))fresh++;}
+  const sm=ibgeSamples(c);
+  if(sm){let homes=0,freshHomes=0,parts=[];for(const {b,pts} of sm){let a=0,f=0;for(const p of pts)if(inSector(t,p.x,p.y)){a++;if(!coveredAt(c,p.x,p.y))f++;}if(a){const h=(b.dom||0)*a/pts.length;homes+=h;freshHomes+=(b.dom||0)*f/pts.length;parts.push([b.nome,Math.round(h)]);}}
+    return {houses,fresh,homes:Math.round(homes),freshHomes:Math.round(freshHomes),parts:parts.sort((a,b)=>b[1]-a[1])};}
   const hp=homesPerLot(c);return {houses,fresh,homes:Math.round(houses*hp),freshHomes:Math.round(fresh*hp)};
 }
 function bestAzimuth(c,d){let best=d.az,bv=-1;for(let a=0;a<360;a+=10){const r=draftCoverage(c,{...d,az:a});if(r.fresh>bv){bv=r.fresh;best=a;}}return best;}
@@ -1930,8 +2005,8 @@ async function onMapClick(e){
   const c=city();if(!c.geo)return;
   const {lat,lng}=e.latlng;
   if(S.phase==='sede'&&c.idx===0){
-    sedePick={lat,lon:lng,name:''};drawSedePick();renderMap();
-    try{const r=await reversePlace(lat,lng);if(sedePick&&sedePick.lat===lat){sedePick.name=r.bairro||c.bairros[Math.floor(clamp(geoToGrid(c.geo,lat,lng).y,0,8.99)/3)*3+Math.floor(clamp(geoToGrid(c.geo,lat,lng).x,0,8.99)/3)];sedePick.road=r.road;renderMap();}}catch(err){if(sedePick)sedePick.name=c.bairros[4];renderMap();}
+    const ibb=ibgeAt(c,lat,lng);sedePick={lat,lon:lng,name:ibb?ibb.nome:''};drawSedePick();renderMap();
+    try{const r=await reversePlace(lat,lng);if(sedePick&&sedePick.lat===lat){sedePick.name=(ibb&&ibb.nome)||r.bairro||c.bairros[Math.floor(clamp(geoToGrid(c.geo,lat,lng).y,0,8.99)/3)*3+Math.floor(clamp(geoToGrid(c.geo,lat,lng).x,0,8.99)/3)];sedePick.road=r.road;renderMap();}}catch(err){if(sedePick)sedePick.name=c.bairros[4];renderMap();}
     return;
   }
   if(draft&&draft.picking){setDraftAt(c,lat,lng);return;}
@@ -1939,8 +2014,9 @@ async function onMapClick(e){
   const gp=geoToGrid(c.geo,lat,lng),inside=gp.x>=0&&gp.x<=9&&gp.y>=0&&gp.y<=9,price=landPrice(c,lat,lng);
   const pop=L.popup({maxWidth:260}).setLatLng(e.latlng).setContent(`<b>Buscando o bairro…</b><br>Terreno ≈ ${brl0(price)}/m²`).openOn(LM);
   let place={bairro:'',road:''};try{place=await reversePlace(lat,lng);}catch(err){}
+  const ibp=ibgeAt(c,lat,lng);if(ibp)place.bairro=ibp.nome;
   if(!LM.hasLayer(pop))return;
-  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>`);
+  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>`);
 }
 function drawSedePick(){
   if(!LM)return;if(sedeMk){sedeMk.remove();sedeMk=null;}
@@ -1952,7 +2028,8 @@ async function setDraftAt(c,lat,lon,keepAz){
   const size=draft&&draft.sizeIdx!=null?draft.sizeIdx:0,beam=draft&&draft.beam||90;
   draft={lat,lon,gx:gp.x,gy:gp.y,sizeIdx:size,beam,az:draft&&draft.az!=null?draft.az:0,place:'',road:'',picking:false,blds:null};
   applyDraftSize(c);if(!keepAz)draft.az=bestAzimuth(c,draft);drawDraft(c);renderDraftPanel(c);
-  try{const r=await reversePlace(lat,lon);if(draft&&draft.lat===lat){draft.place=r.bairro||'';draft.road=r.road;renderDraftPanel(c);}}catch(e){}
+  const ibd=ibgeAt(c,lat,lon);if(ibd)draft.place=ibd.nome;
+  try{const r=await reversePlace(lat,lon);if(draft&&draft.lat===lat){draft.place=(ibd&&ibd.nome)||r.bairro||'';draft.road=r.road;renderDraftPanel(c);}}catch(e){}
   queueBuildingCount(c);
 }
 function applyDraftSize(c){const sz=TOWER_SIZES[draft.sizeIdx],lm=c.geo.side/9;draft.m2=sz.m2;draft.h=sz.h;draft.km=sz.km;draft.rangeLots=sz.km*1000/lm;draft.priceM2=landPrice(c,draft.lat,draft.lon);draft.land=draft.m2*draft.priceM2;}
@@ -1993,7 +2070,7 @@ function renderDraftPanel(c,light){
   if(r)r.onchange=()=>{drawDraft(c);queueBuildingCount(c);};
 }
 function drawDraftHandleOnly(c){/* o leque é atualizado em renderDraftPanel(light); a bolinha se ajusta ao soltar */}
-function covHtml(cov){return `<b>${cov.homes.toLocaleString('pt-BR')} domicílios</b> no leque (${cov.houses} casas do jogo), sendo <b>${cov.freshHomes.toLocaleString('pt-BR')}</b> ainda sem sinal.${draft&&draft.blds!=null?`<br><small class="muted">${draft.blds.toLocaleString('pt-BR')} construções mapeadas no OpenStreetMap dentro do leque.</small>`:''}`;}
+function covHtml(cov){return `<b>${cov.homes.toLocaleString('pt-BR')} domicílios</b> no leque (${cov.houses} casas do jogo), sendo <b>${cov.freshHomes.toLocaleString('pt-BR')}</b> ainda sem sinal.${cov.parts&&cov.parts.length?`<br><small class="muted">${cov.parts.slice(0,4).map(x=>`${esc(x[0])}: ${x[1].toLocaleString('pt-BR')}`).join(' · ')}</small>`:''}${draft&&draft.blds!=null?`<br><small class="muted">${draft.blds.toLocaleString('pt-BR')} construções mapeadas no OpenStreetMap dentro do leque.</small>`:''}`;}
 function renderReal(){
   if(!S)return;
   const grid=mapView!=='real';
@@ -2017,14 +2094,27 @@ function renderReal(){
     tools.innerHTML=`<div class="real-tools"><div class="grp">${S.phase==='sede'?'':`<button class="btn small primary" data-act="newTower">+ Nova torre</button>`}<button class="btn small ghost" data-act="gpsMe">📍 Onde estou</button></div><div class="grp"><button class="btn small ghost" data-act="geoLoad">Atualizar mapa</button></div></div><div id="draftPanel"></div><p class="geo-note" id="geoNote"></p>`;
   }
   const nb=tools.querySelector('[data-act="newTower"]');if(nb)nb.hidden=!!draft;
-  $('#geoNote').textContent=S.phase==='sede'?'Toque no mapa para escolher o ponto exato da sede.':`Toque em qualquer ponto para ver o bairro e o preço do m². Domicílios estimados pela população de ${c.name} (≈ ${c.geo.homes.toLocaleString('pt-BR')}).`;
+  const srcTxt={ibge:`Bairros e domicílios oficiais do IBGE, Censo 2022 (${(c.geo.homes||0).toLocaleString('pt-BR')} domicílios).`,cep:`Bairros identificados cruzando as ruas com os CEPs dos Correios (ViaCEP). Domicílios estimados pela população (≈ ${c.geo.homes.toLocaleString('pt-BR')}).`,osm:`Bairros do OpenStreetMap. Domicílios estimados pela população (≈ ${c.geo.homes.toLocaleString('pt-BR')}).`}[c.geo.source||'osm'];
+  $('#geoNote').textContent=(S.phase==='sede'?'Toque no mapa para escolher o ponto exato da sede. ':'Toque em qualquer ponto para ver o bairro e o preço do m². ')+srcTxt;
   if(draft&&!$('#draftPanel').innerHTML)renderDraftPanel(c);
 }
 function drawReal(c,fit){
   LLayers.clearLayers();
   const lm=c.geo.side/9;
-  // bairros
-  c.geo.bairros.forEach((b,j)=>{
+  // bairros oficiais (IBGE): contorno real
+  const ibd=c.geo.ibgeCode&&IBGE_CACHE.get(c.geo.ibgeCode);
+  if(c.geo.ibgeCode&&!ibd){ibgeCity(c.geo.ibgeCode).then(d=>{if(d){LSig='';renderReal();}});}
+  if(ibd){
+    const sm=ibgeSamples(c)||[];const many=ibd.bairros.length>25;
+    ibd.bairros.forEach((b,i)=>{
+      const smp=sm[i]?sm[i].pts:[];const cf=smp.length?smp.filter(p=>coveredAt(c,p.x,p.y)).length/smp.length:0;
+      const lyr=L.polygon(b.rings,{color:cf>0?'#0f9a8d':'#3b4a52',weight:1.5,fillColor:cf>0?'#7dcfae':'#a3cf78',fillOpacity:.12+cf*.25});
+      lyr.bindTooltip(esc(b.nome),{permanent:!many||i<15,direction:'center',className:'bairro-tip'});
+      lyr.addTo(LLayers);
+    });
+  }
+  // bairros do jogo
+  if(!ibd)c.geo.bairros.forEach((b,j)=>{
     const fib=c.fiber.ctos.includes(j);
     L.circleMarker([b.lat,b.lon],{radius:4,color:fib?'#f0a81a':'#1e2a30',weight:2,fillColor:'#fff',fillOpacity:1,interactive:false})
       .bindTooltip(`${esc(c.bairros[j])}`,{permanent:true,direction:'top',offset:[0,-6],className:'bairro-tip'}).addTo(LLayers);
@@ -2034,7 +2124,7 @@ function drawReal(c,fit){
   for(const l of c.lots){
     if(l.t!=='house')continue;const hr=rng(hash(c.name+':'+l.x+':'+l.y)),g=gridToGeo(c.geo,l.x+0.5+(hr()-.5)*.6,l.y+0.5+(hr()-.5)*.6),sub=isSub(l),cov=coverOf(c,l)||fiberAt(c,l);
     L.circleMarker([g.lat,g.lon],{radius:sub?6:4,color:'#fff',weight:1.5,fillColor:sub?(l.tech==='fiber'?'#e5a21e':l.st==='client'?'#0f9a8d':'#cf3b3b'):cov?'#7dcfae':'#9aa59a',fillOpacity:sub?1:.8})
-      .bindPopup(`<b>Casa de ${esc(l.fam.name)}</b><br>${esc(c.bairros[bairroOf(l)])} · representa ≈ ${Math.round(hp)} domicílios<br>${sub?'Assinante':cov?'Com sinal: dá para vender':'Sem sinal'}`).addTo(LLayers);
+      .on('click',ev=>{if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev);return;}L.popup().setLatLng(ev.latlng).setContent(`<b>Casa de ${esc(l.fam.name)}</b><br>${esc(c.bairros[bairroOf(l)])} · representa ≈ ${Math.round(hp)} domicílios<br>${sub?'Assinante':cov?'Com sinal: dá para vender':'Sem sinal'}`).openOn(LM);}).addTo(LLayers);
   }
   // torres com leque
   for(const t of c.towers){

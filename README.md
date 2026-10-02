@@ -20,7 +20,11 @@ O botão **Ver níveis** mostra o que cada nível libera e quanto de bônus ele 
 
 O jogo abre no **Mapa real** da cidade (OpenStreetMap). O botão **Quadras** mostra o tabuleiro do porta a porta.
 
-- **Cidade:** no começo, **Usar minha localização** pega a cidade pelo GPS. O jogo busca a cidade, identifica os bairros e estima os domicílios pela população.
+- **Cidade:** no começo, **Usar minha localização** pega a cidade pelo GPS.
+- **Bairros:** o jogo procura em três fontes, nesta ordem:
+  1. **IBGE (Censo 2022):** contorno oficial de cada bairro, com moradores e domicílios de verdade. Precisa gerar os arquivos uma vez (veja "Bairros do IBGE" abaixo).
+  2. **CEPs dos Correios (ViaCEP):** pega as ruas da cidade no OpenStreetMap e pergunta o bairro de cada rua. Funciona em cidades com CEP por rua; cidades com CEP único não têm essa informação.
+  3. **OpenStreetMap:** bairros cadastrados no mapa e, onde não houver, o nome do lugar em cada região.
 - **Sede:** toque no ponto exato do prédio no mapa. O jogo descobre o bairro sozinho e declara a sede ali.
 - **Consultar um lugar:** toque em qualquer ponto para ver o bairro, a rua e o preço do m² do terreno (mais caro perto do centro).
 - **Torre:** toque em **Torre aqui** ou **+ Nova torre** e escolha:
@@ -32,6 +36,24 @@ O jogo abre no **Mapa real** da cidade (OpenStreetMap). O botão **Quadras** mos
 - As casas com sinal no mapa são as mesmas das quadras, onde você faz o porta a porta.
 
 O mapa real precisa de internet. Sem conexão, o jogo continua normalmente nas quadras.
+
+## Bairros do IBGE
+
+Os arquivos ficam em `data/bairros/` e são gerados a partir da [malha de bairros do Censo 2022 do IBGE](https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022/Agregados_por_Setores_Censitarios/malha_com_atributos/bairros/shp/BR/).
+
+**Pelo GitHub (recomendado):**
+1. No repositório, abra a aba **Actions** e escolha **Bairros do IBGE**.
+2. Clique em **Run workflow**, digite o estado (por exemplo `SP`) ou `BR` para o Brasil inteiro e confirme.
+3. Em poucos minutos o GitHub grava os arquivos no repositório, e o Render publica sozinho.
+
+Se o botão de rodar não aparecer, vá em *Settings → Actions → General* e permita os workflows; em *Workflow permissions*, marque *Read and write permissions*.
+
+**No seu computador (precisa de Python 3):**
+```bash
+python3 scripts/ibge_bairros.py --uf SP
+```
+
+O IBGE só tem bairros onde a prefeitura definiu bairros oficialmente. Nas cidades sem bairros no IBGE, o jogo usa os CEPs e o OpenStreetMap.
 
 ## Onde o progresso fica salvo
 
@@ -86,10 +108,15 @@ O GPS só funciona em `https://` ou em `localhost`.
 | `sw.js` | Guarda o jogo no aparelho para abrir sem internet |
 | `manifest.webmanifest` | Nome, cores e ícones para instalar como app |
 | `icons/` | Ícones do app |
+| `data/bairros/` | Bairros oficiais do IBGE por cidade (gerados pelo script) |
+| `scripts/ibge_bairros.py` | Converte a malha de bairros do IBGE para o jogo |
+| `.github/workflows/` | Botão no GitHub que roda o script |
 | `vendor/leaflet/` | Biblioteca do mapa (Leaflet 1.9.4, licença BSD-2) |
 | `.nojekyll` | Faz o GitHub Pages publicar os arquivos como estão |
 
 ## Créditos
 
 - Mapas e dados de bairros: © colaboradores do [OpenStreetMap](https://www.openstreetmap.org/copyright), via Nominatim e Overpass.
+- Bairros, moradores e domicílios: IBGE, Censo Demográfico 2022.
+- Bairros por CEP: [ViaCEP](https://viacep.com.br/).
 - Mapa interativo: [Leaflet](https://leafletjs.com).
