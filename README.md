@@ -26,6 +26,8 @@ Funciona no computador e no celular, salva o progresso no próprio aparelho e co
 | 12 | Fibra óptica (backbone, caixas CTO, Fibra 100 Mega) |
 | 14 | OLT 2ª geração (Fibra 300 Mega) |
 | 16 | OLT XGS-PON (Fibra 600 Mega) |
+| 18 | Concorrência entre jogadores |
+| 22 | Empresa rende offline e CEO com diamantes |
 
 Os níveis ímpares dão bônus de caixa (R$ 600 por nível, até R$ 15 mil). O botão **Ver níveis** mostra a lista completa.
 
@@ -91,7 +93,7 @@ O progresso fica sempre no aparelho (funciona offline) e, com conta, também no 
 
 ## Concorrência entre jogadores
 
-Jogadores logados que atendem a mesma cidade disputam os mesmos domicílios:
+A partir do **nível 18**, jogadores logados que atendem a mesma cidade disputam os mesmos domicílios:
 - Junto com o salvamento na nuvem, cada jogador publica um resumo por cidade na tabela `presenca` do Supabase: assinantes, ticket médio, rádio e fibra, reputação, atendimento (capacidade do Call Center) e campanhas de marketing.
 - Os clientes dão uma nota para cada empresa (reputação 35%, atendimento 25%, fibra 20%, campanhas e preço). Onde o rival já tem clientes, vender fica mais difícil.
 - No fechamento do mês, com nota menor que a do rival, parte dos seus clientes pede para trocar (a Retenção pode segurar). Com nota maior, clientes dele vêm para você por portabilidade.
@@ -99,6 +101,12 @@ Jogadores logados que atendem a mesma cidade disputam os mesmos domicílios:
 - No mapa real, as torres dos rivais aparecem em roxo com o leque tracejado, e as caixas CTO deles como pontos roxos. Tocar mostra de quem é.
 
 Para ligar, rode de novo o `supabase/schema.sql` no SQL Editor (ele cria a tabela `presenca` e não apaga nada). **Menu → Testar conexões** mostra se as tabelas `saves` e `presenca` respondem.
+
+## Empresa offline e CEO (nível 22)
+
+- Enquanto você está fora (pelo menos 10 minutos), a empresa rende **10% do saldo do último mês fechado por hora**, até **R$ 10 mil**. Ao voltar, aparece o quanto entrou no caixa.
+- Na tela de **Diamantes** dá para contratar um **CEO**: 20 diamantes por hora, até 8 horas seguidas. Enquanto ele está no cargo, as horas fora rendem em dobro, cada hora soma R$ 10 mil ao teto e a concorrência não leva seus clientes (vale também com o jogo aberto).
+- O selo **CEO** aparece ao lado do nível no topo enquanto ele está no cargo.
 
 ## Banco de quadras no Google Drive
 

@@ -753,6 +753,7 @@ const TOWER_COST=4500, CPE_COST=300, THIRD_COST=180, HIRE_COST=750, NEWCITY_COST
 const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900},{g:1,name:'1 Giga',price:1500},{g:2,name:'2 Gigas',price:2600},{g:5,name:'5 Gigas',price:5500},{g:10,name:'10 Gigas',price:9000},{g:20,name:'20 Gigas',price:16000},{g:40,name:'40 Gigas',price:28000},{g:100,name:'100 Gigas',price:60000}];
 const START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
 const BIG_CITY=50000, REGION_POP=20000;
+const RIVAL_LEVEL=18, OFFLINE_LEVEL=22, OFFLINE_CAP=10000, OFFLINE_MIN_MIN=10, OFFLINE_RATE=0.1, CEO_DIAMONDS=20, CEO_MAX_H=8;
 const CITY_LINKS=[{name:'Enlace de rádio 300 Mega',g:0.3,cost:18000,price:350},{name:'Enlace de rádio 1 Giga',g:1,cost:45000,price:700},{name:'Fibra alugada 10 Gigas',g:10,cost:135000,price:3500},{name:'Backbone próprio 40 Gigas',g:40,cost:375000,price:6000}];
 const NET_FIRST=12000, NET_LAST=1000000, CAREER_COST=22000, PROMO_COST=300, GOALS_AT=5000;
 const BACKBONE_COST=150000, CTO_COST=9000, ONU_COST=350, KIT_COST=1200, DISMANTLE_COST=750, STORE_COST=25000, PARTNER_CASH=25000, PARTNER_PAY=3000;
@@ -826,6 +827,8 @@ const LEVELS=[
   {l:14,items:['OLT 2ª geração: Fibra 300 Mega e preços menores']},
   {l:15,items:['Bônus de caixa']},
   {l:16,items:['OLT XGS-PON: Fibra 600 Mega']},
+  {l:18,items:['Concorrência entre jogadores: disputa por assinantes com quem atende a mesma cidade']},
+  {l:22,items:['Empresa rende offline: até R$ 10 mil enquanto você está fora','CEO contratado com diamantes administra a empresa quando você sai']},
 ];
 const XP_TABLE=[['Documento pronto',15],['Andar comprado',30],['Combo lançado',40],['Torre no ar',50],['Outorga paga',60],['Nova cidade',80],['Cliente novo',20],['Instalar o rádio você mesmo','+10 extra'],['Mês com lucro',10],['Recuperar inadimplente',15],['Recolher rádio',5],['Reter um cliente',10],['Migrar cliente para fibra',15],['Backbone de fibra',150],['Caixa CTO',20]];
 const NEED={work:'Trabalha de casa',game:'Filho joga online',tv:'Quer assistir TV',budget:'Orçamento apertado',basic:'Só WhatsApp e redes sociais'};
@@ -1082,7 +1085,8 @@ function myCityStats(c){const subs=famsOf(c).filter(isSub),n=subs.length,fib=sub
 /* Nota de 0 a 1 que o cliente dá para uma empresa: reputação, atendimento, fibra, campanhas e preço. */
 function provScore(x){const n=Math.max(1,(+x.radio||0)+(+x.fiber||0));
   return (+x.rep||50)/100*0.35+clamp(+x.support||0,0,1)*0.25+((+x.fiber||0)/n)*0.2+Math.min(0.25,+x.mkt||0)*0.8+clamp((130-(+x.price||100))/100,0,1)*0.2;}
-function rivalsOf(c){return (c&&c.ibgeCode&&RIVAL.rows.get(c.ibgeCode))||[];}
+const rivalsOn=()=>!!S&&levelOf(S.xp)>=RIVAL_LEVEL;
+function rivalsOf(c){return (rivalsOn()&&c&&c.ibgeCode&&RIVAL.rows.get(c.ibgeCode))||[];}
 /* occ: fatia da cidade que já é dos rivais · edge: quanto os rivais são melhores que você (negativo = você é melhor) */
 function rivalPressure(c){
   const rs=rivalsOf(c);if(!rs.length)return {occ:0,edge:0,rs,me:null};
@@ -1093,7 +1097,7 @@ function rivalPressure(c){
   if(RIVAL.memo.size>40)RIVAL.memo.clear();RIVAL.memo.set(key,out);return out;
 }
 async function syncRivals(force){
-  if(!S||!sbOn()||!SB.session||!SB.session.user||RIVAL.busy||!navigator.onLine)return;
+  if(!S||!rivalsOn()||!sbOn()||!SB.session||!SB.session.user||RIVAL.busy||!navigator.onLine)return;
   const now=Date.now();if(!force&&now-RIVAL.at<120000)return;
   RIVAL.busy=true;
   try{
@@ -1118,7 +1122,7 @@ function rivalMonth(){
   let lost=0,won=0;
   for(const c of S.cities){
     const rp=rivalPressure(c);if(!rp.occ)continue;
-    if(rp.edge>0){const pr=Math.min(0.5,rp.edge)*0.06*Math.min(1,rp.occ*4);
+    if(rp.edge>0){if(ceoOn()){S.cur.ceoSegurou=(S.cur.ceoSegurou||0)+1;continue;}const pr=Math.min(0.5,rp.edge)*0.06*Math.min(1,rp.occ*4);
       for(const l of famsOf(c))if(l.st==='client'&&Math.random()<pr){l.rival=(rp.rs.slice().sort((a,b)=>provScore(b)-provScore(a))[0]||{}).company||'';requestCancel(c,l,'conc');lost++;}}
     else if(rp.edge<0){const pool=rp.rs.reduce((s,r)=>s+(+r.clients||0),0);let n=0;for(let i=0;i<pool;i++)if(Math.random()<Math.min(0.5,-rp.edge)*0.06)n++;
       for(let i=0;i<n;i++)if(attemptSale(c,'conc',true))won++;}
@@ -1128,6 +1132,7 @@ function rivalMonth(){
   if(won)event(`${won} cliente(s) vieram da concorrência`);
 }
 function openRivals(){
+  if(!rivalsOn()){openModal(head('Concorrência','Libera no nível '+RIVAL_LEVEL)+`<p>A partir do nível ${RIVAL_LEVEL}, você passa a disputar assinantes com outros jogadores que atendem a mesma cidade: quem tem a melhor nota (reputação, atendimento, fibra, campanhas e preço) ganha os clientes do outro.</p>`);return;}
   const c=city(),rp=rivalPressure(c),meS=myCityStats(c),me=provScore(meS),homes=Math.max(1,cityHomes(c));
   const logged=sbOn()&&SB.session&&SB.session.user;
   const row=(name,x,sc,mine)=>{const n=Math.max(1,(+x.radio||0)+(+x.fiber||0));return `<div class="role-row" style="${mine?'border-color:var(--signal)':''}"><div><b>${esc(name)}${mine?' (você)':''}</b><small>${(+x.clients||0).toLocaleString('pt-BR')} assinantes · ${Math.round((+x.clients||0)/homes*100)}% da cidade · ticket ${brl(+x.price||0)} · ${Math.round((+x.fiber||0)/n*100)}% fibra · reputação ${Math.round(+x.rep||0)} · atendimento ${Math.round((+x.support||0)*100)}%${+x.mkt?' · marketing +'+Math.round(x.mkt*100)+'%':''}</small><div class="goal-bar" style="margin-top:6px"><i style="width:${Math.round(sc*100)}%"></i></div></div><b style="min-width:52px;text-align:right">${Math.round(sc*100)}</b></div>`;};
@@ -1281,6 +1286,7 @@ function spend(v){if(S.money<v){toast(`Falta caixa: precisa de ${brl0(v)}.`);ret
 /* ===================== Simulação ===================== */
 function tick(){
   if(S.phase!=='play')return;
+  S.seenAt=Date.now();
   S.day++;
   for(const d of DOCS){const st=S.docs[d.id];if(st&&!st.done&&st.until<=S.day){st.done=true;addXp(15);log(`${d.name}: pronto.`);event(`${d.name} pronto`);toast(`${d.name} pronto!`);save(true);}}
   for(const c of S.cities)for(const l of famsOf(c)){if(l.st==='refused'&&l.until<=S.day)l.st='none';if(l.st==='cancelReq'&&l.reqUntil<=S.day)cancelClient(c,l,REASONS[l.reason]||'pedido não atendido');}
@@ -1775,7 +1781,7 @@ function renderTop(){
   const rf=(()=>{let r=0,f=0;for(const c of S.cities){const x=radioFiber(c);r+=x.r;f+=x.f;}return {r,f};})();
   const plus=(act,lab)=>`<button class="pill-plus" data-act="${act}" aria-label="${lab}">+</button>`;
   $('#stats').innerHTML=`
-    <button class="hud-lvl" data-act="levels" aria-label="Nível ${lvl}, ver níveis"><span class="hud-ava">${HUD_ICO.tower}</span><span class="hud-xp"><span class="hud-xpbar"><i style="width:${pct}%"></i><b>${(S.xp-lo).toLocaleString('pt-BR')}/${(hi-lo).toLocaleString('pt-BR')}</b></span><span class="hud-star">★ Nv.${lvl}</span></span></button>
+    <button class="hud-lvl" data-act="levels" aria-label="Nível ${lvl}, ver níveis"><span class="hud-ava">${HUD_ICO.tower}</span><span class="hud-xp"><span class="hud-xpbar"><i style="width:${pct}%"></i><b>${(S.xp-lo).toLocaleString('pt-BR')}/${(hi-lo).toLocaleString('pt-BR')}</b></span><span class="hud-star">★ Nv.${lvl}${ceoOn()?' · CEO':''}</span></span></button>
     <div class="pill money ${S.money<0?'neg':''}" title="Caixa"><span class="pill-ico">${HUD_ICO.cash}</span><b>${brl0(S.money)}</b>${plus('bank','Banco e empréstimos')}</div>
     <div class="pill" title="Clientes${rf.f?` · rádio ${rf.r}, fibra ${rf.f}`:''}"><span class="pill-ico">${HUD_ICO.people}</span><b>${allClients().toLocaleString('pt-BR')}</b></div>
     <div class="pill" title="Reputação"><span class="pill-ico">${HUD_ICO.heart}</span><b>${Math.round(S.rep)}</b><span class="pill-bar"><i style="width:${S.rep}%"></i></span></div>
@@ -1799,7 +1805,7 @@ function renderMap(){
   const il=c.idx>0?(c.ilink>=0?(()=>{const u=cityTraffic(c)/CITY_LINKS[c.ilink].g;return `<button class="chip ${u>1?'bad':u>0.85?'warn':''}" data-act="net" style="border:0;cursor:pointer">Interligação ${gb(CITY_LINKS[c.ilink].g)} · ${Math.round(u*100)}%</button>`;})():'<button class="chip bad" data-act="net" style="border:0;cursor:pointer">Sem interligação</button>'):'';
   const sel=S.cities.length>1?`<select class="input" id="citySel" style="width:auto;padding:5px 8px" aria-label="Trocar cidade">${S.cities.map((cc,i)=>`<option value="${i}" ${i===S.ci?'selected':''}>${esc(cc.name)}</option>`).join('')}</select>`:'';
   $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
-   <div class="map-meta">${c.geo?'':`<button class="btn small primary" data-act="geoLoad" ${geoBusy.has(c)?'disabled':''}>${geoBusy.has(c)?'Carregando mapa…':'Carregar mapa real'}</button>`}${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${(()=>{const rp=rivalPressure(c);return rp.rs.length?`<button class="chip ${rp.edge>0.03?'bad':rp.edge<-0.03?'ok':'warn'}" data-act="rivals" style="cursor:pointer">Concorrentes ${rp.rs.length} · ${Math.round(rp.occ*100)}% da cidade</button>`:(sbOn()&&SB.session&&SB.session.user&&!sedeMode?'<button class="chip" data-act="rivals" style="cursor:pointer">Sem concorrentes</button>':'');})()}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
+   <div class="map-meta">${c.geo?'':`<button class="btn small primary" data-act="geoLoad" ${geoBusy.has(c)?'disabled':''}>${geoBusy.has(c)?'Carregando mapa…':'Carregar mapa real'}</button>`}${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${(()=>{const rp=rivalPressure(c);return rp.rs.length?`<button class="chip ${rp.edge>0.03?'bad':rp.edge<-0.03?'ok':'warn'}" data-act="rivals" style="cursor:pointer">Concorrentes ${rp.rs.length} · ${Math.round(rp.occ*100)}% da cidade</button>`:(rivalsOn()&&sbOn()&&SB.session&&SB.session.user&&!sedeMode?'<button class="chip" data-act="rivals" style="cursor:pointer">Sem concorrentes</button>':'');})()}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
   $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
@@ -2537,6 +2543,7 @@ function openDiamonds(){
     <div class="choice-list">
       <div class="choice"><div><b>Trocar por selos</b><small>1 diamante = ${DIA_TO_COINS} selos (para instalação expressa, configuração automática, proteções).</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${btns('coins')}</div></div>
       <div class="choice"><div><b>Trocar por dinheiro</b><small>1 diamante = ${brl0(DIA_TO_MONEY)} no caixa.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${btns('money')}</div></div>
+      ${ceoHtml()}
     </div>`,m=>{
     m.querySelectorAll('[data-dswap]').forEach(b=>b.onclick=()=>{const [k,nn]=b.dataset.dswap.split(':');const n=+nn;if(n<1||(S.diamonds||0)<n)return;S.diamonds-=n;
       if(k==='coins'){S.coins+=n*DIA_TO_COINS;log(`Trocou ${n} diamante(s) por ${n*DIA_TO_COINS} selos.`);toast(`+${n*DIA_TO_COINS} selos.`);}
@@ -2544,6 +2551,37 @@ function openDiamonds(){
       save(true);renderAll();openDiamonds();});
   });
 }
+
+/* ===================== Empresa offline (nível ${OFFLINE_LEVEL}) e CEO =====================
+   Enquanto o jogador está fora, a empresa rende uma parte do saldo do último mês fechado:
+   OFFLINE_RATE do saldo por hora, até OFFLINE_CAP. Com o CEO (comprado com diamantes), as horas cobertas
+   rendem o dobro, cada hora de CEO soma R$ 10 mil ao teto, e a concorrência não leva clientes enquanto ele está no cargo. */
+const ceoOn=()=>!!(S&&S.ceo&&S.ceo.until>Date.now());
+function lastSaldo(){const h=S.history[S.history.length-1];return h?Math.max(0,h.saldo||0):0;}
+function offlineGains(gapMs,from){
+  const h=gapMs/36e5,ceoH=S.ceo?Math.max(0,Math.min(S.ceo.until,from+gapMs)-Math.max(S.ceo.from||0,from))/36e5:0;
+  const rate=lastSaldo()*OFFLINE_RATE,cap=OFFLINE_CAP+Math.min(CEO_MAX_H,ceoH)*10000;
+  return {h,ceoH,rate,cap,got:Math.round(Math.min(cap,rate*(h+ceoH)))};
+}
+function checkOffline(){
+  if(!S||S.phase!=='play')return;const now=Date.now(),seen=S.seenAt||S.savedAt||now;S.seenAt=now;
+  const gap=now-seen;if(gap<OFFLINE_MIN_MIN*6e4||levelOf(S.xp)<OFFLINE_LEVEL)return;
+  const g=offlineGains(gap,seen);if(g.got<1)return;
+  S.money+=g.got;S.cur.offline=(S.cur.offline||0)+g.got;log(`Enquanto você esteve fora (${fmtGap(gap)}), a empresa rendeu ${brl0(g.got)}${g.ceoH>0?' com o CEO no comando':''}.`);event(`Offline: +${brl0(g.got)}`);save(true);renderAll();
+  openModal(head('Bem-vindo de volta','+'+brl0(g.got))+`<p>Você ficou fora por <b>${fmtGap(gap)}</b>. A empresa continuou atendendo e rendeu <b>${brl0(g.got)}</b> (${Math.round(OFFLINE_RATE*100)}% do saldo do último mês, ${brl0(lastSaldo())}, por hora fora, até ${brl0(g.cap)}).</p>${g.ceoH>0?`<div class="notice ok">O CEO administrou ${fmtGap(g.ceoH*36e5)}: essas horas renderam em dobro e o teto subiu.</div>`:`<div class="notice">Com um CEO (${CEO_DIAMONDS} diamantes por hora), as horas fora rendem em dobro, o teto sobe e a concorrência não leva seus clientes.</div>`}<div class="foot"><button class="btn" data-act="diamonds">Contratar CEO</button><button class="btn primary" data-close>Continuar</button></div>`);
+}
+function fmtGap(ms){const m=Math.round(ms/6e4);if(m<60)return m+' min';const h=Math.floor(m/60),r=m%60;if(h<48)return h+' h'+(r?' '+r+' min':'');return Math.floor(h/24)+' dias';}
+function ceoHtml(){
+  const lvl=levelOf(S.xp),d=S.diamonds||0;
+  if(lvl<OFFLINE_LEVEL)return `<div class="choice"><div><b>Contratar CEO</b><small>Libera no nível ${OFFLINE_LEVEL}, junto com a empresa rendendo offline.</small></div><span class="chip">🔒</span></div>`;
+  const left=ceoOn()?S.ceo.until-Date.now():0,maxAdd=Math.max(0,Math.floor((CEO_MAX_H*36e5-left)/36e5));
+  return `<div class="choice"><div><b>Contratar CEO${ceoOn()?' · no cargo por mais '+fmtGap(left):''}</b><small>${CEO_DIAMONDS} diamantes por hora (até ${CEO_MAX_H} h). Enquanto ele está no cargo, as horas fora rendem em dobro, cada hora soma ${brl0(10000)} ao teto do offline e a concorrência não leva seus clientes.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${[1,2,4,8].map(n=>`<button class="btn small ${n===1?'primary':''}" data-ceo="${n}" ${d<n*CEO_DIAMONDS||n>maxAdd?'disabled':''}>${n} h · ${n*CEO_DIAMONDS}</button>`).join('')}</div></div>`;
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ceo]');if(!b||!S)return;const n=+b.dataset.ceo,cost=n*CEO_DIAMONDS;
+  if(levelOf(S.xp)<OFFLINE_LEVEL||(S.diamonds||0)<cost)return;const now=Date.now(),base=ceoOn()?S.ceo.until:now;
+  if(base+n*36e5-now>CEO_MAX_H*36e5+1000){toast(`O CEO fica no máximo ${CEO_MAX_H} h seguidas.`);return;}
+  S.diamonds-=cost;S.ceo={from:ceoOn()?S.ceo.from:now,until:base+n*36e5};log(`CEO contratado por ${n} h (${cost} diamantes).`);event(`CEO no comando por ${n} h`);save(true);renderAll();toast(`CEO no comando até ${new Date(S.ceo.until).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`);openDiamonds();});
+document.addEventListener('visibilitychange',()=>{if(!S)return;if(document.visibilityState==='hidden'){S.seenAt=Date.now();save(false);}else setTimeout(checkOffline,300);});
 
 /* ===================== Ouvidoria ===================== */
 function ouvidoriaMonth(ctx){
@@ -3509,6 +3547,7 @@ function start(data){
   loop();
   initCloud();
   setTimeout(autoGeo,600);
+  setTimeout(checkOffline,1500);
 }
 if(window.claude&&window.claude.hot&&typeof window.claude.hot.snapshot==='function'){try{window.claude.hot.snapshot(()=>({S}));}catch(e){}}
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
