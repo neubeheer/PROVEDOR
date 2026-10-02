@@ -6,15 +6,40 @@ Funciona no computador e no celular, salva o progresso no próprio aparelho e co
 
 ## Como jogar
 
-1. Dê um nome ao provedor e informe sua cidade.
-2. Escolha o bairro da sede. O térreo, com a recepção, é grátis.
-3. Compre a outorga da cidade. Sem ela, todo o resto fica bloqueado.
-4. Faça a documentação (contrato social, CNPJ e alvará).
-5. Suba uma torre num terreno vazio e configure o rádio.
-6. Toque numa quadra com sinal e bata nas portas: cada visita é uma família, que aceita ou recusa o plano.
-7. Monte os setores do prédio, contrate a equipe e acompanhe o relatório do mês.
+1. Dê um nome ao provedor e informe sua cidade. Ela precisa existir: o jogo confere na lista de municípios do IBGE (com sugestões se o nome vier errado) e por isso o primeiro acesso precisa de internet.
+2. Siga o **tutorial**, que aparece em cima do mapa:
+   1. Declarar a sede (o térreo, com a recepção, é grátis).
+   2. Abrir a empresa: contrato social e CNPJ.
+   3. Pedir a outorga da cidade na Anatel.
+   4. Fazer o licenciamento: alvará da prefeitura.
+   5. Subir e configurar a primeira torre.
+   6. Conseguir o primeiro cliente.
+3. Depois do tutorial, andares e setores são liberados **a cada 2 níveis**:
 
-O botão **Ver níveis** mostra o que cada nível libera e quanto de bônus ele dá.
+| Nível | Libera |
+|---|---|
+| 2 | Call Center e Comercial (1º e 2º andar) |
+| 4 | Técnico, galpão de Logística e expansão para cidades até 100 km |
+| 6 | Retenção, RH e combo internet + TV |
+| 8 | Marketing, Recuperação, loja filial e carreata |
+| 10 | NOC, servidores de cache e combo com telefone |
+| 12 | Fibra óptica (backbone, caixas CTO, Fibra 100 Mega) |
+| 14 | OLT 2ª geração (Fibra 300 Mega) |
+| 16 | OLT XGS-PON (Fibra 600 Mega) |
+
+Os níveis ímpares dão bônus de caixa. O botão **Ver níveis** mostra a lista completa. Jogos salvos antes desta versão têm o XP ajustado para não perder o que já estava liberado.
+
+## Expansão para outras cidades
+
+A partir do nível 4, **Expandir para outra cidade** lista as cidades de verdade num raio de 100 km de qualquer cidade que você já atende (municípios do OpenStreetMap, população do Censo 2022 do IBGE). Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga. Não dá para digitar uma cidade inventada.
+
+## Proteções com selos
+
+Na tela de **Selos** dá para comprar 1 ano (12 meses) de proteção:
+- **Desastres naturais** (80 selos): tempestades e descargas elétricas não afetam a rede.
+- **Geopolítica e economia** (100 selos): alta do dólar, falta de chips e crise econômica não afetam a empresa.
+
+Comprar de novo com a proteção ativa soma mais 12 meses.
 
 ## Mapa real
 

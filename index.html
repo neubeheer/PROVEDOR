@@ -108,6 +108,19 @@ button.stat:hover{background:#34464e}
 .chip.ok{background:var(--signal-soft);color:#08665d}
 .chip.warn{background:var(--gold-soft);color:#7a5408}
 .chip.bad{background:var(--danger-soft);color:#962323}
+.tut{display:flex;gap:12px;align-items:flex-start;background:#1e2a30;color:#fff;border-radius:14px;padding:12px 14px;margin-bottom:12px;box-shadow:0 4px 14px rgba(30,42,48,.18)}
+.tut .tut-n{flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:var(--accent);display:grid;place-items:center;font-weight:900}
+.tut .tut-body{flex:1;min-width:0}
+.tut .tut-body b{display:block;font-size:15px;margin-bottom:2px}
+.tut .tut-body p{margin:0;font-size:13px;color:#cfd8dc;line-height:1.4}
+.tut .tut-dots{display:flex;gap:4px;margin:8px 0 0}
+.tut .tut-dots i{width:18px;height:4px;border-radius:2px;background:rgba(255,255,255,.22)}
+.tut .tut-dots i.on{background:var(--accent)}
+.tut .tut-dots i.ok{background:#7dcfae}
+.tut .tut-act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tut .btn.ghost{color:#fff;border-color:rgba(255,255,255,.35);background:transparent}
+.tut code{background:rgba(255,255,255,.12);padding:0 4px;border-radius:4px;font-family:var(--mono);font-size:12px;color:#fff}
+.city-list{max-height:min(52vh,460px);overflow:auto;display:flex;flex-direction:column;gap:6px;margin:6px 0 4px;padding-right:2px}
 .sede-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--gold-soft);border-radius:12px;padding:10px 12px;margin-bottom:12px}
 .sede-bar p{margin:0;font-size:14px}
 .sede-actions{display:flex;flex-wrap:wrap;gap:6px}
@@ -441,7 +454,7 @@ body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))
   <section class="pane pane-map" aria-label="Mapa da cidade">
     <div class="card">
       <div class="map-head" id="mapHead"></div>
-      <div id="crisisBar"></div><div id="sedeBar"></div>
+      <div id="tutBar"></div><div id="crisisBar"></div><div id="sedeBar"></div>
       <div class="map-wrap" id="gridWrap"><div class="map" id="map"></div></div>
       <div id="realWrap" hidden><div class="realmap" id="realMap"></div><div id="realTools"></div></div>
       <div class="legend" id="gridLegend">
@@ -479,7 +492,7 @@ body.modal-open .toast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))
 /* ===================== Regras do jogo ===================== */
 const SAVE_KEY='provedor-tycoon-v2';
 const START_MONEY=20000, RANGE=2.6, CAP=64;
-const TOWER_COST=3000, CPE_COST=200, THIRD_COST=120, HIRE_COST=500, NEWCITY_COST=1500, FIBRA_LEVEL=6;
+const TOWER_COST=3000, CPE_COST=200, THIRD_COST=120, HIRE_COST=500, NEWCITY_COST=1500, FIBRA_LEVEL=12, EXPAND_LEVEL=4, STORE_LEVEL=8, EXPAND_KM=100;
 const BACKBONE_COST=100000, CTO_COST=6000, ONU_COST=250, KIT_COST=800, DISMANTLE_COST=500, STORE_COST=15000, PARTNER_CASH=25000, PARTNER_PAY=3000;
 const PLANS=[
   {id:'r10',name:'Rádio 10 Mega',mb:10,price:59.9},
@@ -487,28 +500,28 @@ const PLANS=[
   {id:'r35',name:'Rádio 35 Mega',mb:35,price:99.9},
 ];
 const COMBOS={
-  tv:{name:'TV · 60 canais',short:'TV',price:39.9,level:3,cost:2500,unit:18,who:'programadora de TV'},
-  fone:{name:'Telefone fixo',short:'Fone',price:19.9,level:5,cost:1500,unit:6,who:'operadora de telefonia'},
+  tv:{name:'TV · 60 canais',short:'TV',price:39.9,level:6,cost:2500,unit:18,who:'programadora de TV'},
+  fone:{name:'Telefone fixo',short:'Fone',price:19.9,level:10,cost:1500,unit:6,who:'operadora de telefonia'},
 };
 const FLOORS=[
   {id:'recepcao',name:'Recepção',level:1,cost:0,desc:'Sede da empresa. Daqui saem a outorga e a documentação.'},
-  {id:'callcenter',name:'Call Center',level:1,cost:1500,desc:'Atendimento. N1 voz atende até 40 clientes, N1 texto (chat) até 50. N2 resolve problema técnico e evita cancelamentos.',
+  {id:'callcenter',name:'Call Center',level:2,cost:1500,desc:'Atendimento. N1 voz atende até 40 clientes, N1 texto (chat) até 50. N2 resolve problema técnico e evita cancelamentos.',
     roles:{voz:{t:'N1 voz',sal:300},texto:{t:'N1 texto (chat)',sal:250},n2:{t:'N2 suporte técnico',sal:450},sup:{t:'Supervisor',sal:700},ger:{t:'Gerente',sal:1200}}},
-  {id:'comercial',name:'Comercial',level:1,cost:2000,op:'Vendedor',sal:350,desc:'Vendedores fazem porta a porta sozinhos nas casas com sinal.'},
-  {id:'marketing',name:'Marketing',level:3,cost:3000,op:'Analista de marketing',sal:400,desc:'Campanhas nas cidades: panfletos, carro de som, rádio, redes, eventos e carreatas. Cada analista toca uma campanha por vez.'},
-  {id:'retencao',name:'Retenção',level:2,cost:2500,op:'Retentor',sal:350,desc:'Setor de cancelamento: cada retentor atende até 5 pedidos por mês e tenta todas as propostas.'},
-  {id:'recuperacao',name:'Recuperação',level:3,cost:2500,op:'Cobrador',sal:320,desc:'Recupera inadimplentes: cada cobrador negocia até 3 dívidas por mês e reativa o assinante.'},
-  {id:'tecnico',name:'Técnico',level:2,cost:3000,op:'Técnico de campo',sal:400,desc:'Instala e configura rádio e fibra do cliente sem pagar terceirizado.'},
-  {id:'rh',name:'RH',level:2,cost:2000,op:'Analista de RH',sal:380,desc:'Cada analista libera +4 vagas por setor, segura pedidos de demissão e barateia contratações. Sócios entram por aqui.'},
-  {id:'noc',name:'NOC',level:5,cost:6000,op:'Analista de NOC',sal:500,desc:'Monitoramento 24h: torres aguentam 50% mais clientes. Aqui ficam os servidores de cache.'},
-  {id:'logistica',annex:true,name:'Logística',level:2,cost:2500,op:'Motorista',sal:300,desc:'Galpão dos equipamentos em comodato. Cada motorista recolhe até 6 rádios por mês.'},
+  {id:'comercial',name:'Comercial',level:2,cost:2000,op:'Vendedor',sal:350,desc:'Vendedores fazem porta a porta sozinhos nas casas com sinal.'},
+  {id:'marketing',name:'Marketing',level:8,cost:3000,op:'Analista de marketing',sal:400,desc:'Campanhas nas cidades: panfletos, carro de som, rádio, redes, eventos e carreatas. Cada analista toca uma campanha por vez.'},
+  {id:'retencao',name:'Retenção',level:6,cost:2500,op:'Retentor',sal:350,desc:'Setor de cancelamento: cada retentor atende até 5 pedidos por mês e tenta todas as propostas.'},
+  {id:'recuperacao',name:'Recuperação',level:8,cost:2500,op:'Cobrador',sal:320,desc:'Recupera inadimplentes: cada cobrador negocia até 3 dívidas por mês e reativa o assinante.'},
+  {id:'tecnico',name:'Técnico',level:4,cost:3000,op:'Técnico de campo',sal:400,desc:'Instala e configura rádio e fibra do cliente sem pagar terceirizado.'},
+  {id:'rh',name:'RH',level:6,cost:2000,op:'Analista de RH',sal:380,desc:'Cada analista libera +4 vagas por setor, segura pedidos de demissão e barateia contratações. Sócios entram por aqui.'},
+  {id:'noc',name:'NOC',level:10,cost:6000,op:'Analista de NOC',sal:500,desc:'Monitoramento 24h: torres aguentam 50% mais clientes. Aqui ficam os servidores de cache.'},
+  {id:'logistica',annex:true,name:'Logística',level:4,cost:2500,op:'Motorista',sal:300,desc:'Galpão dos equipamentos em comodato. Cada motorista recolhe até 6 rádios por mês.'},
 ];
 const ROLE_HINT={voz:'Atende até 40 clientes',texto:'Atende até 50 clientes, salário menor',n2:'Menos cancelamentos por problema técnico',sup:'1 para cada 5 operadores',ger:'Obrigatório a partir de 8 pessoas no setor',
   comercial:'3 portas a cada 4 dias',marketing:'Uma campanha ativa por vez',retencao:'5 pedidos de cancelamento por mês',recuperacao:'3 dívidas por mês',tecnico:'Instala sem terceirizado',rh:'+4 vagas por setor e menos demissões',noc:'Monitora a rede',logistica:'Recolhe 6 rádios por mês'};
 const FIBER_TIERS=[
-  {name:'OLT GPON básica',level:6,cost:0,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:149.9}]},
-  {name:'OLT GPON 2ª geração',level:7,cost:30000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:119.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:139.9}]},
-  {name:'OLT XGS-PON',level:8,cost:60000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:99.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:119.9},{id:'f600',name:'Fibra 600 Mega',mb:600,price:149.9}]},
+  {name:'OLT GPON básica',level:12,cost:0,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:149.9}]},
+  {name:'OLT GPON 2ª geração',level:14,cost:30000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:119.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:139.9}]},
+  {name:'OLT XGS-PON',level:16,cost:60000,plans:[{id:'f100',name:'Fibra 100 Mega',mb:100,price:99.9},{id:'f300',name:'Fibra 300 Mega',mb:300,price:119.9},{id:'f600',name:'Fibra 600 Mega',mb:600,price:149.9}]},
 ];
 const FIBER_NAMES={f100:['Fibra 100 Mega',100],f300:['Fibra 300 Mega',300],f600:['Fibra 600 Mega',600]};
 const SERVERS=[
@@ -529,19 +542,26 @@ const CAMPAIGNS=[
 const DOCS=[
   {id:'contrato',name:'Contrato social',cost:300,days:3,info:'Cria a empresa e define sócios, capital e atividade.'},
   {id:'cnpj',name:'CNPJ na Receita Federal',cost:0,days:2,req:'contrato',info:'Registro da empresa, com o CNAE de serviço de comunicação multimídia (SCM).'},
-  {id:'alvara',name:'Alvará da prefeitura',cost:250,days:4,req:'cnpj',info:'Licença para funcionar no endereço da sede.'},
+  {id:'alvara',name:'Licenciamento: alvará da prefeitura',cost:250,days:4,req:'cnpj',out:true,info:'Licença para funcionar no endereço da sede e instalar as torres. Pede a outorga paga.'},
 ];
-const LEVEL_BONUS={2:2000,3:4000,4:6000,5:8000,6:10000,7:12000,8:15000};
-const bonusFor=l=>LEVEL_BONUS[l]||15000;
+const bonusFor=l=>Math.min(25000,l*1000);
 const LEVELS=[
-  {l:1,items:['Recepção (grátis)','Outorga e documentação','Call Center e Comercial','Torres de rádio e venda porta a porta']},
-  {l:2,items:['Técnico, Retenção e RH','Galpão de logística']},
-  {l:3,items:['Marketing e Recuperação','Combo internet + TV']},
-  {l:4,items:['Expansão para outra cidade','Loja filial e carreata']},
-  {l:5,items:['NOC e servidores de cache','Combo com telefone fixo']},
-  {l:6,items:['Fibra óptica: backbone, caixas CTO e Fibra 100 Mega','Desmontar torres e levar para outra cidade']},
-  {l:7,items:['OLT 2ª geração: Fibra 300 Mega e preços menores']},
-  {l:8,items:['OLT XGS-PON: Fibra 600 Mega']},
+  {l:1,items:['Tutorial: CNPJ, outorga, licenciamento, primeira torre e primeiro cliente','Recepção (grátis) e venda porta a porta']},
+  {l:2,items:['1º e 2º andar: Call Center e Comercial']},
+  {l:3,items:['Bônus de caixa']},
+  {l:4,items:['Técnico e galpão de Logística','Expansão para cidades até 100 km']},
+  {l:5,items:['Bônus de caixa']},
+  {l:6,items:['Retenção e RH','Combo internet + TV']},
+  {l:7,items:['Bônus de caixa']},
+  {l:8,items:['Marketing e Recuperação','Loja filial e carreata']},
+  {l:9,items:['Bônus de caixa']},
+  {l:10,items:['NOC e servidores de cache','Combo com telefone fixo']},
+  {l:11,items:['Bônus de caixa']},
+  {l:12,items:['Fibra óptica: backbone, caixas CTO e Fibra 100 Mega','Desmontar torres e levar para outra cidade']},
+  {l:13,items:['Bônus de caixa']},
+  {l:14,items:['OLT 2ª geração: Fibra 300 Mega e preços menores']},
+  {l:15,items:['Bônus de caixa']},
+  {l:16,items:['OLT XGS-PON: Fibra 600 Mega']},
 ];
 const XP_TABLE=[['Documento pronto',15],['Andar comprado',30],['Combo lançado',40],['Torre no ar',50],['Outorga paga',60],['Nova cidade',80],['Cliente novo',20],['Instalar o rádio você mesmo','+10 extra'],['Mês com lucro',10],['Recuperar inadimplente',15],['Recolher rádio',5],['Reter um cliente',10],['Migrar cliente para fibra',15],['Backbone de fibra',150],['Caixa CTO',20]];
 const NEED={work:'Trabalha de casa',game:'Filho joga online',tv:'Quer assistir TV',budget:'Orçamento apertado',basic:'Só WhatsApp e redes sociais'};
@@ -554,9 +574,11 @@ const COMPETITOR_SSIDS=['NET_VIZINHO','FibraMax_2G','Casa_Ana','TurboNet-Cliente
 const CITY_SUGGEST=['Vale Verde','Santa Rita do Norte','Pedra Branca','Rio Claro do Sul','Boa Esperança','Campo Alegre','Serra Azul','Lagoa Seca'];
 const UFS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 const CRISES=[
-  {id:'crise',bad:true,name:'Crise econômica',months:3,desc:'Mais clientes atrasam o pagamento e menos famílias assinam.'},
-  {id:'dolar',bad:true,name:'Alta do dólar',months:2,desc:'O rádio do cliente (CPE) ficou 60% mais caro. Use o estoque.'},
-  {id:'chuva',bad:true,name:'Temporada de tempestades',months:1,desc:'Manutenção das torres dobra e há mais cancelamentos.'},
+  {id:'crise',bad:true,kind:'geo',name:'Crise econômica',months:3,desc:'Mais clientes atrasam o pagamento e menos famílias assinam.'},
+  {id:'dolar',bad:true,kind:'geo',name:'Alta do dólar',months:2,desc:'O rádio do cliente (CPE) ficou 60% mais caro. Use o estoque.'},
+  {id:'chuva',bad:true,kind:'nat',name:'Temporada de tempestades',months:1,desc:'Manutenção das torres dobra e há mais cancelamentos.'},
+  {id:'raios',bad:true,kind:'nat',name:'Descargas elétricas',months:1,desc:'Raios queimaram equipamentos: cada torre no ar gasta R$ 400 de reparo neste mês.'},
+  {id:'chips',bad:true,kind:'geo',name:'Guerra comercial: falta de chips',months:2,desc:'Os rádios importados sumiram do mercado. O rádio do cliente (CPE) custa o dobro.'},
   {id:'boom',bad:false,name:'Boom do home office',months:2,desc:'Mais famílias querem internet boa: vendas ficam mais fáceis.'},
 ];
 const REASONS={caro:'achou caro',lenta:'internet lenta',mudar:'vai mudar de cidade',conc:'recebeu oferta da concorrência',sinal:'ficou sem sinal'};
@@ -583,6 +605,8 @@ const slug=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().re
 /* ===================== Estado ===================== */
 let S=null, modalOpen=false, timer=null, toastT=null, repView=null, showDone=false, selBairro=4;
 
+function outorgaFor(pop){return Math.round(clamp(pop*0.3*(1+Math.log10(1+pop/20000)),2000,300000)/100)*100;}
+function studyFor(pop){return Math.round(clamp(1000+pop*0.04,1500,25000)/100)*100;}
 function makeFam(r){
   const need=pick(r,Object.keys(NEED));
   const ranges={work:[95,135],game:[90,130],tv:[110,165],budget:[55,72],basic:[62,92]};
@@ -606,7 +630,7 @@ function makeCity0(name,uf,idx){
   [...CHANNELS].sort(()=>r()-.5).slice(0,3).forEach((c,i)=>spectrum[c]=6+i*7+Math.round(r()*4));
   const pool=[...BAIRROS].sort(()=>r()-.5).slice(0,8);
   const bairros=[...pool.slice(0,4),'Centro',...pool.slice(4,8)];
-  return {name,uf,idx,pop,outorga:Math.round(pop*0.3/100)*100,outorgaPaid:false,bairros,lots,towers:[],used:[1],spectrum};
+  return {name,uf,idx,pop,outorga:outorgaFor(pop),outorgaPaid:false,bairros,lots,towers:[],used:[1],spectrum};
 }
 function newMonth(){return {novos:0,quits:0,complaints:0,migrados:0,retidos:0,pedidos:0,coins:0,loanPaid:0,cancel:0,torres:0,inv:0,bonus:0,recolhidos:0,perdidos:0,calotes:0,recuperado:0,eventos:[],missoes:[]};}
 function migrate(st){
@@ -615,12 +639,14 @@ function migrate(st){
   st.partners=st.partners||0;st.kits=st.kits||0;st.servers=st.servers||{};st.fiberTier=st.fiberTier||0;st.migrated=st.migrated||0;st.complaints=st.complaints||0;
   for(const c of st.cities){c.fiber=c.fiber||{on:false,ctos:[]};c.campaigns=c.campaigns||[];if(c.store===undefined)c.store=null;}
   for(const [id,f] of Object.entries(st.floors||{})){if(id==='recepcao')continue;if(f.staff!=null&&!f.team){f.team=id==='callcenter'?{voz:f.staff}:{op:f.staff};delete f.staff;}if(f.built&&!f.team)f.team={};}
-  st.coins=st.coins||0;st.loans=st.loans||[];st.retained=st.retained||0;st.retCap=st.retCap||0;for(const c of st.cities)for(const l of quadras(c))for(const f of (l.fams||[]))if((f.st==='client'||f.st==='late'||f.st==='suspended')&&!f.since)f.since=st.day;st.stock=st.stock||0;st.parcelas=st.parcelas||[];st.recovered=st.recovered||0;st.crisis=st.crisis||null;st.cur=Object.assign(newMonth(),st.cur||{});if(!Number.isFinite(st.cur.novos))st.cur.novos=0;for(const h of st.history||[])if(!Number.isFinite(h.novos))h.novos=0;return st;}
+  st.coins=st.coins||0;st.shield=st.shield||{};
+  if(!st.lv2){const old=levelOf(st.xp||0);if(old>=2){const n=old*2;st.xp=Math.max(st.xp,50*n*(n-1));}st.lv2=true;}
+  if(st.tut===undefined)st.tut=(st.towersBuilt>0||st.signed>0)?{done:true}:{};st.loans=st.loans||[];st.retained=st.retained||0;st.retCap=st.retCap||0;for(const c of st.cities)for(const l of quadras(c))for(const f of (l.fams||[]))if((f.st==='client'||f.st==='late'||f.st==='suspended')&&!f.since)f.since=st.day;st.stock=st.stock||0;st.parcelas=st.parcelas||[];st.recovered=st.recovered||0;st.crisis=st.crisis||null;st.cur=Object.assign(newMonth(),st.cur||{});if(!Number.isFinite(st.cur.novos))st.cur.novos=0;for(const h of st.history||[])if(!Number.isFinite(h.novos))h.novos=0;return st;}
 function newGame(company,cityName,uf){
   S={v:2,company,phase:'sede',money:START_MONEY,xp:0,rep:50,day:1,speed:1,
      docs:{},cities:[makeCity(cityName,uf,0)],ci:0,sede:null,
      floors:{recepcao:{built:true,staff:0}},combos:{tv:false,fone:false},
-     manualInstalls:0,towersBuilt:0,signed:0,peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
+     manualInstalls:0,towersBuilt:0,signed:0,lv2:true,tut:{},shield:{},peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
   log(`A ${company} nasceu em ${cityName}. Escolha o bairro da sede.`);
   save(true);
 }
@@ -700,6 +726,7 @@ const levelOf=xp=>{let l=1;while(xp>=50*(l+1)*l)l++;return l;};
 const xpFor=l=>50*l*(l-1);
 const docsDone=()=>DOCS.every(d=>S.docs[d.id]&&S.docs[d.id].done);
 const companyLicensed=()=>S.cities[0].outorgaPaid;
+const cnpjDone=()=>!!(S.docs.cnpj&&S.docs.cnpj.done);
 const built=id=>!!(S.floors[id]&&S.floors[id].built);
 const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function rolesOf(f){return f.roles||{op:{t:f.op,sal:f.sal},sup:{t:'Supervisor',sal:700},ger:{t:'Gerente',sal:1200}};}
@@ -766,8 +793,11 @@ function priceNow(l){return l.disc&&monthOf(S.day)<=l.disc.until?Math.round(l.pr
 function towerLoad(c,t){return famsOf(c).filter(l=>(pays(l)||l.st==='late')&&l.tid===t.id&&l.tech!=='fiber').length;}
 function cityClients(c){return famsOf(c).filter(isSub).length;}
 function lateCount(){return S.cities.reduce((s,c)=>s+famsOf(c).filter(l=>l.st==='late'||l.st==='suspended').length,0);}
-function effect(id){return !!(S.crisis&&S.crisis.id===id&&monthOf(S.day)<=S.crisis.until);}
-const cpeCost=()=>Math.round(CPE_COST*(effect('dolar')?1.6:1));
+const SHIELDS={nat:{name:'Proteção contra desastres naturais',short:'Desastres naturais',cost:80,desc:'Tempestades e descargas elétricas não afetam a rede.'},geo:{name:'Proteção geopolítica e econômica',short:'Geopolítica',cost:100,desc:'Alta do dólar, falta de chips e crise econômica não afetam a empresa.'}};
+const shieldOn=k=>!!(S.shield&&S.shield[k]>=monthOf(S.day));
+function crisisBlocked(id){const cr=CRISES.find(x=>x.id===id);return !!(cr&&cr.kind&&shieldOn(cr.kind));}
+function effect(id){return !!(S.crisis&&S.crisis.id===id&&monthOf(S.day)<=S.crisis.until)&&!crisisBlocked(id);}
+const cpeCost=()=>Math.round(CPE_COST*(effect('dolar')?1.6:1)*(effect('chips')?2:1));
 function cpeFor(){if(S.stock>0)return 0;return cpeCost();}
 function takeCpe(){if(S.stock>0){S.stock--;return true;}return spend(cpeCost());}
 function reasonFor(c,l,offline,over){
@@ -897,7 +927,7 @@ function monthEnd(){
   for(const c of S.cities)c.campaigns=(c.campaigns||[]).filter(x=>x.until>m);
   const staffCost=staffPayroll();
   const towersOn=S.cities.reduce((s,c)=>s+c.towers.filter(t=>!t.off).length,0);
-  const link=Math.round((radioCl*12+fiberCl*15)*(1-red)), maint=towersOn*120*(effect('chuva')?2:1), content=tv*COMBOS.tv.unit+fone*COMBOS.fone.unit;
+  const link=Math.round((radioCl*12+fiberCl*15)*(1-red)), maint=towersOn*120*(effect('chuva')?2:1)+(effect('raios')?towersOn*400:0), content=tv*COMBOS.tv.unit+fone*COMBOS.fone.unit;
   const fiberMaint=S.cities.reduce((s,c)=>s+(c.fiber&&c.fiber.on?1000+c.fiber.ctos.length*40:0),0);
   const serverCost=servers*150, storeCost=S.cities.filter(c=>c.store).length*1500;
   let loanPay=0;
@@ -935,13 +965,16 @@ function monthEnd(){
   let news='';
   if(!S.crisis||m>=S.crisis.until){
     if(S.crisis&&m>=S.crisis.until){log(`Fim do evento: ${CRISES.find(x=>x.id===S.crisis.id).name}.`);S.crisis=null;}
-    if(m>=2&&Math.random()<0.2){const ev=CRISES[Math.floor(Math.random()*CRISES.length)];S.crisis={id:ev.id,until:m+ev.months};event(`Começou: ${ev.name}`);log(`Evento: ${ev.name}. ${ev.desc}`);news=` ${ev.name}!`;}
+    if(m>=2&&Math.random()<0.2){const ev=CRISES[Math.floor(Math.random()*CRISES.length)];
+      if(ev.kind&&shieldOn(ev.kind)){event(`Proteção evitou: ${ev.name}`);log(`${SHIELDS[ev.kind].name} evitou: ${ev.name}.`);news=` Sua proteção evitou: ${ev.name}.`;}
+      else{S.crisis={id:ev.id,until:m+ev.months};event(`Começou: ${ev.name}`);log(`Evento: ${ev.name}. ${ev.desc}`);news=` ${ev.name}!`;}}
   }
   toast(S.money<0?'Caixa negativo! Venda mais, negocie dívidas, desligue torres ou peça empréstimo.':`Mês ${m} fechado: saldo ${brl0(saldo)}.${news}`);
   save(true);
 }
 function signupBlock(c){
   if(!S.sede)return 'sede';
+  if(!cnpjDone())return 'cnpj';
   if(!c.outorgaPaid)return 'outorga';
   if(!docsDone())return 'docs';
   return null;
@@ -1001,30 +1034,32 @@ function vendorAttempt(){const cs=S.cities.filter(c=>!signupBlock(c)&&quadras(c)
 function planLabel(planId,combo){const pl=planById(planId);return pl.name+(combo.length?' + '+combo.map(k=>COMBOS[k].short).join(' + '):'');}
 
 /* ===================== Missões ===================== */
+const lvOf=id=>(FLOORS.find(f=>f.id===id)||{}).level||1;
 function missionList(){
   const c=S.cities[0];
   return [
     {id:'sede',t:'Declarar a sede',d:'Escolha no mapa o bairro do prédio. A recepção é grátis.',done:!!S.sede,act:'focusMap',btn:'Ir para o mapa'},
-    {id:'outorga',t:`Comprar a outorga de ${c.name}`,d:'A licença para operar na cidade. Sem ela, todo o resto fica bloqueado.',done:c.outorgaPaid,act:'outorga',btn:'Comprar outorga'},
-    {id:'docs',t:'Documentação da empresa',d:'Contrato social, CNPJ e alvará. Libera a instalação de torres.',done:docsDone(),act:'docs',btn:'Ver documentos'},
-    {id:'callcenter',t:'Montar o Call Center',d:'Atendimento ao cliente no 1º andar.',done:built('callcenter'),act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'comercial',t:'Montar o Comercial',d:'Setor de vendas no 2º andar.',done:built('comercial'),act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'torre',t:'Primeira torre',d:'Toque num terreno vazio (ou na sede) e configure o rádio.',done:S.towersBuilt>=1,act:'focusMap',btn:'Ir para o mapa'},
+    {id:'cnpj',t:'Abrir a empresa',d:'Contrato social e CNPJ na Receita Federal.',done:cnpjDone(),act:'docs',btn:'Documentos'},
+    {id:'outorga',t:`Comprar a outorga de ${c.name}`,d:'A licença da Anatel para operar na cidade. Sem ela, nada é montado.',done:c.outorgaPaid,act:'outorga',btn:'Comprar outorga'},
+    {id:'docs',t:'Licenciamento',d:'Alvará da prefeitura. Libera a instalação de torres.',done:docsDone(),act:'docs',btn:'Ver documentos'},
+    {id:'torre',t:'Primeira torre',d:'No Mapa real, toque em + Nova torre e configure o rádio.',done:S.towersBuilt>=1,act:'focusMap',btn:'Ir para o mapa'},
     {id:'c3',t:'3 primeiros clientes',d:'Toque numa quadra com sinal e bata nas portas.',done:S.signed>=3,act:'focusMap',btn:'Ir para o mapa'},
-    {id:'tecnico',t:'Montar o Técnico',d:'Nível 2. Instalação sem terceirizado.',done:built('tecnico'),need:2,act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'logistica',t:'Montar a Logística',d:'Nível 2. Recolhe os rádios em comodato de quem cancela.',done:built('logistica'),need:2,act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'callcenter',t:'Montar o Call Center',d:`Nível ${lvOf('callcenter')}. Atendimento ao cliente no 1º andar.`,done:built('callcenter'),need:lvOf('callcenter'),act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'comercial',t:'Montar o Comercial',d:`Nível ${lvOf('comercial')}. Setor de vendas no 2º andar.`,done:built('comercial'),need:lvOf('comercial'),act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'tecnico',t:'Montar o Técnico',d:`Nível ${lvOf('tecnico')}. Instalação sem terceirizado.`,done:built('tecnico'),need:lvOf('tecnico'),act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'logistica',t:'Montar a Logística',d:`Nível ${lvOf('logistica')}. Recolhe os rádios em comodato de quem cancela.`,done:built('logistica'),need:lvOf('logistica'),act:'goBuilding',btn:'Ir para o prédio'},
     {id:'negociar',t:'Recuperar um inadimplente',d:'Toque numa quadra com $ e negocie a dívida.',done:S.recovered>=1},
-    {id:'retencao',t:'Montar a Retenção',d:'Nível 2. Setor que tenta segurar quem quer cancelar.',done:built('retencao'),need:2,act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'retencao',t:'Montar a Retenção',d:`Nível ${lvOf('retencao')}. Setor que tenta segurar quem quer cancelar.`,done:built('retencao'),need:lvOf('retencao'),act:'goBuilding',btn:'Ir para o prédio'},
     {id:'reter',t:'Reter um cliente',d:'Toque numa quadra com ! e ofereça uma proposta.',done:S.retained>=1},
     {id:'c10',t:'10 clientes ativos',d:'Cresça a base na sua cidade.',done:S.peak>=10},
-    {id:'tv',t:'Lançar combo com TV',d:'Nível 3. Internet + TV vende mais para famílias.',done:S.combos.tv,need:3,act:'combo-tv',btn:'Lançar combo'},
-    {id:'cidade',t:'Expandir para outra cidade',d:'Nível 4. Conquiste mais território.',done:S.cities.length>1,need:4,act:'city',btn:'Escolher cidade'},
-    {id:'noc',t:'Montar o NOC',d:'Nível 5. Monitoramento da rede 24h.',done:built('noc'),need:5,act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'rh',t:'Montar o RH',d:'Nível 2. Mais vagas por setor e menos demissões.',done:built('rh'),need:2,act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'marketing',t:'Primeira campanha de marketing',d:'Nível 3. Monte o Marketing e faça uma ação na cidade.',done:!!S.mdone.marketing||S.cities.some(c=>(c.campaigns||[]).length),need:3,act:'marketing',btn:'Campanhas'},
-    {id:'recuperacao',t:'Montar a Recuperação',d:'Nível 3. Cobradores reativam inadimplentes.',done:built('recuperacao'),need:3,act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'filial',t:'Abrir uma loja filial',d:'Nível 4. Toque num terreno vazio de uma cidade sem loja.',done:S.cities.some(c=>c.store),need:4},
-    {id:'servidor',t:'Primeiro servidor de cache',d:'Nível 5. No NOC, contra reclamações de lentidão.',done:Object.keys(S.servers).length>0,need:5,act:'servers',btn:'Servidores'},
+    {id:'tv',t:'Lançar combo com TV',d:`Nível ${COMBOS.tv.level}. Internet + TV vende mais para famílias.`,done:S.combos.tv,need:COMBOS.tv.level,act:'combo-tv',btn:'Lançar combo'},
+    {id:'cidade',t:'Expandir para outra cidade',d:`Nível ${EXPAND_LEVEL}. Cidades de verdade até ${EXPAND_KM} km.`,done:S.cities.length>1,need:EXPAND_LEVEL,act:'city',btn:'Escolher cidade'},
+    {id:'noc',t:'Montar o NOC',d:`Nível ${lvOf('noc')}. Monitoramento da rede 24h.`,done:built('noc'),need:lvOf('noc'),act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'rh',t:'Montar o RH',d:`Nível ${lvOf('rh')}. Mais vagas por setor e menos demissões.`,done:built('rh'),need:lvOf('rh'),act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'marketing',t:'Primeira campanha de marketing',d:`Nível ${lvOf('marketing')}. Monte o Marketing e faça uma ação na cidade.`,done:!!S.mdone.marketing||S.cities.some(c=>(c.campaigns||[]).length),need:lvOf('marketing'),act:'marketing',btn:'Campanhas'},
+    {id:'recuperacao',t:'Montar a Recuperação',d:`Nível ${lvOf('recuperacao')}. Cobradores reativam inadimplentes.`,done:built('recuperacao'),need:lvOf('recuperacao'),act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'filial',t:'Abrir uma loja filial',d:`Nível ${STORE_LEVEL}. No Mapa real, toque num ponto e escolha Loja aqui.`,done:S.cities.some(c=>c.store),need:STORE_LEVEL},
+    {id:'servidor',t:'Primeiro servidor de cache',d:`Nível ${lvOf('noc')}. No NOC, contra reclamações de lentidão.`,done:Object.keys(S.servers).length>0,need:lvOf('noc'),act:'servers',btn:'Servidores'},
     {id:'c50',t:'50 clientes ativos',d:'Um provedor de verdade na região.',done:S.peak>=50},
     {id:'backbone',t:'Backbone de fibra',d:`Nível ${FIBRA_LEVEL}. Investimento de ${brl0(BACKBONE_COST)} na cidade.`,done:S.cities.some(c=>c.fiber&&c.fiber.on),need:FIBRA_LEVEL,act:'fiber',btn:'Rede de fibra'},
     {id:'cto',t:'Primeira caixa CTO',d:'Leve a fibra até um bairro.',done:S.cities.some(c=>c.fiber&&c.fiber.ctos.length),need:FIBRA_LEVEL,act:'fiber',btn:'Rede de fibra'},
@@ -1046,7 +1081,7 @@ const storeSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="17" w
 const lotSvg=`<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="9" y="12" width="22" height="16" rx="2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-dasharray="3 3"/><path d="M20 16v8M16 20h8" stroke="#fff" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/></svg>`;
 
 /* ===================== Render ===================== */
-function renderAll(){if(!S)return;renderTop();renderMap();renderReal();renderBuilding();renderProducts();renderMissions();renderReport();renderLog();}
+function renderAll(){if(!S)return;renderTop();renderTut();renderMap();renderReal();renderBuilding();renderProducts();renderMissions();renderReport();renderLog();}
 function renderSaveDot(){const d=$('#saveDot');if(d)d.className='save-dot '+(cloud.status==='cloud'?'cloud':cloud.status==='erro'?'err':'');}
 function renderTop(){
   const c=city();
@@ -1075,7 +1110,8 @@ function renderMap(){
   $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · rede 10.${c.idx+1}.0.0/24</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
    <div class="map-meta"><div class="view-toggle" role="group" aria-label="Visão do mapa"><button data-view="grid" aria-pressed="${mapView==='grid'}">Quadras</button><button data-view="real" aria-pressed="${mapView==='real'}">Mapa real</button></div>${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
-  $('#crisisBar').innerHTML=cr?`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}</div></div>`:'';
+  const blocked=cr&&crisisBlocked(cr.id);
+  $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
   $('#sedeBar').innerHTML=sedeMode&&c.geo&&(mapView==='real'||hasBlocks(c))?`<div class="sede-bar"><p><b>Onde fica a sede?</b> ${sedePick?`Local escolhido: <b>${esc(sedePick.name||'buscando o bairro…')}</b>${sedePick.road?` · ${esc(sedePick.road)}`:''}`:(mapView==='real'?'Toque no mapa no ponto exato do prédio.':'Toque na quadra onde fica o prédio.')}</p>
      <div class="sede-actions"><button class="btn small primary" data-act="declareSede" ${sedePick?'':'disabled'}>Declarar sede aqui</button></div></div>`:sedeMode?`<div class="sede-bar"><p><b>Onde fica a sede?</b> Toque num bairro do mapa. Selecionado: <b>${esc(c.bairros[selBairro])}</b></p>
      <div class="sede-actions"><button class="btn small ghost" data-act="bairros">Nomes dos bairros</button><button class="btn small primary" data-act="declareSede">Declarar sede aqui</button></div></div>`:'';
@@ -1260,6 +1296,33 @@ async function loadBlocks(c){
   }catch(e){c.blocksTried=Date.now();}
   finally{blockBusy.delete(c);c.geoStep='';LSig='';QSig='';renderAll();}
 }
+
+/* ===================== Tutorial inicial ===================== */
+function tutSteps(){
+  const c0=S.cities[0],busy=d=>S.docs[d]&&!S.docs[d].done;
+  return [
+    {id:'sede',t:'Declare a sede',d:'Toque no mapa no ponto exato do prédio e confirme em <b>Declarar sede aqui</b>. O térreo com a recepção é grátis.',done:!!S.sede},
+    {id:'cnpj',t:'Abra a empresa: contrato social e CNPJ',d:busy('contrato')||busy('cnpj')?'Documento em andamento. Feche as janelas e deixe o relógio correr alguns dias (ou conclua na hora com 3 selos).':'Na Recepção, faça o <b>contrato social</b> e depois o <b>CNPJ</b> na Receita Federal, com o CNAE de SCM (internet).',done:cnpjDone(),act:'docs',btn:'Abrir documentos'},
+    {id:'outorga',t:`Peça a outorga de ${esc(c0.name)}`,d:`Com o CNPJ pronto, pague a outorga da Anatel para prestar serviço de internet na cidade (${brl0(c0.outorga)}).`,done:c0.outorgaPaid,act:'outorga',btn:'Comprar outorga'},
+    {id:'licenca',t:'Faça o licenciamento',d:busy('alvara')?'Alvará em andamento. Deixe o relógio correr alguns dias.':'Peça o <b>alvará da prefeitura</b>. É a licença para funcionar no endereço e instalar torres.',done:docsDone(),act:'docs',btn:'Licenciamento'},
+    {id:'torre',t:'Suba e configure a primeira torre',d:draft&&!draft.picking?'Escolha o terreno, a antena e gire o leque para as casas. Depois, na configuração: modo <code>AP</code>, um SSID, IP <code>10.1.0.2</code>, máscara <code>255.255.255.0</code> e gateway <code>10.1.0.1</code>.':'No <b>Mapa real</b>, toque em <b>+ Nova torre</b> e escolha um terreno perto das casas. A ficha técnica da configuração ajuda no rádio.',done:S.towersBuilt>=1,act:c0.geo?'newTowerReal':'focusMap',btn:'+ Nova torre'},
+    {id:'cliente',t:'Consiga o primeiro cliente',d:'Toque numa quadra com sinal (verde-água) e bata na porta. Escolha um plano que caiba no bolso da família.',done:S.signed>=1,act:'focusMap',btn:'Ir para o mapa'},
+  ];
+}
+function renderTut(){
+  const box=$('#tutBar');if(!box)return;
+  if(!S||!S.tut||S.tut.done||S.tut.skip||S.ci!==0){box.innerHTML='';return;}
+  const st=tutSteps(),i=st.findIndex(x=>!x.done);
+  if(i<0){box.innerHTML='';if(modalOpen)return;S.tut.done=true;save(true);
+    openModal(head('Tutorial','Provedor no ar!')+`<p>Você abriu a empresa, tirou a outorga, fez o licenciamento, subiu a torre e fechou o primeiro cliente.</p>
+      <div class="notice ok">Agora o jogo libera andares e setores <b>a cada 2 níveis</b>: nível 2 (Call Center e Comercial), 4 (Técnico, Logística e expansão até ${EXPAND_KM} km), 6 (Retenção e RH), 8 (Marketing e Recuperação), 10 (NOC), 12 (fibra) e assim por diante.</div>
+      <div class="foot"><button class="btn" data-close>Continuar</button><button class="btn primary" data-act="levels">Ver níveis</button></div>`);
+    return;}
+  const s=st[i];
+  box.innerHTML=`<div class="tut" role="region" aria-label="Tutorial"><span class="tut-n">${i+1}</span><div class="tut-body"><b>${s.t}</b><p>${s.d}</p>
+    <div class="tut-dots" aria-hidden="true">${st.map((x,k)=>`<i class="${x.done?'ok':k===i?'on':''}"></i>`).join('')}</div>
+    <div class="tut-act">${s.act?`<button class="btn small primary" data-act="${s.act}">${s.btn}</button>`:''}<button class="btn small ghost" data-act="tutSkip">Pular tutorial</button></div></div></div>`;
+}
 function floorLabel(f){const list=FLOORS.filter(x=>!x.annex);const i=list.indexOf(f);return i===0?'Térreo':`${i}º andar`;}
 function windowsHtml(n){const k=Math.max(6,Math.min(10,n));return `<div class="windows">${Array.from({length:k},(_,i)=>`<span class="win ${i<n?'':'empty'}">${i<n?'<span class="person"></span>':''}</span>`).join('')}${n>10?`<small>+${n-10}</small>`:''}</div>`;}
 function builtFloorHtml(f,cls){
@@ -1292,7 +1355,7 @@ function renderBuilding(){
     :`<div class="floor"><div class="floor-top"><span class="floor-name"><small>Diretoria de rede</small>Fibra óptica</span><span class="floor-lvl">${FIBER_TIERS[S.fiberTier].name}</span></div><p class="floor-desc">Backbone em ${fibCities} cidade(s) · ${fibCl} cliente(s) na fibra.</p><div class="floor-actions"><button class="btn small primary" data-act="fiber">Rede de fibra</button></div></div>`;
   for(const f of [...FLOORS].filter(f=>!f.annex).reverse()){
     if(f.id==='recepcao'){
-      const actions=!c0.outorgaPaid?`<button class="btn small primary" data-act="outorga">Comprar outorga · ${brl0(c0.outorga)}</button>`:`<button class="btn small ${docsDone()?'ghost':'primary'}" data-act="docs">Documentação</button>`;
+      const actions=!cnpjDone()?`<button class="btn small primary" data-act="docs">Abrir a empresa (CNPJ)</button>`:!c0.outorgaPaid?`<button class="btn small primary" data-act="outorga">Comprar outorga · ${brl0(c0.outorga)}</button>`:`<button class="btn small ${docsDone()?'ghost':'primary'}" data-act="docs">${docsDone()?'Documentação':'Licenciamento'}</button>`;
       h+=`<div class="floor ground"><div class="floor-top"><span class="floor-name"><small>Térreo</small>${f.name}</span><span class="floor-lvl">Sede · ${esc(c0.bairros[S.sede.b])}</span></div><p class="floor-desc">${f.desc}${S.partners?` Sócios: ${S.partners}.`:''}</p><div class="floor-actions">${actions}</div></div>`;
       continue;
     }
@@ -1360,11 +1423,11 @@ function head(eyebrow,title,closable=true){return `<div class="mhead"><div><p cl
 function showStart(){
   openModal(`<div class="start-hero"><svg width="58" height="58" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#f0661a"/><path d="M17 9 L12 28 M17 9 L22 28 M13.6 22 L20.4 22 M15 16 L19 16" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M10.5 9.5a8 8 0 0 1 13 0M8 7a11.5 11.5 0 0 1 18 0" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg><div><p class="eyebrow">Novo jogo</p><h2>Monte seu provedor</h2></div></div>
    <p>Você começa com ${brl0(START_MONEY)} para levar internet via rádio para a sua cidade.</p>
-   <ol class="steps"><li>Declare o nome e a cidade</li><li>Escolha o bairro da sede: a recepção é grátis</li><li>Compre a outorga da cidade e faça a documentação</li><li>Monte os setores, suba torres e venda de porta em porta</li></ol>
+   <ol class="steps"><li>Declare o nome e a sua cidade (precisa existir de verdade)</li><li>Escolha o ponto da sede: a recepção é grátis</li><li>Siga o tutorial: CNPJ, outorga, licenciamento, primeira torre e primeiro cliente</li><li>A cada 2 níveis, novos andares e setores são liberados</li></ol>
    <div class="field"><label for="stCompany">Nome do provedor</label><input class="input" id="stCompany" maxlength="28" value="SinalBom Telecom"></div>
-   <div class="row2"><div class="field"><label for="stCity">Cidade</label><input class="input" id="stCity" maxlength="32" placeholder="Ex.: Alamora"></div>
+   <div class="row2"><div class="field"><label for="stCity">Cidade</label><input class="input" id="stCity" maxlength="40" placeholder="Ex.: Duartina" list="stCities" autocomplete="off"><datalist id="stCities"></datalist></div>
    <div class="field"><label for="stUf">Estado</label><select class="input" id="stUf">${UFS.map(u=>`<option ${u==='SP'?'selected':''}>${u}</option>`).join('')}</select></div></div>
-   <button class="btn small ghost" id="stGps" type="button">📍 Usar minha localização</button><p class="geo-note" id="stGeoNote">Com internet, o jogo busca o mapa e os bairros reais da cidade.</p>
+   <button class="btn small ghost" id="stGps" type="button">📍 Usar minha localização</button><p class="geo-note" id="stGeoNote">A cidade precisa existir: o jogo confere na lista de municípios do IBGE e depois carrega o mapa real.</p>
    <div class="foot"><button class="btn ghost" id="stImport">Importar JSON</button><button class="btn primary" id="stGo">Começar</button></div>`,m=>{
     m.querySelector('#stGps').onclick=async()=>{
       const note=m.querySelector('#stGeoNote');note.textContent='Pegando sua localização…';
@@ -1372,11 +1435,19 @@ function showStart(){
         if(r.name){m.querySelector('#stCity').value=r.name;if(r.uf)m.querySelector('#stUf').value=r.uf;note.textContent=`Encontrado: ${r.name}${r.uf?'/'+r.uf:''}.`;}else note.textContent='Não achei a cidade. Digite o nome.';
       }catch(e){note.textContent=e&&e.code===1?'Permissão de localização negada. Digite a cidade.':'Não deu para usar o GPS agora. Digite a cidade.';}
     };
-    m.querySelector('#stGo').onclick=()=>{
+    const fillList=async()=>{const uf=m.querySelector('#stUf').value;try{const l=await ibgeMunicipios(uf);if(m.querySelector('#stUf').value===uf)m.querySelector('#stCities').innerHTML=l.map(x=>`<option value="${esc(x.nome)}">`).join('');}catch(e){}};
+    m.querySelector('#stUf').onchange=fillList;fillList();
+    m.querySelector('#stGo').onclick=async()=>{
       const co=m.querySelector('#stCompany').value.trim()||'SinalBom Telecom';
-      const ci=m.querySelector('#stCity').value.trim();
+      const ci=m.querySelector('#stCity').value.trim(),uf=m.querySelector('#stUf').value,note=m.querySelector('#stGeoNote'),go=m.querySelector('#stGo');
       if(!ci){m.querySelector('#stCity').focus();toast('Digite o nome da sua cidade.');return;}
-      newGame(co,ci,m.querySelector('#stUf').value);geoLoad(S.cities[0],{rename:true});selBairro=4;closeModal();setTab('map');toast('Agora escolha o bairro da sede no mapa.');
+      go.disabled=true;note.textContent=`Conferindo ${ci}/${uf} no IBGE…`;
+      const v=await validateCity(ci,uf);go.disabled=false;
+      if(!v.ok){
+        note.innerHTML=v.why==='offline'?'Sem internet agora. Para começar, o jogo precisa confirmar que a cidade existe.':`Não existe município <b>${esc(ci)}</b> em ${uf}.${v.sug.length?' Você quis dizer: '+v.sug.map(x=>`<button class="btn small ghost" type="button" data-sug="${esc(x)}" style="margin:2px">${esc(x)}</button>`).join('')+'?':' Confira o nome e o estado.'}`;
+        note.querySelectorAll('[data-sug]').forEach(b=>b.onclick=()=>{m.querySelector('#stCity').value=b.dataset.sug;note.textContent='';});
+        return;}
+      newGame(co,v.name,uf);const c0=S.cities[0];c0.ibgeCode=v.code;cityPopulation(c0);geoLoad(c0,{rename:true});selBairro=4;closeModal();setTab('map');toast('Agora escolha o ponto da sede no mapa.');
     };
     m.querySelector('#stImport').onclick=()=>$('#importFile').click();
   });
@@ -1452,16 +1523,17 @@ function declareSede(){
   log(`Sede declarada no bairro ${c.bairros[selBairro]}. Recepção aberta!`);event(`Sede aberta no bairro ${c.bairros[selBairro]}`);
   checkMissions();save(true);renderAll();
   openModal(head('Sede','Recepção aberta!')+`<p>O prédio da <b>${esc(S.company)}</b> fica no bairro <b>${esc(c.bairros[selBairro])}</b>. O térreo com a recepção é grátis; os outros quatro andares você compra conforme cresce.</p>
-    <div class="notice warn">Próximo passo: comprar a <b>outorga de ${esc(c.name)}</b> (${brl0(c.outorga)}). Sem ela, todos os setores ficam bloqueados.</div>
-    <div class="foot"><button class="btn" data-close>Depois</button><button class="btn primary" data-act="outorga">Comprar outorga</button></div>`);
+    <div class="notice warn">Próximo passo: <b>abrir a empresa</b> (contrato social e CNPJ). Depois vêm a outorga de ${esc(c.name)} (${brl0(c.outorga)}) e o licenciamento.</div>
+    <div class="foot"><button class="btn" data-close>Depois</button><button class="btn primary" data-act="docs">Abrir a empresa</button></div>`);
 }
 function openDocs(){
-  if(!companyLicensed()){openOutorga(0);return;}
+  if(!S.sede){toast('Declare a sede primeiro.');return;}
   const rows=DOCS.map(d=>{
     const st=S.docs[d.id];let right;
     if(st&&st.done)right='<span class="chip ok">Pronto</span>';
     else if(st)right=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><span class="chip warn">Faltam ${Math.max(1,st.until-S.day)} dia(s)</span><button class="btn small" data-fast="${d.id}" ${S.coins<3?'disabled':''}><i class="coin-ico"></i>Concluir já · 3</button></div>`;
-    else{const ok=!d.req||(S.docs[d.req]&&S.docs[d.req].done);right=`<button class="btn small ${ok?'primary':''}" data-doc="${d.id}" ${ok?'':'disabled'}>${d.cost?brl0(d.cost):'Grátis'} · ${d.days} dias</button>`;}
+    else if(d.out&&!companyLicensed()&&cnpjDone())right=`<button class="btn small primary" data-act="outorga">Antes: outorga · ${brl0(S.cities[0].outorga)}</button>`;
+    else{const ok=(!d.req||(S.docs[d.req]&&S.docs[d.req].done))&&(!d.out||companyLicensed());right=`<button class="btn small ${ok?'primary':''}" data-doc="${d.id}" ${ok?'':'disabled'}>${d.cost?brl0(d.cost):'Grátis'} · ${d.days} dias</button>`;}
     return `<div class="doc-row"><div><b>${d.name}</b><p>${d.info}${d.req&&!(S.docs[d.req]&&S.docs[d.req].done)?' Depende do anterior.':''}</p></div>${right}</div>`;
   }).join('');
   openModal(head('Recepção','Documentação')+`<p class="muted">Cada documento leva alguns dias do jogo. Feche esta janela para o relógio correr.</p>${rows}`,m=>{
@@ -1478,31 +1550,101 @@ function openOutorga(ci){
   const c=typeof ci==='number'?S.cities[ci]:city();
   if(c.outorgaPaid){toast(`A outorga de ${c.name} já está paga.`);return;}
   if(!S.sede){toast('Declare a sede primeiro.');return;}
+  if(!cnpjDone()){toast('Abra a empresa (contrato social e CNPJ) antes de pedir a outorga.');openDocs();return;}
   openModal(head('Anatel',`Outorga de ${esc(c.name)}`)+`<p>A outorga é a licença para prestar serviço de internet nesta cidade. Sem ela, nada pode ser montado ou vendido aqui.</p>
    <div class="notice warn">Valor para ${esc(c.name)} (${c.pop.toLocaleString('pt-BR')} habitantes): <b>${brl0(c.outorga)}</b>. Cidades maiores custam mais.</div>
-   <p class="muted" style="font-size:13px">Simplificação do jogo: na vida real a empresa (CNPJ) vem antes do pedido na Anatel, e as regras e valores mudam com o tempo.</p>
+   <p class="muted" style="font-size:13px">Simplificação do jogo: na vida real a autorização de SCM da Anatel vale para o país, e as regras e valores mudam com o tempo.</p>
    <div class="foot"><span>Caixa: <b>${brl0(S.money)}</b></span><button class="btn primary" id="oPay">Pagar outorga</button></div>`,m=>{
     m.querySelector('#oPay').onclick=()=>{if(!spend(c.outorga))return;c.outorgaPaid=true;addXp(60);log(`Outorga de ${c.name} paga.`);event(`Outorga de ${c.name} paga`);checkMissions();save(true);
-      openModal(head('Anatel','Outorga paga!')+`<p>${c.idx===0?'Os andares do prédio e a documentação foram liberados.':'Agora você pode subir torres e vender nesta cidade.'}</p><div class="foot"><button class="btn" data-close>Fechar</button>${c.idx===0?'<button class="btn primary" data-act="docs">Começar documentação</button>':''}</div>`);};
+      openModal(head('Anatel','Outorga paga!')+`<p>${c.idx===0?(docsDone()?'Tudo pronto para subir torres.':'Falta só o licenciamento: o alvará da prefeitura.'):'Agora você pode subir torres e vender nesta cidade.'}</p><div class="foot"><button class="btn" data-close>Fechar</button>${c.idx===0&&!docsDone()?'<button class="btn primary" data-act="docs">Fazer o licenciamento</button>':''}</div>`);};
   });
 }
+
+/* ===================== Cidades reais: IBGE e vizinhas até 100 km ===================== */
+const IBGE_API='https://servicodados.ibge.gov.br/api';
+const UF_BY_CODE={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'PI',23:'CE',24:'RN',25:'PB',26:'PE',27:'AL',28:'SE',29:'BA',31:'MG',32:'ES',33:'RJ',35:'SP',41:'PR',42:'SC',43:'RS',50:'MS',51:'MT',52:'GO',53:'DF'};
+const MUN_CACHE=new Map();
+async function ibgeMunicipios(uf){
+  if(MUN_CACHE.has(uf))return MUN_CACHE.get(uf);
+  const r=await fetchJson(`${IBGE_API}/v1/localidades/estados/${uf}/municipios?orderBy=nome`,{},15000);
+  const list=(r||[]).map(m=>({id:String(m.id),nome:m.nome}));if(list.length)MUN_CACHE.set(uf,list);return list;
+}
+async function ibgePops(codes){
+  const out={};codes=[...new Set(codes.filter(Boolean))];
+  for(let i=0;i<codes.length;i+=100){
+    try{const r=await fetchJson(`${IBGE_API}/v3/agregados/4709/periodos/2022/variaveis/93?localidades=N6[${codes.slice(i,i+100).join(',')}]`,{},20000);
+      for(const s of (((r||[])[0]||{}).resultados||[])[0]?.series||[]){const v=parseInt(Object.values(s.serie||{})[0]);if(v)out[s.localidade.id]=v;}}catch(e){}
+  }
+  return out;
+}
+async function validateCity(name,uf){
+  const n=normName(name);
+  try{const list=await ibgeMunicipios(uf);
+    if(list.length){const hit=list.find(m=>normName(m.nome)===n);if(hit)return {ok:true,name:hit.nome,uf,code:hit.id};
+      const sug=list.filter(m=>{const k=normName(m.nome);return k.startsWith(n.slice(0,4))||k.includes(n)||n.includes(k);}).slice(0,6).map(m=>m.nome);
+      return {ok:false,why:'notfound',sug};}
+  }catch(e){}
+  try{const g=await geocodeCity(name,uf);if(g&&normName(g.name)===n&&(!g.uf||g.uf===uf))return {ok:true,name:g.name,uf,code:null};return {ok:false,why:'notfound',sug:[]};}
+  catch(e){return {ok:false,why:'offline',sug:[]};}
+}
+async function cityPopulation(c){
+  if(!c.ibgeCode)return;const m=await ibgePops([c.ibgeCode]);const v=m[c.ibgeCode];
+  if(v){c.pop=v;c.popOk=true;if(!c.outorgaPaid)c.outorga=outorgaFor(v);save(false);renderAll();}
+}
+const kmBetween=(a,b)=>Math.hypot((a.lon-b.lon)*mPerLon((a.lat+b.lat)/2),(a.lat-b.lat)*mPerLat)/1000;
+async function loadNear(c){
+  if(c.near&&c.near.list&&c.near.list.length)return c.near.list;
+  const g=c.geo||c.hint;if(!g)throw new Error('sem mapa');
+  const r=await overpass(`[out:json][timeout:90];relation(around:${EXPAND_KM*1000},${g.lat.toFixed(5)},${g.lon.toFixed(5)})[boundary=administrative][admin_level=8][name];out tags center;`,90000);
+  const seen=new Set(),list=[];
+  for(const e of r.elements||[]){if(!e.center||!e.tags)continue;const t=e.tags;const code=(t['IBGE:GEOCODIGO']||t['ref:ibge']||'').replace(/\D/g,'').slice(0,7)||null;
+    const uf=code?UF_BY_CODE[code.slice(0,2)]:(t['is_in:state_code']||c.uf||'');const key=code||normName(t.name)+'|'+uf;if(seen.has(key))continue;seen.add(key);
+    list.push({n:t.name,uf,code,lat:+e.center.lat.toFixed(5),lon:+e.center.lon.toFixed(5),pop:parseInt(String(t.population||'').replace(/\D/g,''))||0,km:Math.round(kmBetween(g,e.center))});}
+  const pops=await ibgePops(list.filter(x=>x.code).map(x=>x.code));
+  for(const x of list)if(x.code&&pops[x.code]){x.pop=pops[x.code];x.ok=1;}
+  const out=list.filter(x=>x.km<=EXPAND_KM).sort((a,b)=>a.km-b.km);
+  c.near={at:Date.now(),list:out};save(false);return out;
+}
 function openNewCity(){
-  if(levelOf(S.xp)<4){toast('A expansão libera no nível 4.');return;}
-  const used=new Set(S.cities.map(c=>c.name.toLowerCase()));
-  const sug=CITY_SUGGEST.find(n=>!used.has(n.toLowerCase()))||'Nova Cidade';
-  openModal(head('Expansão','Nova cidade')+`<p>Escolha a próxima cidade. Pode ser uma vizinha de verdade.</p>
-   <div class="row2"><div class="field"><label for="ncName">Cidade</label><input class="input" id="ncName" maxlength="32" value="${esc(sug)}"></div>
-   <div class="field"><label for="ncUf">Estado</label><select class="input" id="ncUf">${UFS.map(u=>`<option ${u===(S.cities[0].uf||'SP')?'selected':''}>${u}</option>`).join('')}</select></div></div>
-   <p class="muted">Estudo de viabilidade: ${brl0(NEWCITY_COST)}. Depois, a cidade exige a própria outorga antes de subir torres.</p>
-   <div class="foot"><span>Caixa: <b>${brl0(S.money)}</b></span><button class="btn primary" id="ncGo">Expandir</button></div>`,m=>{
-    m.querySelector('#ncGo').onclick=()=>{
-      const n=m.querySelector('#ncName').value.trim();
-      if(!n){toast('Digite o nome da cidade.');return;}
-      if(used.has(n.toLowerCase())){toast('Você já está nessa cidade.');return;}
-      if(!spend(NEWCITY_COST))return;
-      S.cities.push(makeCity(n,m.querySelector('#ncUf').value,S.cities.length));S.ci=S.cities.length-1;geoLoad(city(),{rename:true});addXp(80);log(`Expansão: chegamos em ${n}.`);event(`Expansão para ${n}`);checkMissions();save(true);
-      openOutorga(S.ci);
-    };
+  if(levelOf(S.xp)<EXPAND_LEVEL){toast(`A expansão libera no nível ${EXPAND_LEVEL}.`);return;}
+  const owned=S.cities;
+  const isOwned=x=>owned.some(c=>(x.code&&c.ibgeCode===x.code)||(normName(c.name)===normName(x.n)&&(c.uf||'')===(x.uf||'')));
+  let all=null,err='';
+  const draw=m=>{
+    const box=m.querySelector('#ncList');if(!box)return;
+    if(err){box.innerHTML=`<div class="notice bad">${err}<br><button class="btn small primary" id="ncRetry" style="margin-top:6px">Tentar de novo</button></div>`;const b=box.querySelector('#ncRetry');if(b)b.onclick=()=>{err='';load(m);};return;}
+    if(!all){box.innerHTML='<div class="notice">Buscando cidades num raio de '+EXPAND_KM+' km…</div>';return;}
+    const q=normName(m.querySelector('#ncQ').value||'');
+    const rows=all.filter(x=>!isOwned(x)&&(!q||normName(x.n).includes(q))).slice(0,80);
+    box.innerHTML=rows.length?rows.map(x=>{const pop=x.pop||0,out=outorgaFor(pop||8000),st=studyFor(pop||8000);
+      return `<div class="choice"><div><b>${esc(x.n)}${x.uf?' / '+esc(x.uf):''}</b><small>${x.km} km · ${pop?(x.ok?'':'≈ ')+pop.toLocaleString('pt-BR')+' habitantes':'população não informada'} · outorga ${brl0(out)}</small></div><button class="btn small ${S.money>=st?'primary':''}" data-nc="${all.indexOf(x)}">Estudo · ${brl0(st)}</button></div>`;}).join(''):'<div class="notice">Nenhuma cidade encontrada com esse nome no raio.</div>';
+    box.querySelectorAll('[data-nc]').forEach(b=>b.onclick=()=>go(all[+b.dataset.nc]));
+  };
+  const load=async m=>{
+    all=null;draw(m);
+    try{const acc=new Map();
+      for(const c of owned){if(!c.geo&&!c.hint)continue;const l=await loadNear(c);for(const x of l){const k=x.code||normName(x.n)+'|'+x.uf;const prev=acc.get(k);if(!prev||x.km<prev.km)acc.set(k,{...x});}}
+      if(!acc.size)throw new Error('vazio');
+      all=[...acc.values()].sort((a,b)=>a.km-b.km);
+    }catch(e){err=navigator.onLine?'Não deu para carregar as cidades vizinhas agora (OpenStreetMap ocupado).':'Sem internet: a lista de cidades vizinhas precisa de conexão na primeira vez.';}
+    if(modalOpen)draw(m);
+  };
+  const go=x=>{
+    if(isOwned(x)){toast('Você já está nessa cidade.');return;}
+    const pop=x.pop||8000,st=studyFor(pop);
+    if(!spend(st))return;
+    const c=makeCity(x.n,x.uf||S.cities[0].uf,S.cities.length);
+    c.pop=pop;c.popOk=!!x.ok;c.outorga=outorgaFor(pop);c.ibgeCode=x.code;c.hint={lat:x.lat,lon:x.lon};
+    S.cities.push(c);S.ci=S.cities.length-1;geoLoad(c,{rename:true});addXp(80);log(`Expansão: chegamos em ${x.n} (${x.km} km). Estudo de viabilidade: ${brl0(st)}.`);event(`Expansão para ${x.n}`);checkMissions();save(true);
+    if(!x.ok&&x.code)cityPopulation(c);
+    openOutorga(S.ci);
+  };
+  openModal(head('Expansão',`Cidades até ${EXPAND_KM} km`)+`<p>Cidades de verdade perto das suas. Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga.</p>
+    <div class="field"><label for="ncQ">Filtrar pelo nome</label><input class="input" id="ncQ" maxlength="40" placeholder="Ex.: Bauru" autocomplete="off"></div>
+    <div class="city-list" id="ncList"></div>
+    <div class="foot"><span>Caixa: <b>${brl0(S.money)}</b></span><span class="muted" style="font-size:12.5px">Distância a partir da cidade mais próxima que você já atende.</span></div>`,m=>{
+    m.querySelector('#ncQ').oninput=()=>draw(m);
+    load(m);
   });
 }
 function openCombo(k){
@@ -1517,7 +1659,8 @@ function openCombo(k){
 }
 function blockNotice(c,why){
   if(why==='outorga')return `<div class="notice bad">Falta a outorga de ${esc(c.name)} (${brl0(c.outorga)}).<br><button class="btn small primary" data-act="outorga" style="margin-top:6px">Comprar outorga</button></div>`;
-  if(why==='docs')return `<div class="notice bad">Termine a documentação da empresa (contrato social, CNPJ e alvará).<br><button class="btn small primary" data-act="docs" style="margin-top:6px">Ver documentos</button></div>`;
+  if(why==='cnpj')return `<div class="notice bad">Abra a empresa primeiro: contrato social e CNPJ.<br><button class="btn small primary" data-act="docs" style="margin-top:6px">Abrir a empresa</button></div>`;
+  if(why==='docs')return `<div class="notice bad">Falta o licenciamento: alvará da prefeitura.<br><button class="btn small primary" data-act="docs" style="margin-top:6px">Ver documentos</button></div>`;
   return '<div class="notice bad">Declare a sede primeiro.</div>';
 }
 
@@ -1587,7 +1730,10 @@ function openCoins(){
       <div class="choice"><div><b>Trocar por dinheiro</b><small>Cada selo vale ${brl0(COIN_RATE)}.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${[10,50].map(n=>`<button class="btn small" data-swap="${n}" ${S.coins<n?'disabled':''}>${n} → ${brl0(n*COIN_RATE)}</button>`).join('')}<button class="btn small primary" data-swap="${S.coins}" ${S.coins<1?'disabled':''}>Todos → ${brl0(S.coins*COIN_RATE)}</button></div></div>
       <div class="choice"><div><b>Instalação expressa</b><small>2 selos: cliente conectado na hora, sem configurar nem pagar terceirizado.</small></div><span class="chip">Na instalação</span></div>
       <div class="choice"><div><b>Documento na hora</b><small>3 selos: conclui um documento em andamento.</small></div><span class="chip">Na documentação</span></div>
-    </div>`,m=>{
+    </div>
+    <p class="eyebrow" style="margin-top:14px">Proteções · 1 ano (12 meses)</p>
+    <div class="choice-list">${Object.entries(SHIELDS).map(([k,sh])=>`<div class="choice"><div><b>${sh.name}</b><small>${sh.desc}${shieldOn(k)?` <b>Ativa até o mês ${S.shield[k]}.</b>`:''}</small></div><button class="btn small ${shieldOn(k)?'':'primary'}" data-shield="${k}" ${S.coins<sh.cost?'disabled':''}><i class="coin-ico"></i>${shieldOn(k)?'Renovar +12 meses':'Comprar'} · ${sh.cost}</button></div>`).join('')}</div>`,m=>{
+    m.querySelectorAll('[data-shield]').forEach(b=>b.onclick=()=>{const k=b.dataset.shield,sh=SHIELDS[k];if(S.coins<sh.cost)return;S.coins-=sh.cost;S.shield=S.shield||{};const base=shieldOn(k)?S.shield[k]:monthOf(S.day)-1;S.shield[k]=base+12;log(`${sh.name} comprada até o mês ${S.shield[k]}.`);event(`${sh.short}: protegido por 1 ano`);save(true);renderAll();toast(`${sh.name}: protegido até o mês ${S.shield[k]}.`);openCoins();});
     m.querySelectorAll('[data-swap]').forEach(b=>b.onclick=()=>{const n=+b.dataset.swap;if(n<1||S.coins<n)return;S.coins-=n;S.money+=n*COIN_RATE;log(`Trocou ${n} selos por ${brl0(n*COIN_RATE)}.`);save(true);toast(`+${brl0(n*COIN_RATE)} no caixa.`);openCoins();});
   });
 }
@@ -1610,7 +1756,7 @@ function openTeam(id){
 }
 function serviceUsers(sv){const cl=allClients();return sv.id==='game'?S.cities.reduce((s,c)=>s+famsOf(c).filter(l=>isSub(l)&&l.fam.need==='game').length,0):Math.round(cl*sv.use);}
 function openServers(){
-  if(!built('noc')){toast(`O NOC libera no nível 5.`);return;}
+  if(!built('noc')){toast(`O NOC libera no nível ${FLOORS.find(f=>f.id==='noc').level}.`);return;}
   const tiles=SERVERS.map(sv=>{const own=!!S.servers[sv.id],u=serviceUsers(sv),hot=!own&&u>=sv.min;return `<div class="tile ${own?'on':hot?'warn':''}"><b>${sv.name}</b><small>≈ ${u} cliente(s) usam · ${Math.round(sv.share*100)}% do tráfego</small><small>${own?'Instalado: link mais barato e sem reclamações':hot?'Demanda alta: clientes podem reclamar de travamento':`Reclamações a partir de ${sv.min} usuários`}</small>${own?'<span class="chip ok" style="align-self:flex-start">No NOC</span>':`<button class="btn small ${hot?'primary':''}" data-sv="${sv.id}" style="align-self:flex-start">Comprar · ${brl0(sv.cost)}</button>`}</div>`;}).join('');
   openModal(head('NOC','Servidores de cache')+`<p>Um servidor de cache guarda o conteúdo mais acessado dentro da sua rede. O vídeo carrega daqui, sem passar pelo link: menos latência, menos travamento e conta de link menor. Cada servidor gasta ${brl0(150)}/mês de energia.</p>
     ${S.complaints?`<div class="notice bad">No último mês houve ${S.complaints} onda(s) de reclamação por lentidão.</div>`:''}
@@ -1620,7 +1766,7 @@ function openServers(){
 }
 function openMarketing(){
   const c=city(),m0=monthOf(S.day);
-  if(!built('marketing')){toast('Monte o andar de Marketing (nível 3).');return;}
+  if(!built('marketing')){toast(`Monte o andar de Marketing (nível ${FLOORS.find(f=>f.id==='marketing').level}).`);return;}
   const slots=Math.max(0,Math.round(opsOf('marketing')*effOf('marketing'))),active=S.cities.reduce((s,cc)=>s+(cc.campaigns||[]).filter(x=>x.until>=m0).length,0);
   const act=(c.campaigns||[]).filter(x=>x.until>=m0);
   const tiles=CAMPAIGNS.map(cp=>{const on=act.some(x=>x.id===cp.id),needStore=cp.store&&!hasStore(c);return `<div class="tile ${on?'on':''}"><b>${cp.name}</b><small>${cp.desc}</small><small>+${Math.round(cp.boost*100)}% de chance de venda por ${cp.months} mês(es)${cp.rep?` · +${cp.rep} reputação`:''}</small>${on?'<span class="chip ok" style="align-self:flex-start">Rodando</span>':needStore?'<span class="chip" style="align-self:flex-start">Precisa de loja na cidade</span>':`<button class="btn small" data-cp="${cp.id}" ${active>=slots?'disabled':''} style="align-self:flex-start">Lançar · ${brl0(cp.cost)}</button>`}</div>`;}).join('');
@@ -1638,7 +1784,7 @@ function openMarketing(){
   });
 }
 function openEmptyLot(c,lot){
-  const lvl=levelOf(S.xp),canStore=lvl>=4&&!hasStore(c)&&c.outorgaPaid&&!!S.sede;
+  const lvl=levelOf(S.xp),canStore=lvl>=STORE_LEVEL&&!hasStore(c)&&c.outorgaPaid&&!!S.sede;
   if(!canStore){towerOffer(c,lot,false);return;}
   openModal(head('Terreno vazio',`O que fazer aqui?`)+`<div class="choice-list">
     <div class="choice"><div><b>Torre de rádio</b><small>${S.kits?`Reinstalar torre desmontada por ${brl0(KIT_COST)}`:`${brl0(TOWER_COST)}`} · cobre cerca de 2 quadras.</small></div><button class="btn small primary" id="eTower">Torre</button></div>
@@ -2026,6 +2172,7 @@ document.addEventListener('click',e=>{
   else if(act==='fiber')openFiber();
   else if(act==='coins')openCoins();
   else if(act==='docs')openDocs();
+  else if(act==='tutSkip'){S.tut.skip=true;save(true);renderTut();toast('Tutorial escondido. As missões continuam na lateral.');}
   else if(act==='outorga')openOutorga();
   else if(act==='city')openNewCity();
   else if(act==='combo-tv')openCombo('tv');
@@ -2166,6 +2313,7 @@ async function geoLoad(c,opts={}){
   geoBusy.add(c);c.geoError=null;c.geoStep='Procurando a cidade…';renderReal();
   try{
     let g=null;try{g=await geocodeCity(c.name,c.uf);}catch(e){g=null;}
+    if(c.hint&&(!g||kmBetween(g,c.hint)>30))g={lat:c.hint.lat,lon:c.hint.lon,pop:0,name:c.name,uf:c.uf,osmType:null,osmId:null};
     const uf=(c.uf||(g&&g.uf)||'').toUpperCase();
     c.geoStep='Procurando os bairros oficiais do IBGE…';renderReal();
     const ib=await ibgeLookup(c.name,uf);
@@ -2194,7 +2342,7 @@ async function geoLoad(c,opts={}){
     c.geo=geo;setQuadraHomes(c,geo.homes);
     if(rename){geo.bairros.forEach((b,j)=>{c.bairros[j]=b.name;});c.namesAuto=true;}
     const pop=geo.source==='ibge'?geo.pop:(g&&g.pop);
-    if(pop){c.pop=pop;if(!c.outorgaPaid)c.outorga=Math.round(clamp(pop*0.3,2000,60000)/100)*100;}
+    if(pop&&!c.popOk){c.pop=pop;if(!c.outorgaPaid)c.outorga=outorgaFor(pop);}
     const src={ibge:`${geo.nBairros} bairros oficiais do IBGE (Censo 2022)`,cep:'bairros cruzando ruas com os CEPs',osm:'bairros do OpenStreetMap'}[geo.source];
     log(`Mapa real de ${c.name}: ${src}, ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
     toast(`Mapa de ${c.name} carregado: ${src}.`);
@@ -2257,7 +2405,7 @@ async function onMapClick(e,qi){
   let place={bairro:'',road:''};try{place=await reversePlace(lat,lng);}catch(err){}
   const ibp=ibgeAt(c,lat,lng);if(ibp)place.bairro=ibp.nome;
   if(!LM.hasLayer(pop))return;
-  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}${qh}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>${inside&&levelOf(S.xp)>=4&&!hasStore(c)&&c.outorgaPaid&&S.sede?` <button class="btn small" data-act="storeHere" style="margin-top:8px">Loja aqui · ${brl0(STORE_COST)}</button>`:''}`);
+  pop.setContent(`<b>${esc(place.bairro||'Bairro sem nome no mapa')}</b>${place.road?`<br>${esc(place.road)}`:''}${ibp?`<br><small>IBGE: ${(ibp.pop||0).toLocaleString('pt-BR')} moradores · ${(ibp.dom||0).toLocaleString('pt-BR')} domicílios</small>`:''}${qh}<br>Terreno ≈ <b>${brl0(price)}/m²</b>${inside?'':'<br><small>Fora da área de atuação desta cidade</small>'}<br><button class="btn small primary" data-act="draftHere" style="margin-top:8px" ${inside?'':'disabled'}>Torre aqui</button>${inside&&levelOf(S.xp)>=STORE_LEVEL&&!hasStore(c)&&c.outorgaPaid&&S.sede?` <button class="btn small" data-act="storeHere" style="margin-top:8px">Loja aqui · ${brl0(STORE_COST)}</button>`:''}`);
 }
 function drawSedePick(){
   if(!LM)return;if(sedeMk){sedeMk.remove();sedeMk=null;}
