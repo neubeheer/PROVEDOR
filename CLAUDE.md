@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda o jogo offline. **A cada versão publicada, suba o número em `VERSION`** (hoje `v23`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v25`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Layout pensado para celular deitado; em pé aparece aviso para girar.
 - Visual de jogo (último bloco `<style>` do `index.html`): fundo azul de mar, HUD em pílulas com ícones SVG (`HUD_ICO`), botões com contorno escuro, fonte Lilita One. Inspirado em jogos tycoon de celular.
@@ -18,10 +18,12 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - Promoções (nível `PROMO_LEVEL` = 100): `S.promo` (oferta de entrada `ENTRY_OFFERS` + `inst`), aplicadas em `chance()` (`promoChance`) e em `activate()` (`applyEntryPromo`, desconto `l.disc` e fidelidade `l.fidUntil`); procura espontânea no fechamento do mês. `S.cpromo` (clube, indica, migra) em `clientCampaignsMonth()`; custo em `promoCost` do relatório.
 - Botão fixo **Expandir** no topo do mapa (`data-act="city"`): a missão de expansão some depois de concluída, então ele é o acesso permanente à Expansão e à nova operação.
 - `LINKS` acima de 100 Gigas têm `build` (construção única, `S.linkOwned` guarda a maior rota construída). `CITY_LINKS` ganhou DWDM 100/400 e independente 400 no fim da lista (para não mudar os índices de saves).
+- Sedes regionais: `c.hq.floors` (filial convertida por `convertHQ`). `built/team/opsOf/headcount` somam todos os prédios (`allFloors`), exceto dentro de `inB(prédio, fn)` (tela do prédio, `openTeam(id, ci)`, demissões no `monthEnd`), onde valem só os dados daquele prédio. Botões de um prédio regional levam `data-hq`.
 - Nova operação: `openIndep`/`indepConfirm`, liberada com `indepReq()` (5 mil × (1 + operações abertas)). A cidade tem `c.indep` e `c.costMul` (5): multiplica estudo, outorga (inclusive regiões e `cityPopulation`/`geoLoad`) e `netSteps`; só aceita o link `CITY_LINKS` com `indep:true` (R$ 10 mi).
 - Campanha de meses grátis (Recuperação): `graceHtml`, `GRACE`, uma por mês (`S.graceM`); o cliente ganha `l.disc` 100% e `l.grace` (não atrasa até lá).
 - O laço do jogo (`loop`) pega erros de `tick()` e mostra na tela (`reportErr`): um erro nunca mais para o relógio. Os painéis da barra não pausam o jogo; os outros modais pausam.
-- Não há mais exportar/importar JSON: o progresso fica no aparelho e na nuvem (Supabase).
+- Não há mais exportar/importar JSON nem save no navegador.
+- Desempenho: `renderAll` só monta as colunas escondidas do painel aberto (`renderPanelSrc`); o mapa real redesenha no máximo a cada 1,5 s (`LDrawAt`). Com ~5 mil clientes, um dia de jogo leva ~10 ms.
 
 ## Mapa e dados
 - Leaflet (`vendor/leaflet`) + OpenStreetMap.
@@ -30,15 +32,15 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - Quadras são desenhadas a partir das ruas do OSM; o tabuleiro só aparece depois desse rastreamento. Domicílios da cidade são divididos entre as quadras (pensando em concorrentes futuros).
 
 ## Online
-- **Supabase**: login e-mail/senha e progresso na tabela `saves`; o progresso também fica no aparelho e funciona offline. Tabelas e regras em `supabase/schema.sql`. A chave publishable é pública por natureza; quem protege os dados são as regras do schema.
+- **Supabase**: login e-mail/senha e progresso na tabela `saves`. O progresso fica **só na nuvem** (sem `localStorage` para o save): `start` → `openLogin` → `bootCloud` (carrega a conta; save antigo do navegador sobe uma vez e é apagado). O relógio só anda com `cloud.ref` e internet. Envio por `scheduleCloud` (a cada 30 s, no mínimo 12 s entre envios, e ao esconder a aba), com `saveJson()` sem `fam` (refeito pela semente `f.fk` em `hydrateFams`) e sem `c.near`. Tabelas e regras em `supabase/schema.sql`. A chave publishable é pública por natureza; quem protege os dados são as regras do schema.
 - **Google Drive + Apps Script** (`apps-script/Code.gs`): banco de quadras, um JSON por cidade, servido por link aberto do script. Jogador logado grava cidades novas (o script confere o login no Supabase). O robô do GitHub (`scripts/quadras_cache.py`, workflow "Banco de quadras") se identifica com a senha do robô. No modo diário (`--regioes`) ele lê as cidades dos jogadores (`?regioes=1`, arquivo `_regioes.json`, alimentado pelo jogo após o save na nuvem) e desenha as vizinhas até 400 km, das mais perto para as mais longe.
 - `config.js`: URL do Supabase, chave pública e link do Apps Script.
 - **Nunca** colocar a senha do robô no código; ela fica só nos segredos do GitHub e nas Propriedades do script.
 
 ## Pendências de configuração (em 2026-10-02)
-- [ ] Rodar o `supabase/schema.sql` no Supabase. Em 2026-10-02 as tabelas `saves` e `presenca` ainda não existiam (PGRST205), então nada salva na nuvem até isso.
+- [x] `supabase/schema.sql` rodado: as tabelas `saves` e `presenca` existem (conferido em 2026-10-02).
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
-- [ ] Publicar a v23 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v25 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda). Em 2026-10-02 o link ainda respondia a versão antiga (`?regioes=1` dava erro).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 

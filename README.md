@@ -118,6 +118,10 @@ Para ligar, rode de novo o `supabase/schema.sql` no SQL Editor (ele cria a tabel
 - A cidade não se liga à sua rede por enlace: precisa de um **backbone independente de R$ 10 milhões** (+ R$ 25 mil/mês). Estudo de viabilidade, outorga e caixas de rede custam **5 vezes** o normal.
 - Cada nova operação seguinte exige mais 5.000 assinantes (10 mil para a segunda, 15 mil para a terceira…).
 
+## Sede regional
+
+Uma **loja filial** (fora da cidade da sede) pode virar **sede regional** por R$ 2 milhões (+ R$ 10 mil/mês): no painel **Prédio** (seção Filiais) ou tocando na loja no mapa. Ela ganha um prédio próprio, com andares e equipes próprios. As equipes de todos os prédios somam na capacidade da empresa (Call Center, vendedores, cobradores…), e cada prédio tem as próprias vagas por setor, então dá para contratar muito mais gente. No painel Prédio, as abas trocam entre a sede principal e cada sede regional.
+
 ## Link de internet acima de 100 Gigas
 
 Depois do link de 100 Gigas vêm novas **rotas de saída**, cada uma com uma construção única e o bloco de IP público correspondente: 200 Gigas (2ª rota, R$ 100 milhões), 400 Gigas (3ª rota e ASN próprio, R$ 200 milhões), 800 Gigas (rota internacional, R$ 400 milhões) e 1,6 Tera (ponto de troca de tráfego, R$ 800 milhões). Depois de construída, a rota fica sua: dá para trocar de link sem pagar de novo. As interligações entre cidades também ganham o Backbone DWDM de 100 Gigas (R$ 5 milhões) e de 400 Gigas (R$ 20 milhões).
@@ -224,13 +228,14 @@ O IBGE só tem bairros onde a prefeitura definiu bairros oficialmente. Nas cidad
 
 ## Onde o progresso fica salvo
 
-- O jogo salva sozinho no navegador do aparelho (`localStorage`). Fechar a aba ou ficar sem internet não perde nada.
-- Com a conta (Supabase), o progresso também vai para a nuvem e continua em qualquer aparelho.
-- Sem conta, limpar os dados do navegador apaga o progresso.
+- O progresso fica **só na conta** (Supabase): para jogar, é preciso entrar e estar com internet. Sem conexão, o jogo pausa e mostra um aviso até a internet voltar.
+- O jogo envia o progresso a cada 30 segundos, poucos segundos depois de uma ação importante e ao sair da aba.
+- Um progresso antigo que estava salvo no navegador é enviado para a conta na primeira vez (se for mais novo) e depois apagado do navegador.
+- Para o envio ser leve, o save guarda só a semente de cada família (o nome e o perfil são refeitos ao carregar) e não guarda a lista de cidades vizinhas.
 
-## Jogar sem internet e instalar como app
+## Instalar como app
 
-Depois da primeira visita com internet, o jogo fica guardado no aparelho e abre mesmo offline.
+O jogo pode ser instalado como app (abre mais rápido), mas precisa de internet para jogar.
 
 - **Android (Chrome):** menu ⋮ → *Instalar app* ou *Adicionar à tela inicial*. O botão **Instalar** também aparece no menu do jogo.
 - **iPhone (Safari):** botão Compartilhar → *Adicionar à Tela de Início*.
