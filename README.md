@@ -134,7 +134,9 @@ Comprar de novo com a proteção ativa soma mais 12 meses.
 
 ## Mapa real
 
-O jogo abre no **Mapa real** da cidade (OpenStreetMap). O botão **Quadras** mostra o tabuleiro do porta a porta.
+O jogo abre no **Mapa real** da cidade (OpenStreetMap), com as quadras desenhadas em cima dele: toque numa quadra para bater nas portas e ver os clientes. O tabuleiro antigo só aparece enquanto a cidade ainda não tem mapa.
+
+A barra de botões abre os painéis: **Prédio** (andares e equipes, com aviso quando falta gente num setor), **Planos** (preço de cada plano e combo), **Missões** (e metas do mês), **Relatório** e **Registro**. No **Comercial** você escolhe se os vendedores oferecem rádio, fibra ou os dois.
 
 - **Cidade:** no começo, **Usar minha localização** pega a cidade pelo GPS.
 - **Bairros:** o jogo procura em três fontes, nesta ordem:

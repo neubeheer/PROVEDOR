@@ -667,6 +667,27 @@ button.pill{cursor:pointer}
   .toast{left:calc(50% + 38px)}
 }
 @media (prefers-reduced-motion:reduce){.btn,.pill-plus{transition:none}}
+/* Tela única: o mapa ocupa o centro e os painéis abrem pelos botões da barra (Prédio, Planos, Missões, Relatório, Registro) */
+.layout{grid-template-columns:minmax(0,1fr);max-width:1320px;padding-bottom:116px}
+.realmap{height:max(400px,calc(100vh - 350px))}
+.tabs.dock{display:flex;position:fixed;left:50%;right:auto;top:auto;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));gap:10px;z-index:30;padding:8px 10px;background:linear-gradient(180deg,rgba(18,64,128,.94),#123f80);border:3px solid var(--navy);border-radius:20px;box-shadow:0 5px 0 rgba(10,30,70,.45);width:auto;flex-direction:row}
+.tabs.dock button{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:84px;height:64px;padding:4px;border-radius:14px;font-size:14px;cursor:pointer}
+.tabs.dock .rail-ico{display:block;width:26px;height:26px;filter:drop-shadow(0 1.5px 0 var(--navy))}
+.tabs.dock button[aria-pressed="true"]{background:linear-gradient(180deg,#ffe066,var(--sun));color:var(--navy);text-shadow:none}
+#panelBody .building{max-width:460px;margin:0 auto}
+[data-price]{min-width:44px;font-size:18px!important;line-height:1}
+#panelBody .missions{gap:6px}
+@media (max-width:820px){
+  .layout{padding-bottom:96px}
+  .tabs.dock{left:0;right:0;transform:none;bottom:0;border-radius:0;border-width:3px 0 0;justify-content:space-around;gap:6px;padding:8px 6px calc(8px + env(safe-area-inset-bottom,0px))}
+  .tabs.dock button{flex:1;width:auto;height:58px;font-size:12px}
+}
+@media (orientation:landscape) and (max-height:560px){
+  .layout{padding-bottom:8px}
+  .tabs.dock{z-index:45;left:0;top:0;bottom:0;right:auto;transform:none;flex-direction:column;justify-content:center;gap:7px;border-radius:0;border-width:0 3px 0 0;padding:calc(64px + env(safe-area-inset-top,0px)) 6px 6px calc(6px + env(safe-area-inset-left,0px));width:calc(76px + env(safe-area-inset-left,0px))}
+  .tabs.dock button{width:62px;height:54px;font-size:11px;gap:1px}
+  .tabs.dock .rail-ico{width:22px;height:22px}
+}
 </style>
 </head>
 <body>
@@ -680,7 +701,7 @@ button.pill{cursor:pointer}
 </header>
 
 <main class="layout">
-  <section class="pane pane-building" aria-label="Prédio da empresa">
+  <section class="pane pane-building" aria-label="Prédio da empresa" hidden>
     <div class="card"><div class="building" id="building"></div></div>
     <div class="card"><h3>Planos e combos</h3><div class="products" id="products"></div></div>
   </section>
@@ -704,7 +725,7 @@ button.pill{cursor:pointer}
       </div>
     </div>
   </section>
-  <section class="pane pane-side" aria-label="Missões, relatório e registro">
+  <section class="pane pane-side" aria-label="Missões, relatório e registro" hidden>
     <div class="card" id="goalsCard" hidden></div>
     <div class="card"><div class="card-head"><h3>Missões</h3><button class="btn small ghost" data-act="levels">Ver níveis</button></div><ul class="missions" id="missions"></ul></div>
     <div class="card"><div class="card-head"><h3 id="repTitle">Relatório do mês</h3><div class="rep-nav" id="repNav"></div></div><div id="report"></div></div>
@@ -712,10 +733,12 @@ button.pill{cursor:pointer}
   </section>
 </main>
 
-<nav class="tabs" role="tablist">
-  <button role="tab" data-tab="building" aria-selected="false"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4h10v17M15 9h4v12M8 7h2M8 10h2M8 13h2M8 16h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Prédio</button>
-  <button role="tab" data-tab="map" aria-selected="true"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Mapa</button>
-  <button role="tab" data-tab="side" aria-selected="false"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Missões</button>
+<nav class="tabs dock" aria-label="Painéis do jogo">
+  <button type="button" data-panel="building"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4h10v17M15 9h4v12M8 7h2M8 10h2M8 13h2M8 16h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Prédio</button>
+  <button type="button" data-panel="plans"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v10H4zM8 11h4M8 14h8M16 7V5M8 7V5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Planos</button>
+  <button type="button" data-panel="missions"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Missões</button>
+  <button type="button" data-panel="report"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M10 20V4M15 20v-7M20 20V8M3 20h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Relatório</button>
+  <button type="button" data-panel="log"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Registro</button>
 </nav>
 <div id="rotateHint" role="dialog" aria-label="Gire o celular"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="20" y="6" width="24" height="44" rx="5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="32" cy="44" r="2" fill="#fff"/><path d="M50 30a18 18 0 0 1-8 15" fill="none" stroke="#f0661a" stroke-width="3" stroke-linecap="round"/><path d="M43 41l-1 5 5 0" fill="none" stroke="#f0661a" stroke-width="3" stroke-linecap="round"/></svg><b>Gire o celular para jogar deitado</b><p>O Provedor Tycoon foi feito para o celular na horizontal: mapa grande de um lado, prédio e missões do outro.</p><button class="btn primary" id="rotOk" type="button">Continuar em pé</button></div>
 
@@ -1071,7 +1094,10 @@ function hireCost(){return Math.round(HIRE_COST*(1+totalStaff()/40)*(built('rh')
 function staffPayroll(){let s=0;for(const f of FLOORS){if(!built(f.id)||f.id==='recepcao')continue;const R=rolesOf(f),t=team(f.id);for(const k in t)s+=(t[k]||0)*((R[k]||{}).sal||0);s+=careerExtra(f);}return s+(S.partners||0)*PARTNER_PAY;}
 const fiberPlans=()=>FIBER_TIERS[S.fiberTier].plans;
 const isFiberPlan=id=>String(id)[0]==='f';
-function planById(id){const p=PLANS.find(x=>x.id===id)||fiberPlans().find(x=>x.id===id);if(p)return p;const n=FIBER_NAMES[id];return n?{id,name:n[0],mb:n[1],price:0}:PLANS[0];}
+/* Preço de tabela que o jogador ajusta em Planos e combos. Vale para vendas novas, migração e upgrade; quem já é cliente mantém o preço do contrato. */
+function pp(p){const v=S&&S.prices&&S.prices[p.id];return v!=null?v:p.price;}
+function cbPrice(k){const v=S&&S.prices&&S.prices['cb_'+k];return v!=null?v:cbPrice(k);}
+function planById(id){const p=PLANS.find(x=>x.id===id)||fiberPlans().find(x=>x.id===id);if(p)return {...p,price:pp(p)};const n=FIBER_NAMES[id];return n?{id,name:n[0],mb:n[1],price:0}:PLANS[0];}
 function planList(l){return l.tech==='fiber'?fiberPlans():PLANS;}
 function nextPlan(l){const list=planList(l);const i=list.findIndex(x=>x.id===l.plan);return i>=0&&i<list.length-1?list[i+1]:null;}
 function fiberAt(c,l){return !!(c.fiber&&c.fiber.on&&c.fiber.ctos.includes(bairroOf(l)));}
@@ -1371,7 +1397,7 @@ function migTargets(){
 function migrateClient(c,l,same){
   const fp=fiberPlans()[0],oldPrice=l.price;
   if(S.money<ONU_COST)return false;S.money-=ONU_COST;S.cur.inv+=ONU_COST;if(!opsOf('tecnico')){S.money-=THIRD_COST;}
-  l.tech='fiber';l.tid=null;l.plan=fp.id;l.price=same?oldPrice:Math.round((fp.price+l.combo.reduce((s,k)=>s+COMBOS[k].price,0))*100)/100;delete l.disc;
+  l.tech='fiber';l.tid=null;l.plan=fp.id;l.price=same?oldPrice:Math.round((pp(fp)+l.combo.reduce((s,k)=>s+cbPrice(k),0))*100)/100;delete l.disc;
   S.stock++;S.migrated=(S.migrated||0)+1;S.cur.migrados++;addXp(15);return true;
 }
 function migrationCalls(){
@@ -1383,8 +1409,8 @@ function migrationCalls(){
     const pool=wantMig&&mig.length?mig:(cfg.mode!=='migra'&&up.length?up:null);if(!pool)break;
     const [c,l]=pickOut(pool);if(l.calledM===S.day){i--;continue;}l.calledM=S.day;did++;
     if(pool===mig){
-      const fp=fiberPlans()[0],newP=fp.price+l.combo.reduce((s,k)=>s+COMBOS[k].price,0);
-      let p=cfg.same?0.62:(newP<=l.fam.budget*1.25?0.42:0.15);if(l.fam.need==='work'||l.fam.need==='game')p+=0.15;p+=(S.rep-50)/250;
+      const fp=fiberPlans()[0],newP=pp(fp)+l.combo.reduce((s,k)=>s+cbPrice(k),0);
+      let p=cfg.same?0.62:(newP<=l.fam.budget*1.25?0.42:0.15);if(!cfg.same&&newP<=l.price)p+=0.15;if(l.fam.need==='work'||l.fam.need==='game')p+=0.15;p+=(S.rep-50)/250;
       if(Math.random()<p&&migrateClient(c,l,cfg.same))okM++;else l.migNo=S.day;
     }else{
       const cur=planById(l.plan),nx=nextPlan(l),diff=nx.price-cur.price;
@@ -1521,7 +1547,7 @@ function signupBlock(c){
 }
 function chance(c,lot,planId,combo){
   const pl=planById(planId),f=lot.fam,cov=coverOf(c,lot),fib=isFiberPlan(planId);
-  const price=pl.price+combo.reduce((s,k)=>s+COMBOS[k].price,0);
+  const price=pl.price+combo.reduce((s,k)=>s+cbPrice(k),0);
   let p=0.4+(S.rep-50)/200;
   if(fib)p+=0.27;else if(cov&&cov.strong)p+=0.12;
   if(f.need==='work'||f.need==='game'){if(pl.mb>=35)p+=0.25;else if(pl.mb===10)p-=0.2;}
@@ -1536,11 +1562,14 @@ function chance(c,lot,planId,combo){
   p+=cityBoost(c);
   return {p:clamp(p,0.03,0.92),price};
 }
-function plansAt(c,lot){return [...(coverOf(c,lot)?PLANS:[]),...(fiberAt(c,lot)?fiberPlans():[])];}
-function bestOffer(c,lot){
+function plansAt(c,lot,tech='both'){return [...(tech!=='fiber'&&coverOf(c,lot)?PLANS:[]),...(tech!=='radio'&&fiberAt(c,lot)?fiberPlans():[])];}
+/* O que o Comercial (vendedores, loja e carreata) oferece: 'both', 'radio' ou 'fiber'. */
+const salesTech=()=>(S&&S.salesTech)||'both';
+function sellable(c,l,tech=salesTech()){return (tech!=='fiber'&&!!coverOf(c,l))||(tech!=='radio'&&fiberAt(c,l));}
+function bestOffer(c,lot,tech){
   const sets=[[]];if(S.combos.tv)sets.push(['tv']);if(S.combos.fone)sets.push(['fone']);if(S.combos.tv&&S.combos.fone)sets.push(['tv','fone']);
   let best=null;
-  for(const pl of plansAt(c,lot))for(const cb of sets){const r=chance(c,lot,pl.id,cb);const score=r.p*r.price;if(!best||score>best.score)best={plan:pl.id,combo:cb,price:r.price,p:r.p,score};}
+  for(const pl of plansAt(c,lot,tech))for(const cb of sets){const r=chance(c,lot,pl.id,cb);const score=r.p*r.price;if(!best||score>best.score)best={plan:pl.id,combo:cb,price:r.price,p:r.p,score};}
   return best;
 }
 function nextIp(c){const u=new Set(c.used),h=hostsOf(netPrefix(c));for(let i=10;i<h;i++)if(!u.has(i))return i;return null;}
@@ -1553,11 +1582,11 @@ function activate(c,lot,deal,ip){
 }
 function attemptSale(c,who){
   if(saleBlock(c))return false;
-  const qs=quadras(c).filter(l=>quadraFree(l)>0&&regionOk(c,l)&&(coverOf(c,l)||fiberAt(c,l)));
+  const qs=quadras(c).filter(l=>quadraFree(l)>0&&regionOk(c,l)&&sellable(c,l));
   if(!qs.length)return false;
   let tot=qs.reduce((s,l)=>s+quadraFree(l),0),rr=Math.random()*tot,q=qs[0];for(const l of qs){rr-=quadraFree(l);if(rr<=0){q=l;break;}}
   const lot=knock(c,q);if(!lot)return false;
-  const o=bestOffer(c,lot);if(!o)return false;
+  const o=bestOffer(c,lot,salesTech());if(!o)return false;
   if(Math.random()<o.p){
     const fib=isFiberPlan(o.plan);
     const cost=(fib?ONU_COST:cpeFor())+(opsOf('tecnico')>0?0:THIRD_COST);
@@ -1570,7 +1599,7 @@ function attemptSale(c,who){
   }
   lot.st='refused';lot.until=S.day+45;return false;
 }
-function vendorAttempt(){const cs=S.cities.filter(c=>!saleBlock(c)&&quadras(c).some(l=>quadraFree(l)>0&&regionOk(c,l)&&(coverOf(c,l)||fiberAt(c,l))));if(cs.length)attemptSale(cs[Math.floor(Math.random()*cs.length)],'vendedor');}
+function vendorAttempt(){const cs=S.cities.filter(c=>!saleBlock(c)&&quadras(c).some(l=>quadraFree(l)>0&&regionOk(c,l)&&sellable(c,l)));if(cs.length)attemptSale(cs[Math.floor(Math.random()*cs.length)],'vendedor');}
 function planLabel(planId,combo){const pl=planById(planId);return pl.name+(combo.length?' + '+combo.map(k=>COMBOS[k].short).join(' + '):'');}
 
 /* ===================== Missões ===================== */
@@ -1645,7 +1674,7 @@ const HUD_ICO={
 /* ===================== Render ===================== */
 function fixNet(){for(const c of S.cities)if(c.idx>0&&c.ilink==null){const t=cityTraffic(c)*1.2;if(famsOf(c).some(isSub)){let i=0;while(i<CITY_LINKS.length-1&&CITY_LINKS[i].g<t)i++;c.ilink=i;}else c.ilink=-1;}
   for(const c of S.cities)if(c.net==null){const st=netSteps(c),u=netUsed(c);let k=0;while(k<st.length-1&&st[k].cap<u+5)k++;c.net=k;}if(S.link==null||S.link<0){const t=trafficGbps()*1.2;let i=0;while(i<LINKS.length-1&&LINKS[i].g<t)i++;S.link=i;}}
-function renderAll(){if(!S)return;fixNet();renderTop();renderTut();renderMap();renderReal();renderBuilding();renderProducts();renderGoals();renderMissions();renderReport();renderLog();}
+function renderAll(){if(!S)return;fixNet();renderTop();renderTut();renderMap();renderReal();renderBuilding();renderProducts();renderGoals();renderMissions();renderReport();renderLog();refreshPanel();}
 function renderSaveDot(){const d=$('#saveDot');if(d)d.className='save-dot '+(cloud.status==='cloud'?'cloud':cloud.status==='erro'?'err':'');}
 function renderTop(){
   const c=city();
@@ -1667,11 +1696,12 @@ function renderTop(){
     <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b>Link ${Math.round(lu*100)}%</b></button>
     ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
-  const tm=document.querySelector(".tabs [data-tab=\"map\"]");if(tm)tm.dataset.badge=lateCount()||"";
+  const al=staffAlerts(),tb=document.querySelector('.tabs [data-panel="building"]');if(tb)tb.dataset.badge=al.length||'';notifyAlerts(al);
   renderSaveDot();
 }
 function renderMap(){
   const c=city(),sedeMode=S.phase==='sede'&&S.ci===0;
+  mapView=c.geo?'real':'grid';
   const houses=quadras(c);
   const homesAll=cityHomes(c),covHomes=houses.filter(l=>coverOf(c,l)||fiberAt(c,l)).reduce((s,l)=>s+(l.dom||0),0);
   const cl=cityClients(c),rf=radioFiber(c);
@@ -1679,13 +1709,14 @@ function renderMap(){
   const il=c.idx>0?(c.ilink>=0?(()=>{const u=cityTraffic(c)/CITY_LINKS[c.ilink].g;return `<button class="chip ${u>1?'bad':u>0.85?'warn':''}" data-act="net" style="border:0;cursor:pointer">Interligação ${gb(CITY_LINKS[c.ilink].g)} · ${Math.round(u*100)}%</button>`;})():'<button class="chip bad" data-act="net" style="border:0;cursor:pointer">Sem interligação</button>'):'';
   const sel=S.cities.length>1?`<select class="input" id="citySel" style="width:auto;padding:5px 8px" aria-label="Trocar cidade">${S.cities.map((cc,i)=>`<option value="${i}" ${i===S.ci?'selected':''}>${esc(cc.name)}</option>`).join('')}</select>`:'';
   $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
-   <div class="map-meta"><div class="view-toggle" role="group" aria-label="Visão do mapa"><button data-view="grid" aria-pressed="${mapView==='grid'}">Quadras</button><button data-view="real" aria-pressed="${mapView==='real'}">Mapa real</button></div>${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
+   <div class="map-meta">${c.geo?'':`<button class="btn small primary" data-act="geoLoad" ${geoBusy.has(c)?'disabled':''}>${geoBusy.has(c)?'Carregando mapa…':'Carregar mapa real'}</button>`}${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
   $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
   $('#sedeBar').innerHTML=sedeMode&&c.geo&&(mapView==='real'||hasBlocks(c)||needsBlocks(c))?`<div class="sede-bar"><p><b>Onde fica a sede?</b> ${sedePick?`Local escolhido: <b>${esc(sedePick.name||'buscando o bairro…')}</b>${sedePick.road?` · ${esc(sedePick.road)}`:''}`:(mapView==='real'?'Toque no mapa no ponto exato do prédio.':hasBlocks(c)?'Toque na quadra onde fica o prédio.':'Abra o Mapa real e toque no ponto exato do prédio.')}</p>
      <div class="sede-actions">${mapView!=='real'&&!hasBlocks(c)?'<button class="btn small ghost" data-view="real">Abrir Mapa real</button>':''}<button class="btn small primary" data-act="declareSede" ${sedePick?'':'disabled'}>Declarar sede aqui</button></div></div>`:sedeMode?`<div class="sede-bar"><p><b>Onde fica a sede?</b> Toque num bairro do mapa. Selecionado: <b>${esc(c.bairros[selBairro])}</b></p>
      <div class="sede-actions"><button class="btn small ghost" data-act="bairros">Nomes dos bairros</button><button class="btn small primary" data-act="declareSede">Declarar sede aqui</button></div></div>`:'';
+  if(mapView==='real')return;
   const overT=new Set(c.towers.filter(t=>towerLoad(c,t)>cap()).map(t=>t.id));
   const mapEl=$('#map');
   if(hasBlocks(c)&&c.geo){mapEl.classList.remove('lockmode');renderBoard(c,overT,sedeMode);return;}
@@ -1735,7 +1766,7 @@ function lockHtml(c){
   const secs=st&&st.next?Math.max(0,Math.ceil((st.next-Date.now())/1000)):0;
   const title=!c.geo?(geoBusy.has(c)?(c.geoStep||`Procurando ${c.name} no mapa…`):off?'Sem internet agora':'Mapa da cidade ainda não carregado'):busy?`Rastreando as ruas e quadras de ${c.name}…`:off?'Sem internet agora':`Servidor de mapas ocupado`;
   const sub=!c.geo&&!geoBusy.has(c)?'O tabuleiro de quadras é desenhado a partir do mapa real da cidade.':busy?'O jogo baixa as ruas do OpenStreetMap e desenha cada quarteirão. Leva alguns segundos.':off?'As quadras aparecem assim que a conexão voltar.':`Nova tentativa ${secs?`em ${secs} s`:'agora'}${st?` (tentativa ${st.n+1})`:''}.`;
-  return `<div class="qlock" role="status">${busy?'<span class="spin" aria-hidden="true"></span>':''}<b>${esc(title)}</b><p>${sub}</p><p class="muted" style="font-size:12px">As quadras só aparecem depois do rastreamento das ruas. Enquanto isso, a sede e as torres podem ser escolhidas no Mapa real.</p>${busy?'':`<button class="btn small primary" data-act="blocksRetry">${c.geo?'Tentar agora':'Carregar mapa'}</button>`}</div>`;
+  return `<div class="qlock" role="status">${busy?'<span class="spin" aria-hidden="true"></span>':''}<b>${esc(title)}</b><p>${sub}</p><p class="muted" style="font-size:12px">Assim que o mapa da cidade carregar, as quadras aparecem direto nele, junto com a sede e as torres.</p>${busy?'':`<button class="btn small primary" data-act="blocksRetry">${c.geo?'Tentar agora':'Carregar mapa'}</button>`}</div>`;
 }
 function renderBoard(c,overT,sedeMode){
   const el=$('#map');
@@ -1970,17 +2001,65 @@ function renderBuilding(){
   $('#building').innerHTML=h;
   const bm=document.getElementById('buildingM');if(bm)bm.innerHTML=h;
 }
-function renderProducts(){
-  const lvl=levelOf(S.xp);
-  let h=PLANS.map(p=>`<div class="product"><span>${p.name}</span><b>${brl(p.price)}</b></div>`).join('');
-  if(lvl>=FIBRA_LEVEL)h+=fiberPlans().map(p=>`<div class="product"><span>${p.name}</span><b>${brl(p.price)}</b></div>`).join('');
-  for(const [k,cb] of Object.entries(COMBOS)){
-    if(S.combos[k])h+=`<div class="product"><span>+ ${cb.name}</span><b>${brl(cb.price)}</b></div>`;
-    else if(lvl>=cb.level&&companyLicensed())h+=`<div class="product"><span>+ ${cb.name}<br><small class="muted">Contrato com ${cb.who}</small></span><button class="btn small primary" data-act="combo-${k}">${brl0(cb.cost)}</button></div>`;
-    else h+=`<div class="product muted"><span>+ ${cb.name}</span><span class="chip">🔒 Nível ${cb.level}</span></div>`;
-  }
-  $('#products').innerHTML=h;
+function renderProducts(){$('#products').innerHTML='';}
+const PRICE_MIN=0.6,PRICE_MAX=1.5,PRICE_STEP=5;
+function priceRow(id,name,base,cur,extra){const lo=Math.round(base*PRICE_MIN),hi=Math.round(base*PRICE_MAX),d=cur-base;
+  return `<div class="role-row"><div><b>${name}</b><small>Tabela ${brl(base)}${d?` · ${d>0?'+':''}${brl(d)}`:''}${extra?' · '+extra:''}</small></div><div class="role-ctl"><button class="btn small" data-price="${id}" data-d="-1" ${cur-PRICE_STEP<lo?'disabled':''} aria-label="Baixar o preço de ${name}">−</button><b style="min-width:84px">${brl(cur)}</b><button class="btn small" data-price="${id}" data-d="1" ${cur+PRICE_STEP>hi?'disabled':''} aria-label="Subir o preço de ${name}">+</button></div></div>`;}
+function plansHtml(){
+  const lvl=levelOf(S.xp),fib=lvl>=FIBRA_LEVEL;
+  let h=`<p class="muted" style="font-size:13px">Preço menor vende mais e ajuda a migrar; preço maior rende mais por cliente, mas o cliente compara com o bolso. Vale para vendas novas, migração e upgrade. Quem já é cliente mantém o preço do contrato.</p>`;
+  h+='<h3 style="margin:10px 0 6px">Rádio</h3>'+PLANS.map(p=>priceRow(p.id,p.name,p.price,pp(p))).join('');
+  h+='<h3 style="margin:14px 0 6px">Fibra</h3>'+(fib?fiberPlans().map(p=>priceRow(p.id,p.name,p.price,pp(p))).join(''):`<div class="notice">A fibra chega no nível ${FIBRA_LEVEL}.</div>`);
+  if(fib){const r=pp(PLANS[PLANS.length-1]),f=pp(fiberPlans()[0]);h+=`<div class="notice ${f<=r?'ok':'warn'}">${f<=r?`A fibra de entrada (${brl(f)}) não custa mais que o rádio mais caro (${brl(r)}): a Migração convence mais clientes a trocar.`:`A fibra de entrada (${brl(f)}) custa mais que o rádio mais caro (${brl(r)}). Baixe a fibra ou suba o rádio para empurrar a migração.`}</div>`;}
+  h+='<h3 style="margin:14px 0 6px">Combos</h3>'+Object.entries(COMBOS).map(([k,cb])=>S.combos[k]?priceRow('cb_'+k,'+ '+cb.name,cb.price,cbPrice(k),'custa '+brl(cb.unit)+'/cliente')
+    :lvl>=cb.level&&companyLicensed()?`<div class="role-row"><div><b>+ ${cb.name}</b><small>Contrato com ${cb.who}</small></div><button class="btn small primary" data-act="combo-${k}">Lançar · ${brl0(cb.cost)}</button></div>`
+    :`<div class="role-row"><div><b>+ ${cb.name}</b><small>Libera no nível ${cb.level}</small></div><span class="chip">🔒</span></div>`).join('');
+  return h;
 }
+document.addEventListener('click',e=>{const b=e.target.closest('[data-price]');if(!b||!S)return;const id=b.dataset.price,d=+b.dataset.d;
+  const base=id.startsWith('cb_')?COMBOS[id.slice(3)].price:(PLANS.find(x=>x.id===id)||fiberPlans().find(x=>x.id===id)||{}).price;if(!base)return;
+  const cur=id.startsWith('cb_')?cbPrice(id.slice(3)):pp({id,price:base}),nv=Math.round((cur+d*PRICE_STEP)*100)/100;
+  if(nv<Math.round(base*PRICE_MIN)||nv>Math.round(base*PRICE_MAX))return;
+  S.prices=S.prices||{};if(Math.abs(nv-base)<0.01)delete S.prices[id];else S.prices[id]=nv;save(false);refreshPanel();});
+
+/* Painéis abertos pelos botões (Prédio, Planos, Missões, Relatório, Registro) */
+let PANEL=null;
+const PANELS={building:['Sede','Prédio da empresa'],plans:['Produtos','Planos e combos'],missions:['Progresso','Missões'],report:['Financeiro','Relatório do mês'],log:['Empresa','Registro']};
+function panelHtml(k){
+  if(k==='building')return alertsHtml()+`<div class="sede-modal"><div class="building">${$('#building').innerHTML}</div></div>`;
+  if(k==='plans')return plansHtml();
+  if(k==='missions')return (goalsOn()?`<div class="card" style="margin-bottom:12px">${$('#goalsCard').innerHTML}</div>`:'')+`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="btn small ghost" data-act="levels">Ver níveis</button></div><ul class="missions">${$('#missions').innerHTML}</ul>`;
+  if(k==='report')return `<div class="card-head"><h3>${esc($('#repTitle').textContent)}</h3><div class="rep-nav">${$('#repNav').innerHTML}</div></div>${$('#report').innerHTML}`;
+  if(k==='log')return `<ul class="log" style="max-height:none">${S.log.map(e=>`<li><time>M${monthOf(e.d)}·${String(dayOf(e.d)).padStart(2,'0')}</time><span>${esc(e.m)}</span></li>`).join('')}</ul>`;
+  return '';
+}
+function openPanel(k){if(!S||!PANELS[k])return;const [eb,t]=PANELS[k];openModal(head(eb,t)+`<div id="panelBody">${panelHtml(k)}</div>`);PANEL=k;document.querySelectorAll('.tabs [data-panel]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.panel===k)));}
+function refreshPanel(){if(!PANEL)return;const b=document.getElementById('panelBody');if(!b||!modalOpen){PANEL=null;return;}b.innerHTML=panelHtml(PANEL);}
+
+/* Avisos de equipe: o prédio avisa quando falta gente num setor */
+function staffAlerts(){
+  if(!S||S.phase!=='play')return [];
+  const out=[],add=(key,id,msg)=>out.push({key,id,msg});
+  const cnt=fn=>S.cities.reduce((s,c)=>s+famsOf(c).filter(fn).length,0),cl=allClients();
+  if(built('callcenter')){const t=team('callcenter'),k=Math.floor(((t.voz||0)*40+(t.texto||0)*50)*effOf('callcenter'));if(cl>k)add('cc','callcenter',`Call Center: ${cl} clientes e a equipe atende ${k}. Contrate atendentes.`);}
+  if(built('recuperacao')){const n=cnt(l=>l.st==='late'||l.st==='suspended'),k=capOf('recuperacao',3);if(n>k)add('rec','recuperacao',`Recuperação: ${n} inadimplentes e os cobradores negociam ${k} por mês.`);}
+  if(built('retencao')){const n=cnt(l=>l.st==='cancelReq'),k=capOf('retencao',5);if(n>k)add('ret','retencao',`Retenção: ${n} pedidos de cancelamento e a equipe atende ${k} por mês.`);}
+  if(built('logistica')){const n=cnt(l=>l.cpe),k=capOf('logistica',6);if(n>k)add('log','logistica',`Logística: ${n} rádios para recolher e os motoristas buscam ${k} por mês.`);}
+  if(built('ouvidoria')&&S.ouv){const k=capOf('ouvidoria',60);if((S.ouv.total||0)>k)add('ouv','ouvidoria',`Ouvidoria: ${S.ouv.total} manifestações e a equipe trata ${k} por mês.`);}
+  for(const f of FLOORS){if(f.id==='recepcao'||!built(f.id))continue;
+    if(!headcount(f.id))add('zero-'+f.id,f.id,`${f.name}: setor sem ninguém trabalhando.`);
+    else for(const i of effIssues(f.id))add('lid-'+f.id+i,f.id,`${f.name}: ${i}.`);}
+  return out;
+}
+let ALERT_KEYS=null;
+function notifyAlerts(list){
+  const keys=new Set(list.map(a=>a.key));
+  if(ALERT_KEYS){const fresh=list.filter(a=>!ALERT_KEYS.has(a.key));for(const a of fresh)log('Prédio: '+a.msg);if(fresh.length)toast(`👷 ${fresh[0].msg}${fresh.length>1?` (+${fresh.length-1} aviso${fresh.length>2?'s':''} no Prédio)`:''}`);}
+  else if(list.length)toast(`👷 O Prédio tem ${list.length} aviso${list.length>1?'s':''} de equipe.`);
+  ALERT_KEYS=keys;
+}
+function alertsHtml(){const al=staffAlerts();if(!al.length)return '';
+  return `<div class="notice warn"><b>Falta gente</b><div class="choice-list" style="margin-top:8px">${al.map(a=>`<div class="choice"><div><small style="color:inherit">${esc(a.msg)}</small></div><button class="btn small signal" data-act="team" data-f="${a.id}">Equipe</button></div>`).join('')}</div></div>`;}
 function renderMissions(){
   const lvl=levelOf(S.xp),ms=missionList();
   const cur=ms.findIndex(m=>!m.done&&!(m.need&&lvl<m.need));
@@ -1993,6 +2072,7 @@ function renderMissions(){
     const when=m.done&&S.mdone[m.id]?`<span class="when">Concluída no mês ${S.mdone[m.id]}</span>`:'';
     return `<li class="mission ${st}"><span class="tick">${m.done?'✓':locked?'🔒':''}</span><div><b>${esc(m.t)}</b><p>${esc(m.d)}</p>${when}${showBtn?`<button class="btn small primary" data-act="${m.act}">${m.btn}</button>`:''}</div></li>`;
   }).join('');
+  setTimeout(refreshPanel,0);
   $('#missions').innerHTML=rows+(doneCount?`<li><button class="btn small ghost toggle-done" data-act="toggleDone">${showDone?'Esconder':'Mostrar'} concluídas (${doneCount})</button></li>`:'');
 }
 function evBlock(r){
@@ -2000,6 +2080,7 @@ function evBlock(r){
   return (ms.length?`<p class="eyebrow" style="margin-top:12px">Missões concluídas (${ms.length})</p><ul class="events">${ms.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`:'')+(ev.length?`<p class="eyebrow" style="margin-top:12px">O que aconteceu</p><ul class="events">${ev.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`:'');
 }
 function renderReport(){
+  setTimeout(refreshPanel,0);
   const hist=S.history;
   const idx=repView===null?hist.length:repView;
   const isCur=idx>=hist.length;
@@ -2021,8 +2102,8 @@ function renderReport(){
 function renderLog(){$('#log').innerHTML=S.log.slice(0,16).map(e=>`<li><time>M${monthOf(e.d)}·${String(dayOf(e.d)).padStart(2,'0')}</time><span>${esc(e.m)}</span></li>`).join('');}
 
 /* ===================== Modais ===================== */
-function openModal(html,onMount){document.body.classList.add('modal-open');$('#modal').innerHTML=html;$('#modalWrap').hidden=false;modalOpen=true;if(onMount)onMount($('#modal'));const f=$('#modal').querySelector('input:not([readonly]):not([type=range]),select,textarea:not([readonly]),.btn.primary');if(f)f.focus();}
-function closeModal(){document.body.classList.remove('modal-open');$('#modalWrap').hidden=true;$('#modal').innerHTML='';modalOpen=false;renderAll();}
+function openModal(html,onMount){PANEL=null;document.querySelectorAll(".tabs [data-panel]").forEach(b=>b.removeAttribute("aria-pressed"));document.body.classList.add('modal-open');$('#modal').innerHTML=html;$('#modalWrap').hidden=false;modalOpen=true;if(onMount)onMount($('#modal'));const f=$('#modal').querySelector('input:not([readonly]):not([type=range]),select,textarea:not([readonly]),.btn.primary');if(f)f.focus();}
+function closeModal(){PANEL=null;document.querySelectorAll('.tabs [data-panel]').forEach(b=>b.removeAttribute('aria-pressed'));document.body.classList.remove('modal-open');$('#modalWrap').hidden=true;$('#modal').innerHTML='';modalOpen=false;renderAll();}
 const X='<button class="x" data-close aria-label="Fechar">×</button>';
 function head(eyebrow,title,closable=true){return `<div class="mhead"><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div>${closable?X:''}</div>`;}
 
@@ -2276,7 +2357,7 @@ function openCombo(k){
   const cb=COMBOS[k];
   if(S.combos[k]){toast('Esse combo já está à venda.');return;}
   if(levelOf(S.xp)<cb.level){toast(`Libera no nível ${cb.level}.`);return;}
-  openModal(head('Produtos',`Lançar combo: ${cb.name}`)+`<p>Com contrato com uma ${cb.who}, você oferece ${cb.name.toLowerCase()} junto com a internet por ${brl(cb.price)}/mês a mais.</p>
+  openModal(head('Produtos',`Lançar combo: ${cb.name}`)+`<p>Com contrato com uma ${cb.who}, você oferece ${cb.name.toLowerCase()} junto com a internet por ${brl(cbPrice(k))}/mês a mais.</p>
    <p class="muted">Contrato: ${brl0(cb.cost)}. Cada assinante custa ${brl0(cb.unit)}/mês. Famílias que querem TV aceitam bem mais quando o combo tem TV.</p>
    <div class="foot"><span>Caixa: <b>${brl0(S.money)}</b></span><button class="btn primary" id="cbGo">Assinar contrato</button></div>`,m=>{
     m.querySelector('#cbGo').onclick=()=>{if(!spend(cb.cost))return;S.combos[k]=true;addXp(40);log(`Novo produto: combo com ${cb.name}.`);event(`Combo ${cb.short} lançado`);checkMissions();save(true);toast('Combo liberado no porta a porta!');closeModal();};
@@ -2426,8 +2507,9 @@ function openTeam(id){
   openModal(head(`${f.annex?'Galpão':floorLabel(f)} · ${f.name}`,'Equipe')+`<div class="kpis"><div class="kpi"><span>Pessoas</span><b>${hc}/${capN}</b></div><div class="kpi"><span>Eficiência</span><b>${hc?Math.round(e*100)+'%':'—'}</b></div><div class="kpi"><span>Folha</span><b>${brl0(rolesSum(f))}</b></div></div>
     ${iss.length?`<div class="notice warn">Falta gente na liderança: ${iss.join(' e ')}. A eficiência do setor cai.</div>`:''}
     ${hc>=capN?`<div class="notice bad">Limite de ${capN} pessoas por setor. ${built('rh')?'Contrate mais analistas de RH para abrir vagas.':'Monte o RH para abrir mais vagas.'}</div>`:''}
-    ${rows}${partners}${careerHtml(id)}
+    ${id==='comercial'?salesTechHtml():''}${rows}${partners}${careerHtml(id)}
     <p class="muted" style="font-size:12.5px;margin-top:8px">Regras: 1 supervisor para cada 5 operadores; com 8 pessoas ou mais, o setor precisa de um gerente. Todo mês alguém pode pedir demissão, menos com RH. Cada contratação fica mais cara conforme a empresa cresce.</p>`,m=>{
+    m.querySelectorAll('[data-stech]').forEach(b=>b.onclick=()=>{S.salesTech=b.dataset.stech;log(`Comercial passa a vender ${STECH[S.salesTech].toLowerCase()}.`);save(true);openTeam(id);});
     m.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{if(headcount(id)>=sectorCap())return;const k=b.dataset.add;if(!spend(hireCost()))return;t[k]=(t[k]||0)+1;S.floors[id].team=t;if(id==='retencao'&&k==='op')S.retCap=(S.retCap||0)+5;log(`Contratou ${R[k].t} no ${f.name}.`);event(`Contratou ${R[k].t} (${f.name})`);save(true);openTeam(id);});
     const con=m.querySelector('#carOn');if(con)con.onclick=()=>{if(!spend(CAREER_COST))return;S.career={on:true};log('Plano de carreira implantado no RH.');event('Plano de carreira implantado');checkMissions();save(true);openTeam(id);};
     m.querySelectorAll('[data-promo]').forEach(b=>b.onclick=()=>{const fl=S.floors[id];fl.car=fl.car||{pl:0,sr:0};const o=opsOf(id),k=b.dataset.promo;
@@ -2439,6 +2521,10 @@ function openTeam(id){
     if(pr)pr.onclick=()=>{if(!S.partners)return;if(!spend(PARTNER_CASH))return;S.partners--;log('Um sócio saiu e recebeu o capital de volta.');save(true);openTeam(id);};
   });
 }
+const STECH={both:'Rádio e fibra',radio:'Só rádio',fiber:'Só fibra'};
+function salesTechHtml(){const t=salesTech(),fib=S.cities.some(c=>c.fiber&&c.fiber.on);
+  return `<div class="field"><label>O que os vendedores oferecem</label><div class="seg">${Object.entries(STECH).map(([k,v])=>`<button data-stech="${k}" aria-pressed="${t===k}">${v}</button>`).join('')}</div>
+    <small class="muted">Vale para vendedores, loja e carreata. ${fib?'Só fibra deixa de vender rádio onde não há fibra; só rádio guarda a fibra para a migração.':'A fibra chega no nível '+FIBRA_LEVEL+' com o backbone; até lá, só rádio e os dois vendem igual.'} O porta a porta feito por você continua livre.</small></div>`;}
 function serviceUsers(sv){const cl=allClients();return sv.id==='game'?S.cities.reduce((s,c)=>s+famsOf(c).filter(l=>isSub(l)&&l.fam.need==='game').length,0):Math.round(cl*sv.use);}
 function openServers(){
   if(!built('noc')){toast(`O NOC libera no nível ${FLOORS.find(f=>f.id==='noc').level}.`);return;}
@@ -2492,8 +2578,8 @@ function openFiber(){
     ${c.fiber.on?`<div class="notice ok">Backbone ativo em ${esc(c.name)}. Manutenção: ${brl0(1000)}/mês + ${brl0(40)} por caixa CTO.</div>`:`<div class="notice warn"><b>Primeiro investimento: backbone de ${brl0(BACKBONE_COST)}.</b> É o cabo principal que traz a fibra até a cidade. Depois, cada bairro precisa de uma caixa CTO.<div style="margin-top:8px"><button class="btn small primary" id="fbBack" ${c.outorgaPaid?'':'disabled'}>Construir backbone · ${brl0(BACKBONE_COST)}</button></div></div>`}
     <div class="grid3">${bairros}</div>
     <h3 style="font-size:15px;margin:16px 0 8px">Planos e equipamento (${tier.name})</h3>
-    <p class="muted" style="margin:0 0 8px">${tier.plans.map(p=>`${p.name}: ${brl(p.price)}`).join(' · ')}. A fibra começa cara e com pouca velocidade; cada geração de OLT traz planos mais rápidos e mais baratos.</p>
-    ${next?`<div class="choice"><div><b>${next.name}</b><small>Nível ${next.level} · ${next.plans.map(p=>`${p.name} ${brl(p.price)}`).join(', ')}</small></div><button class="btn small primary" id="fbUp" ${lvl<next.level?'disabled':''}>${lvl<next.level?'🔒 Nível '+next.level:'Atualizar · '+brl0(next.cost)}</button></div>`:'<div class="notice ok">Você já tem a OLT mais moderna.</div>'}
+    <p class="muted" style="margin:0 0 8px">${tier.plans.map(p=>`${p.name}: ${brl(pp(p))}`).join(' · ')}. A fibra começa cara e com pouca velocidade; cada geração de OLT traz planos mais rápidos e mais baratos.</p>
+    ${next?`<div class="choice"><div><b>${next.name}</b><small>Nível ${next.level} · ${next.plans.map(p=>`${p.name} ${brl(pp(p))}`).join(', ')}</small></div><button class="btn small primary" id="fbUp" ${lvl<next.level?'disabled':''}>${lvl<next.level?'🔒 Nível '+next.level:'Atualizar · '+brl0(next.cost)}</button></div>`:'<div class="notice ok">Você já tem a OLT mais moderna.</div>'}
     <p class="muted" style="font-size:12.5px;margin-top:12px">Para migrar: toque numa casa que já é cliente de rádio num bairro com CTO. O rádio dela volta para o estoque. Torre sem clientes de rádio pode ser desmontada e levada para outra cidade.</p>`,m=>{
     const bb=m.querySelector('#fbBack');if(bb)bb.onclick=()=>{if(!spend(BACKBONE_COST))return;c.fiber.on=true;addXp(150);log(`Backbone de fibra chegou em ${c.name}.`);event(`Backbone de fibra em ${c.name}`);checkMissions();save(true);openFiber();};
     m.querySelectorAll('[data-cto]').forEach(b=>b.onclick=()=>{const i=+b.dataset.cto;if(!spend(CTO_COST))return;c.fiber.ctos.push(i);addXp(20);log(`Caixa CTO instalada no bairro ${c.bairros[i]}.`);event(`CTO em ${c.bairros[i]}`);checkMissions();save(true);openFiber();});
@@ -2503,7 +2589,7 @@ function openFiber(){
 function openMigrate(c,l){
   const plans=fiberPlans();
   openModal(head('Migração para fibra',`Casa de ${esc(l.fam.name)}`)+`<p>Hoje: ${planLabel(l.plan,l.combo)} por ${brl(l.price)}/mês. Escolha o plano de fibra para oferecer. A ONU custa ${brl0(ONU_COST)} e o rádio dela volta para o estoque.</p>
-    <div class="opts">${plans.map((p,i)=>`<div class="opt"><input type="radio" name="fplan" id="fp_${p.id}" value="${p.id}" ${i===0?'checked':''}><label for="fp_${p.id}"><b>${p.name}</b><span>${brl(p.price+l.combo.reduce((s,k)=>s+COMBOS[k].price,0))}/mês</span></label></div>`).join('')}</div>
+    <div class="opts">${plans.map((p,i)=>`<div class="opt"><input type="radio" name="fplan" id="fp_${p.id}" value="${p.id}" ${i===0?'checked':''}><label for="fp_${p.id}"><b>${p.name}</b><span>${brl(p.price+l.combo.reduce((s,k)=>s+cbPrice(k),0))}/mês</span></label></div>`).join('')}</div>
     <div class="foot"><div><span class="chip" id="mgChance"></span></div><button class="btn primary" id="mgGo">Oferecer fibra</button></div>`,m=>{
     const read=()=>m.querySelector('input[name=fplan]:checked').value;
     const ch=()=>{const r=chance(c,l,read(),l.combo);return {p:clamp(r.p+0.12,0.05,0.95),price:r.price};};
@@ -2632,8 +2718,8 @@ function openFamily(c,lot){
 function openPap(c,lot){
   const f=lot.fam,cov=coverOf(c,lot),fibHere=fiberAt(c,lot),block=saleBlock(c);
   const avail=plansAt(c,lot),defId=avail.some(p=>p.id==='r20')?'r20':avail[0].id;
-  const plans=avail.map(p=>`<div class="opt"><input type="radio" name="plan" id="pl_${p.id}" value="${p.id}" ${p.id===defId?'checked':''}><label for="pl_${p.id}"><b>${p.name}</b><span>${brl(p.price)}/mês</span></label></div>`).join('');
-  const combos=Object.entries(COMBOS).map(([k,cb])=>`<div class="opt"><input type="checkbox" id="cb_${k}" value="${k}" ${S.combos[k]?'':'disabled'}><label for="cb_${k}"><b>+ ${cb.name}</b><span>${S.combos[k]?`+${brl(cb.price)}`:`Libera no nível ${cb.level}`}</span></label></div>`).join('');
+  const plans=avail.map(p=>`<div class="opt"><input type="radio" name="plan" id="pl_${p.id}" value="${p.id}" ${p.id===defId?'checked':''}><label for="pl_${p.id}"><b>${p.name}</b><span>${brl(pp(p))}/mês</span></label></div>`).join('');
+  const combos=Object.entries(COMBOS).map(([k,cb])=>`<div class="opt"><input type="checkbox" id="cb_${k}" value="${k}" ${S.combos[k]?'':'disabled'}><label for="cb_${k}"><b>+ ${cb.name}</b><span>${S.combos[k]?`+${brl(cbPrice(k))}`:`Libera no nível ${cb.level}`}</span></label></div>`).join('');
   openModal(head('Porta a porta',`Casa de ${esc(f.name)}`)+`
     <div class="fam"><div class="fam-art">${houseSvg(lot)}</div><dl>
       <div><dt>Moradores</dt><dd>${f.people}</dd></div><div><dt>Perfil</dt><dd>${NEED[f.need]}</dd></div>
@@ -2858,7 +2944,7 @@ document.addEventListener('click',e=>{
   const lotB=e.target.closest('[data-lot]');if(lotB){onLot(+lotB.dataset.lot);return;}
   const sp=e.target.closest('[data-speed]');if(sp){S.speed=+sp.dataset.speed;save(false);renderTop();loop();return;}
   const rp=e.target.closest('[data-rep]');if(rp){const len=S.history.length;let i=repView===null?len:repView;i=clamp(i+(+rp.dataset.rep),0,len);repView=i>=len?null:i;renderReport();return;}
-  const tab=e.target.closest('.tabs [data-tab]');if(tab){setTab(tab.dataset.tab);return;}
+  const pb=e.target.closest('[data-panel]');if(pb){openPanel(pb.dataset.panel);return;}
   const a=e.target.closest('[data-act]');if(!a)return;
   const act=a.dataset.act;
   if(act==='menu')openMenu();
@@ -2889,7 +2975,7 @@ document.addEventListener('click',e=>{
   else if(act==='declareSede')declareSede();
   else if(act==='toggleDone'){showDone=!showDone;renderMissions();}
   else if(act==='focusMap'){if(modalOpen)closeModal();setTab('map');$('#map').scrollIntoView({behavior:'smooth',block:'center'});}
-  else if(act==='goBuilding'){if(modalOpen)closeModal();setTab('building');$('#building').scrollIntoView({behavior:'smooth',block:'start'});}
+  else if(act==='goBuilding'){openPanel('building');}
   else if(act==='build'){const f=FLOORS.find(x=>x.id===a.dataset.f);if(built(f.id))return;if(!spend(f.cost))return;S.floors[f.id]={built:true,team:{}};addXp(30);log(`Andar ${f.name} comprado.`);event(`${f.name} montado`);checkMissions();save(true);renderAll();toast(`${f.name} pronto! Toque em Equipe para contratar.`);}
 });
 document.addEventListener('change',e=>{if(e.target.id==='citySel'&&S){S.ci=+e.target.value;clearDraft&&clearDraft();LSig='';QSig='';QV=null;save(false);renderAll();autoGeo();}});
@@ -3177,7 +3263,7 @@ function renderReal(){
   if(!c.geo){
     const busy=geoBusy.has(c);
     $('#realMap').hidden=true;
-    tools.innerHTML=`<div class="real-empty"><b>${busy?esc(c.geoStep||`Buscando ${c.name} no mapa…`):c.geoError==='offline'?'Sem internet agora':c.geoError==='notfound'?`Não encontrei ${esc(c.name)}${c.uf?'/'+esc(c.uf):''} no mapa`:'Mapa real ainda não carregado'}</b><p class="muted" style="margin:0;max-width:440px">${busy?'Os dados vêm do OpenStreetMap.':c.geoError==='notfound'?'Confira o nome da cidade e o estado.':'O mapa real precisa de internet. Enquanto isso, o jogo funciona nas quadras.'}</p><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${busy?'':`<button class="btn primary small" data-act="geoLoad">Carregar mapa real</button>`}<button class="btn small ghost" data-view="grid">Ver quadras</button></div></div>`;
+    tools.innerHTML=`<div class="real-empty"><b>${busy?esc(c.geoStep||`Buscando ${c.name} no mapa…`):c.geoError==='offline'?'Sem internet agora':c.geoError==='notfound'?`Não encontrei ${esc(c.name)}${c.uf?'/'+esc(c.uf):''} no mapa`:'Mapa real ainda não carregado'}</b><p class="muted" style="margin:0;max-width:440px">${busy?'Os dados vêm do OpenStreetMap.':c.geoError==='notfound'?'Confira o nome da cidade e o estado.':'O mapa real precisa de internet. Enquanto isso, o jogo funciona nas quadras.'}</p><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${busy?'':`<button class="btn primary small" data-act="geoLoad">Carregar mapa real</button>`}</div></div>`;
     return;
   }
   $('#realMap').hidden=false;
@@ -3192,7 +3278,7 @@ function renderReal(){
   }
   const nb=tools.querySelector('[data-act="newTower"]');if(nb)nb.hidden=!!draft;
   const srcTxt={ibge:`Bairros e domicílios oficiais do IBGE, Censo 2022 (${(c.geo.homes||0).toLocaleString('pt-BR')} domicílios).`,cep:`Bairros identificados cruzando as ruas com os CEPs dos Correios (ViaCEP). Domicílios estimados pela população (≈ ${c.geo.homes.toLocaleString('pt-BR')}).`,osm:`Bairros do OpenStreetMap. Domicílios estimados pela população (≈ ${c.geo.homes.toLocaleString('pt-BR')}).`}[c.geo.source||'osm'];
-  $('#geoNote').textContent=(S.phase==='sede'?'Toque no mapa para escolher o ponto exato da sede. ':'Toque em qualquer ponto para ver o bairro e o preço do m². ')+srcTxt;
+  $('#geoNote').textContent=(S.phase==='sede'?'Toque no mapa para escolher o ponto exato da sede. ':'Toque numa quadra para vender e ver os clientes; fora das quadras, veja o bairro e o preço do m². ')+srcTxt;
   if(draft&&!$('#draftPanel').innerHTML)renderDraftPanel(c);
 }
 function drawReal(c,fit){
@@ -3222,7 +3308,7 @@ function drawReal(c,fit){
     if(!QREND)QREND=L.canvas({padding:.3});
     c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT);const st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
       L.polygon(q.poly,{renderer:QREND,color:st,weight:st==='#ffffff'?1:2.5,fillColor:lk.fill,fillOpacity:lk.subs.length?.85:.55})
-      .on('click',ev=>{L.DomEvent.stopPropagation(ev);onMapClick(ev,i);}).addTo(LLayers);});
+      .on('click',ev=>{L.DomEvent.stopPropagation(ev);if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev,i);return;}LM.closePopup();const ql=quadras(c)[i];if(ql)openQuadra(c,ql);}).addTo(LLayers);});
   }
   // quadras do jogo (sem malha de ruas): tamanho e cor pela participação
   if(!hasBlocks(c)&&c.blocksNone)for(const l of c.lots){
@@ -3303,7 +3389,7 @@ document.getElementById('rotOk').onclick=()=>{document.body.classList.add('portr
 function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{if(S&&sp>0&&!modalOpen)tick();loop();},sp>0?1000/sp:500);}
 function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
-  setTab(matchMedia('(orientation:landscape) and (max-height:560px)').matches?'building':'map');
+  setTab('map');
   S=(data&&validSave(data.S))?data.S:loadLocal();
   sbInit();
   if(S){migrate(S);for(const c of S.cities)for(const l of famsOf(c))if(l.st==='pending'&&!l.deal)l.st='none';renderAll();}
