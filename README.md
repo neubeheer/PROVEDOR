@@ -112,6 +112,16 @@ Para ligar, rode de novo o `supabase/schema.sql` no SQL Editor (ele cria a tabel
 - **Nível 100, Marketing → Campanhas para clientes:** clube de vantagens (menos cancelamentos, R$ 1,50 por cliente/mês), indique um amigo (cerca de 1% dos clientes trazem alguém por mês) e migração premiada (1 mês grátis para quem vai para a fibra).
 - Os custos aparecem no relatório do mês como **Promoções**.
 
+## Nova operação (rede independente)
+
+- Com **5.000 assinantes**, o botão **Nova operação** aparece em Expansão. Ele abre uma rede independente em **qualquer município do Brasil**, sem o limite de 200 km.
+- A cidade não se liga à sua rede por enlace: precisa de um **backbone independente de R$ 10 milhões** (+ R$ 25 mil/mês). Estudo de viabilidade, outorga e caixas de rede custam **5 vezes** o normal.
+- Cada nova operação seguinte exige mais 5.000 assinantes (10 mil para a segunda, 15 mil para a terceira…).
+
+## Campanha de meses grátis (Recuperação)
+
+Na equipe da **Recuperação**, uma vez por mês, dá para lançar uma campanha para os inadimplentes: 1, 2 ou 3 meses grátis (cerca de 45%, 60% e 75% aceitam). Quem aceita tem a dívida perdoada, volta a ser assinante, não atrasa durante a carência e depois paga a mensalidade normal.
+
 ## Empresa offline e CEO (nível 22)
 
 - Enquanto você está fora (pelo menos 10 minutos), a empresa rende **10% do saldo do último mês fechado por hora**, até **R$ 10 mil**. Ao voltar, aparece o quanto entrou no caixa.

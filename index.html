@@ -757,8 +757,10 @@ const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900}
 const START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
 const BIG_CITY=50000, REGION_POP=20000;
 const PROMO_LEVEL=100;
+const INDEP_SUBS=5000, INDEP_MUL=5, INDEP_BACKBONE=10000000;
+const GRACE=[{m:1,acc:0.45},{m:2,acc:0.6},{m:3,acc:0.75}];
 const RIVAL_LEVEL=18, OFFLINE_LEVEL=22, OFFLINE_CAP=10000, OFFLINE_MIN_MIN=10, OFFLINE_RATE=0.1, CEO_DIAMONDS=20, CEO_MAX_H=8;
-const CITY_LINKS=[{name:'Enlace de rádio 300 Mega',g:0.3,cost:18000,price:350},{name:'Enlace de rádio 1 Giga',g:1,cost:45000,price:700},{name:'Fibra alugada 10 Gigas',g:10,cost:135000,price:3500},{name:'Backbone próprio 40 Gigas',g:40,cost:375000,price:6000}];
+const CITY_LINKS=[{name:'Enlace de rádio 300 Mega',g:0.3,cost:18000,price:350},{name:'Enlace de rádio 1 Giga',g:1,cost:45000,price:700},{name:'Fibra alugada 10 Gigas',g:10,cost:135000,price:3500},{name:'Backbone próprio 40 Gigas',g:40,cost:375000,price:6000},{name:'Backbone independente 100 Gigas (rede própria)',g:100,cost:10000000,price:25000,indep:true}];
 const NET_FIRST=12000, NET_LAST=1000000, CAREER_COST=22000, PROMO_COST=300, GOALS_AT=5000;
 const BACKBONE_COST=150000, CTO_COST=9000, ONU_COST=350, KIT_COST=1200, DISMANTLE_COST=750, STORE_COST=25000, PARTNER_CASH=25000, PARTNER_PAY=3000;
 const PLANS=[
@@ -1336,7 +1338,7 @@ function monthEnd(){
       if(Math.random()<p){requestCancel(c,l,congP&&Math.random()<0.6?'lenta':reasonFor(c,l,offline,!fib&&overT.has(l.tid)));continue;}
       if(offline)continue;
       let q=0.025;if(effect('crise'))q+=0.05;if(l.fam.need==='budget')q+=0.02;if(l.price>l.fam.budget)q+=0.03;if(S.rep<40)q+=0.01;q-=Math.min(ccOps,4)*0.004;
-      if(Math.random()<q){l.st='late';l.lateSince=S.day;l.debt=0;calNow++;}
+      if(!(l.grace&&l.grace>=m)&&Math.random()<q){l.st='late';l.lateSince=S.day;l.debt=0;calNow++;}
     }
   }
   // parcelas de acordos
@@ -1440,7 +1442,8 @@ function netSteps(c){
   const ps=[24];while(hostsOf(ps[ps.length-1])-12<homes&&ps[ps.length-1]>16)ps.push(ps[ps.length-1]-1);
   const n=ps.length-1,last=NET_LAST*clamp(Math.sqrt(homes/4400),0.35,8);
   const r=n>1?Math.pow(last/NET_FIRST,1/(n-1)):1;
-  return ps.map((p,k)=>({p,cap:k===n?Math.min(homes,hostsOf(p)-12):hostsOf(p)-12,cost:k===0?0:n===1?Math.round(Math.max(NET_FIRST,last*0.3)/100)*100:Math.round(NET_FIRST*Math.pow(r,k-1)/100)*100}));
+  const mul=c.costMul||1;
+  return ps.map((p,k)=>({p,cap:k===n?Math.min(homes,hostsOf(p)-12):hostsOf(p)-12,cost:mul*(k===0?0:n===1?Math.round(Math.max(NET_FIRST,last*0.3)/100)*100:Math.round(NET_FIRST*Math.pow(r,k-1)/100)*100)}));
 }
 function netPrefix(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length-1)].p;}
 function netCap(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length-1)].cap;}
@@ -1619,7 +1622,7 @@ function cityRegions(c){
     let acc=0,k=0,start=regions.length;for(let i=0;i<nR;i++)regions.push({name:c.bairros[b]+(nR>1?` · parte ${i+1}`:''),b,homes:0,n:0});
     for(const q of qs){const idx=start+Math.min(nR-1,Math.floor(acc/(homes/nR||1)));q.r=idx;regions[idx].homes+=q.dom||0;regions[idx].n++;acc+=q.dom||0;}
   }
-  regions.forEach(r=>{r.pop=Math.round(r.homes*PEOPLE_PER_HOME/POT_PER_HOME);r.price=outorgaFor(Math.max(5000,r.pop));});
+  regions.forEach(r=>{r.pop=Math.round(r.homes*PEOPLE_PER_HOME/POT_PER_HOME);r.price=outorgaFor(Math.max(5000,r.pop))*(c.costMul||1);});
   c.regions=regions;c.regionsAt=c.blocksAt;return regions;
 }
 const cityLicensed=c=>!!(c&&(c.outorgaPaid||((c.regionsPaid||[]).length>0)));
@@ -1639,7 +1642,7 @@ function ilinkHtml(c){
   return `<h3 style="font-size:15px;margin:14px 0 6px">Interligação até ${esc(c.name)}</h3>
     <p class="muted" style="font-size:13px;margin:0 0 6px">O backbone que liga a sua rede a esta cidade. Comece com um enlace pequeno e aumente conforme o tráfego cresce. ${cur?`Hoje: ${gb(tr)} de ${gb(cur.g)} (${Math.round(u*100)}%).`:'<b>Sem interligação, ninguém nesta cidade consegue assinar.</b>'}</p>
     ${cur&&u>1?'<div class="notice bad">Interligação estourada: os clientes desta cidade ficam lentos no pico e cancelam mais.</div>':''}
-    <div class="choice-list">${CITY_LINKS.map((x,i)=>`<div class="choice"><div><b>${x.name}</b><small>${brl0(x.cost)} para construir · ${brl0(x.price)}/mês · até ${gb(x.g)}</small></div>${i===c.ilink?'<span class="chip ok">Ativa</span>':i<(c.ilink??-1)?'<span class="chip">Menor</span>':`<button class="btn small ${i===(c.ilink??-1)+1?'primary':''}" data-ilink="${i}">Construir</button>`}</div>`).join('')}</div>`;
+    ${c.indep?'<div class="notice warn">Cidade de <b>rede independente</b>: ela não se liga à sua rede por enlace. Precisa do backbone próprio.</div>':''}<div class="choice-list">${CITY_LINKS.map((x,i)=>(!!x.indep!==!!c.indep)?'':`<div class="choice"><div><b>${x.name}</b><small>${brl0(x.cost)} para construir · ${brl0(x.price)}/mês · até ${gb(x.g)}</small></div>${i===c.ilink?'<span class="chip ok">Ativa</span>':i<(c.ilink??-1)?'<span class="chip">Menor</span>':`<button class="btn small ${i===(c.ilink??-1)+1?'primary':''}" data-ilink="${i}">Construir</button>`}</div>`).join('')}</div>`;
 }
 function signupBlock(c){
   if(!S.sede)return 'sede';
@@ -2398,7 +2401,7 @@ async function validateCity(name,uf){
 }
 async function cityPopulation(c){
   if(!c.ibgeCode)return;const m=await ibgePops([c.ibgeCode]);const v=m[c.ibgeCode];
-  if(v){c.pop=v;c.popOk=true;if(!c.outorgaPaid)c.outorga=outorgaFor(v);save(false);renderAll();}
+  if(v){c.pop=v;c.popOk=true;if(!c.outorgaPaid)c.outorga=outorgaFor(v)*(c.costMul||1);save(false);renderAll();}
 }
 const kmBetween=(a,b)=>Math.hypot((a.lon-b.lon)*mPerLon((a.lat+b.lat)/2),(a.lat-b.lat)*mPerLat)/1000;
 /* Sede de cada município do Brasil (código IBGE, nome, lat, lon): data/municipios.json, guardado offline. */
@@ -2421,11 +2424,46 @@ async function loadNear(c){
   const out=list.sort((a,b)=>a.km-b.km);
   c.near={at:Date.now(),km:EXPAND_KM,list:out};save(false);return out;
 }
+/* Nova operação: com INDEP_SUBS assinantes (mais INDEP_SUBS a cada operação já aberta), qualquer município do Brasil,
+   sem o limite de distância. É uma rede por fora: backbone próprio de R$ 10 milhões e estudo, outorga e caixas INDEP_MUL vezes mais caros. */
+const indepCount=()=>S.cities.filter(c=>c.indep).length;
+const indepReq=()=>INDEP_SUBS*(1+indepCount());
+function indepBlockHtml(){const n=allClients(),req=indepReq();
+  return n>=req?`<div class="notice ok"><b>Nova operação liberada.</b> Com ${n.toLocaleString('pt-BR')} assinantes, você pode abrir uma rede independente em qualquer cidade do Brasil, sem limite de distância. Backbone próprio de ${brl0(INDEP_BACKBONE)}; estudo, outorga e caixas de rede ${INDEP_MUL}× mais caros.<div style="margin-top:8px"><button class="btn small primary" data-act="indep">Nova operação</button></div></div>`
+    :`<div class="notice">Com <b>${req.toLocaleString('pt-BR')} assinantes</b> libera a <b>nova operação</b>: uma rede independente em qualquer cidade do Brasil (hoje: ${n.toLocaleString('pt-BR')}).</div>`;}
+function openIndep(){
+  const n=allClients(),req=indepReq();if(n<req){toast(`A nova operação exige ${req.toLocaleString('pt-BR')} assinantes.`);return;}
+  openModal(head('Expansão','Nova operação')+`<p>Escolha qualquer município do Brasil. A cidade nova não se liga à sua rede: ela tem backbone próprio de <b>${brl0(INDEP_BACKBONE)}</b>, e o estudo, a outorga e as caixas de rede custam <b>${INDEP_MUL} vezes mais</b>.</p>
+    <div class="field"><label for="ipQ">Cidade</label><input class="input" id="ipQ" maxlength="40" placeholder="Digite pelo menos 3 letras. Ex.: Campinas" autocomplete="off"></div>
+    <div class="city-list" id="ipList"><div class="notice">Digite o nome da cidade.</div></div>`,m=>{
+    const box=m.querySelector('#ipList'),inp=m.querySelector('#ipQ');let mun=null;
+    const owned=x=>S.cities.some(c=>c.ibgeCode===x.code);
+    const draw=async()=>{const q=normName(inp.value||'');if(q.length<3){box.innerHTML='<div class="notice">Digite pelo menos 3 letras.</div>';return;}
+      try{mun=mun||await municipiosBR();}catch(e){box.innerHTML='<div class="notice bad">Não deu para carregar a lista de municípios.</div>';return;}
+      const rows=[...mun.values()].filter(x=>normName(x.n).includes(q)&&!owned(x)).slice(0,40);
+      box.innerHTML=rows.length?rows.map(x=>`<div class="choice"><div><b>${esc(x.n)} / ${esc(x.uf)}</b><small>Código IBGE ${x.code}</small></div><button class="btn small" data-ip="${x.code}">Ver custos</button></div>`).join(''):'<div class="notice">Nenhuma cidade com esse nome (ou você já atende).</div>';
+      box.querySelectorAll('[data-ip]').forEach(b=>b.onclick=()=>indepConfirm(mun.get(b.dataset.ip)));};
+    inp.oninput=draw;
+  });
+}
+async function indepConfirm(x){
+  if(!x)return;let pop=0;try{pop=(await ibgePops([x.code]))[x.code]||0;}catch(e){}
+  const p=pop||8000,big=p>=BIG_CITY,st=studyFor(p)*INDEP_MUL,out=outorgaFor(big?REGION_POP:p)*INDEP_MUL;
+  openModal(head('Nova operação',esc(x.n)+' / '+esc(x.uf))+`<div class="kpis"><div class="kpi"><span>Habitantes</span><b>${pop?pop.toLocaleString('pt-BR'):'?'}</b></div><div class="kpi"><span>Estudo</span><b>${brl0(st)}</b></div><div class="kpi"><span>Outorga</span><b>${big?'a partir de ':''}${brl0(out)}</b></div></div>
+    <dl class="finance"><dt>Estudo de viabilidade (agora)</dt><dd>${brl0(st)}</dd><dt>Outorga${big?' por região':''}</dt><dd>${brl0(out)}</dd><dt>Backbone independente (100 Gigas)</dt><dd>${brl0(INDEP_BACKBONE)} + ${brl0(25000)}/mês</dd><dt>Caixas de rede</dt><dd>${INDEP_MUL}× o preço normal</dd></dl>
+    <p class="muted" style="font-size:13px;margin-top:10px">Agora você paga só o estudo. Depois vêm a outorga e o backbone (Rede → Interligação), e só então a cidade vende.</p>
+    <div class="foot"><span>Caixa: <b>${brl0(S.money)}</b></span><button class="btn primary" id="ipGo">Abrir operação · ${brl0(st)}</button></div>`,m=>{
+    m.querySelector('#ipGo').onclick=()=>{if(allClients()<indepReq()||S.cities.some(c=>c.ibgeCode===x.code))return;if(!spend(st))return;
+      const c=makeCity(x.n,x.uf,S.cities.length);c.indep=true;c.costMul=INDEP_MUL;c.pop=p;c.popOk=!!pop;c.outorga=outorgaFor(p)*INDEP_MUL;c.ibgeCode=x.code;c.hint={lat:x.lat,lon:x.lon};
+      S.cities.push(c);S.ci=S.cities.length-1;geoLoad(c,{rename:true});addXp(200);log(`Nova operação: rede independente em ${x.n}/${x.uf}. Estudo de viabilidade: ${brl0(st)}.`);event(`Nova operação em ${x.n}`);checkMissions();save(true);
+      if(!pop)cityPopulation(c);openOutorga(S.ci);};
+  });
+}
 function expandReq(){const n=S.cities.length;return n>=3?1000*(n-2):0;}
 function openNewCity(){
   if(levelOf(S.xp)<EXPAND_LEVEL){toast(`A expansão libera no nível ${EXPAND_LEVEL}.`);return;}
   const owned=S.cities,reqSubs=expandReq(),nExp=S.cities.length;
-  if(allClients()<reqSubs){openModal(head('Expansão',`${nExp}ª expansão`)+`<div class="notice bad">A ${nExp}ª expansão exige <b>${reqSubs.toLocaleString('pt-BR')} assinantes</b>. Hoje você tem ${allClients().toLocaleString('pt-BR')}.</div><p class="muted">Cresça a base nas cidades que já atende: amplie a rede, leve fibra e use o Comercial e o Marketing.</p>`);return;}
+  if(allClients()<reqSubs){openModal(head('Expansão',`${nExp}ª expansão`)+`<div class="notice bad">A ${nExp}ª expansão exige <b>${reqSubs.toLocaleString('pt-BR')} assinantes</b>. Hoje você tem ${allClients().toLocaleString('pt-BR')}.</div><p class="muted">Cresça a base nas cidades que já atende: amplie a rede, leve fibra e use o Comercial e o Marketing.</p>${indepBlockHtml()}`);return;}
   const isOwned=x=>owned.some(c=>(x.code&&c.ibgeCode===x.code)||(normName(c.name)===normName(x.n)&&(c.uf||'')===(x.uf||'')));
   let all=null,err='';
   const draw=m=>{
@@ -2457,7 +2495,7 @@ function openNewCity(){
     if(!x.ok&&x.code)cityPopulation(c);
     openOutorga(S.ci);
   };
-  openModal(head('Expansão',`Cidades até ${EXPAND_KM} km`)+`<p>Cidades de verdade a até ${EXPAND_KM} km de alguma cidade que você já atende. Cada cidade nova abre mais ${EXPAND_KM} km a partir dela. Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga.</p>
+  openModal(head('Expansão',`Cidades até ${EXPAND_KM} km`)+`${indepBlockHtml()}<p>Cidades de verdade a até ${EXPAND_KM} km de alguma cidade que você já atende. Cada cidade nova abre mais ${EXPAND_KM} km a partir dela. Quanto maior a cidade, mais caros o estudo de viabilidade e a outorga.</p>
     <div class="field"><label for="ncQ">Filtrar pelo nome</label><input class="input" id="ncQ" maxlength="40" placeholder="Ex.: Bauru" autocomplete="off"></div>
     <div class="city-list" id="ncList"></div>
     <div class="foot"><span>Caixa: <b>${brl0(S.money)}</b></span><span class="muted" style="font-size:12.5px">Distância a partir da cidade mais próxima que você já atende.</span></div>`,m=>{
@@ -2651,7 +2689,7 @@ function openTeam(id){
   openModal(head(`${f.annex?'Galpão':floorLabel(f)} · ${f.name}`,'Equipe')+`<div class="kpis"><div class="kpi"><span>Pessoas</span><b>${hc}/${capN}</b></div><div class="kpi"><span>Eficiência</span><b>${hc?Math.round(e*100)+'%':'—'}</b></div><div class="kpi"><span>Folha</span><b>${brl0(rolesSum(f))}</b></div></div>
     ${iss.length?`<div class="notice warn">Falta gente na liderança: ${iss.join(' e ')}. A eficiência do setor cai.</div>`:''}
     ${hc>=capN?`<div class="notice bad">Limite de ${capN} pessoas por setor. ${built('rh')?'Contrate mais analistas de RH para abrir vagas.':'Monte o RH para abrir mais vagas.'}</div>`:''}
-    ${id==='comercial'?salesTechHtml()+promoHtml():''}${rows}${partners}${careerHtml(id)}
+    ${id==='comercial'?salesTechHtml()+promoHtml():''}${id==='recuperacao'?graceHtml():''}${rows}${partners}${careerHtml(id)}
     <p class="muted" style="font-size:12.5px;margin-top:8px">Regras: 1 supervisor para cada 5 operadores; com 8 pessoas ou mais, o setor precisa de um gerente. Todo mês alguém pode pedir demissão, menos com RH. Cada contratação fica mais cara conforme a empresa cresce.</p>`,m=>{
     m.querySelectorAll('[data-stech]').forEach(b=>b.onclick=()=>{S.salesTech=b.dataset.stech;log(`Comercial passa a vender ${STECH[S.salesTech].toLowerCase()}.`);save(true);openTeam(id);});
     m.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{if(headcount(id)>=sectorCap())return;const k=b.dataset.add;if(!spend(hireCost()))return;t[k]=(t[k]||0)+1;S.floors[id].team=t;if(id==='retencao'&&k==='op')S.retCap=(S.retCap||0)+5;log(`Contratou ${R[k].t} no ${f.name}.`);event(`Contratou ${R[k].t} (${f.name})`);save(true);openTeam(id);});
@@ -2665,6 +2703,19 @@ function openTeam(id){
     if(pr)pr.onclick=()=>{if(!S.partners)return;if(!spend(PARTNER_CASH))return;S.partners--;log('Um sócio saiu e recebeu o capital de volta.');save(true);openTeam(id);};
   });
 }
+function lateFams(){const out=[];for(const c of S.cities)for(const l of famsOf(c))if(l.st==='late'||l.st==='suspended')out.push([c,l]);return out;}
+function graceHtml(){
+  const L=lateFams(),debt=L.reduce((t,[,l])=>t+(l.debt||0),0),avg=L.length?L.reduce((t,[,l])=>t+(l.price||0),0)/L.length:0,done=S.graceM===monthOf(S.day);
+  return `<h3 style="font-size:15px;margin:14px 0 6px">Campanha: meses grátis para voltar</h3>
+    <p class="muted" style="font-size:13px;margin:0 0 6px">Para não perder o cliente, a empresa perdoa a dívida e dá alguns meses grátis. Quem aceita volta a ser assinante, não atrasa durante a carência e depois volta a pagar a mensalidade normal. Uma campanha por mês.</p>
+    <div class="kpis"><div class="kpi"><span>Inadimplentes</span><b>${L.length}</b></div><div class="kpi"><span>Dívida total</span><b>${brl0(debt)}</b></div><div class="kpi"><span>Mensalidade média</span><b>${brl0(avg)}</b></div></div>
+    ${done?'<div class="notice">Campanha deste mês já feita. Volte no próximo mês.</div>':L.length?`<div class="choice-list">${GRACE.map(g=>`<div class="choice"><div><b>${g.m} ${g.m>1?'meses grátis':'mês grátis'}</b><small>Cerca de ${Math.round(g.acc*100)}% aceitam (≈ ${Math.round(L.length*g.acc)} clientes) · deixa de entrar ≈ ${brl0(L.length*g.acc*avg*g.m)} em mensalidades, e a dívida deles é perdoada.</small></div><button class="btn small primary" data-grace="${g.m}">Lançar</button></div>`).join('')}</div>`:'<div class="notice ok">Nenhum inadimplente agora.</div>'}`;
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-grace]');if(!b||!S)return;const g=GRACE.find(x=>x.m===+b.dataset.grace);const m=monthOf(S.day);if(!g||S.graceM===m)return;
+  let won=0,forgiven=0;for(const [c,l] of lateFams())if(Math.random()<g.acc){forgiven+=l.debt||0;l.st='client';delete l.debt;delete l.lateSince;l.disc={pct:1,until:m+g.m-1};l.grace=m+g.m-1;won++;}
+  S.graceM=m;S.cur.graca=(S.cur.graca||0)+won;S.cur.perdoado=(S.cur.perdoado||0)+forgiven;
+  log(`Campanha de ${g.m} ${g.m>1?'meses grátis':'mês grátis'}: ${won} inadimplente(s) voltaram a ser assinantes; ${brl0(forgiven)} de dívida perdoada.`);event(`Recuperação: ${won} cliente(s) voltaram com ${g.m} mês(es) grátis`);
+  toast(`${won} cliente(s) voltaram a ser assinantes.`);save(true);renderAll();openTeam('recuperacao');});
 const STECH={both:'Rádio e fibra',radio:'Só rádio',fiber:'Só fibra'};
 function salesTechHtml(){const t=salesTech(),fib=S.cities.some(c=>c.fiber&&c.fiber.on);
   return `<div class="field"><label>O que os vendedores oferecem</label><div class="seg">${Object.entries(STECH).map(([k,v])=>`<button data-stech="${k}" aria-pressed="${t===k}">${v}</button>`).join('')}</div>
@@ -3147,6 +3198,7 @@ document.addEventListener('click',e=>{
   if(act==='menu')openMenu();
   else if(act==='levels')openLevels();
   else if(act==='bank')openBank();
+  else if(act==='indep')openIndep();
   else if(act==='rivals'){if(LM)LM.closePopup();openRivals();}
   else if(act==='team')openTeam(a.dataset.f);
   else if(act==='servers')openServers();
@@ -3336,7 +3388,7 @@ async function geoLoad(c,opts={}){
     c.geo=geo;setQuadraHomes(c,geo.homes);
     if(rename){geo.bairros.forEach((b,j)=>{c.bairros[j]=b.name;});c.namesAuto=true;}
     const pop=geo.source==='ibge'?geo.pop:(g&&g.pop);
-    if(pop&&!c.popOk){c.pop=pop;if(!c.outorgaPaid)c.outorga=outorgaFor(pop);}
+    if(pop&&!c.popOk){c.pop=pop;if(!c.outorgaPaid)c.outorga=outorgaFor(pop)*(c.costMul||1);}
     const src={ibge:`${geo.nBairros} bairros oficiais do IBGE (Censo 2022)`,cep:'bairros cruzando ruas com os CEPs',osm:'bairros do OpenStreetMap'}[geo.source];
     log(`Mapa real de ${c.name}: ${src}, ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
     toast(`Mapa de ${c.name} carregado: ${src}.`);
