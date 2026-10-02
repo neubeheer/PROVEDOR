@@ -114,9 +114,13 @@ Para ligar, rode de novo o `supabase/schema.sql` no SQL Editor (ele cria a tabel
 
 ## Nova operação (rede independente)
 
-- Com **5.000 assinantes**, o botão **Nova operação** aparece em Expansão. Ele abre uma rede independente em **qualquer município do Brasil**, sem o limite de 200 km.
+- O botão **🌎 Expandir** fica fixo no topo do mapa (a partir do nível 4). Com **5.000 assinantes**, ele mostra **nova operação** e, dentro da Expansão, aparece o botão **Nova operação**. Ele abre uma rede independente em **qualquer município do Brasil**, sem o limite de 200 km.
 - A cidade não se liga à sua rede por enlace: precisa de um **backbone independente de R$ 10 milhões** (+ R$ 25 mil/mês). Estudo de viabilidade, outorga e caixas de rede custam **5 vezes** o normal.
 - Cada nova operação seguinte exige mais 5.000 assinantes (10 mil para a segunda, 15 mil para a terceira…).
+
+## Link de internet acima de 100 Gigas
+
+Depois do link de 100 Gigas vêm novas **rotas de saída**, cada uma com uma construção única e o bloco de IP público correspondente: 200 Gigas (2ª rota, R$ 100 milhões), 400 Gigas (3ª rota e ASN próprio, R$ 200 milhões), 800 Gigas (rota internacional, R$ 400 milhões) e 1,6 Tera (ponto de troca de tráfego, R$ 800 milhões). Depois de construída, a rota fica sua: dá para trocar de link sem pagar de novo. As interligações entre cidades também ganham o Backbone DWDM de 100 Gigas (R$ 5 milhões) e de 400 Gigas (R$ 20 milhões).
 
 ## Campanha de meses grátis (Recuperação)
 
