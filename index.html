@@ -140,6 +140,12 @@ button.stat:hover{background:#34464e}
 .sede-bar p{margin:0;font-size:14px}
 .sede-actions{display:flex;flex-wrap:wrap;gap:6px}
 .map-wrap{max-width:640px;margin:0 auto}
+.map.lockmode{display:grid;grid-template-columns:1fr;grid-template-rows:1fr;place-items:center;background:#e7ede4;background-image:none;padding:20px}
+.qlock{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;max-width:380px}
+.qlock b{font-size:16px}
+.qlock p{margin:0;font-size:13.5px;color:#4a5a62}
+.spin{width:34px;height:34px;border-radius:50%;border:4px solid #cfdccb;border-top-color:var(--signal);animation:spin 0.9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 .map.svgmode{display:block;padding:0;background:#dfe6dc;background-image:none;overflow:hidden;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
 .map.svgmode.dragging{cursor:grabbing}
 .map.svgmode svg.qboard{display:block;width:100%;height:100%}
@@ -1015,7 +1021,7 @@ function netPrefix(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length
 function netCap(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length-1)].cap;}
 function netUsed(c){return famsOf(c).filter(f=>isSub(f)||f.st==='pending').length;}
 const netFull=c=>netUsed(c)>=netCap(c);
-function saleBlock(c){return signupBlock(c)||(netFull(c)?'rede':null);}
+function saleBlock(c){return signupBlock(c)||(needsBlocks(c)?'quadras':null)||(netFull(c)?'rede':null);}
 function ipStr(c,off){return `10.${c.idx+1}.${off>>8}.${off&255}`;}
 function radioFiber(c){let r=0,f=0;for(const l of famsOf(c))if(isSub(l)){if(l.tech==='fiber')f++;else r++;}return {r,f};}
 function openNet(ci){
@@ -1321,12 +1327,14 @@ function renderMap(){
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
   $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
-  $('#sedeBar').innerHTML=sedeMode&&c.geo&&(mapView==='real'||hasBlocks(c))?`<div class="sede-bar"><p><b>Onde fica a sede?</b> ${sedePick?`Local escolhido: <b>${esc(sedePick.name||'buscando o bairro…')}</b>${sedePick.road?` · ${esc(sedePick.road)}`:''}`:(mapView==='real'?'Toque no mapa no ponto exato do prédio.':'Toque na quadra onde fica o prédio.')}</p>
-     <div class="sede-actions"><button class="btn small primary" data-act="declareSede" ${sedePick?'':'disabled'}>Declarar sede aqui</button></div></div>`:sedeMode?`<div class="sede-bar"><p><b>Onde fica a sede?</b> Toque num bairro do mapa. Selecionado: <b>${esc(c.bairros[selBairro])}</b></p>
+  $('#sedeBar').innerHTML=sedeMode&&c.geo&&(mapView==='real'||hasBlocks(c)||needsBlocks(c))?`<div class="sede-bar"><p><b>Onde fica a sede?</b> ${sedePick?`Local escolhido: <b>${esc(sedePick.name||'buscando o bairro…')}</b>${sedePick.road?` · ${esc(sedePick.road)}`:''}`:(mapView==='real'?'Toque no mapa no ponto exato do prédio.':hasBlocks(c)?'Toque na quadra onde fica o prédio.':'Abra o Mapa real e toque no ponto exato do prédio.')}</p>
+     <div class="sede-actions">${mapView!=='real'&&!hasBlocks(c)?'<button class="btn small ghost" data-view="real">Abrir Mapa real</button>':''}<button class="btn small primary" data-act="declareSede" ${sedePick?'':'disabled'}>Declarar sede aqui</button></div></div>`:sedeMode?`<div class="sede-bar"><p><b>Onde fica a sede?</b> Toque num bairro do mapa. Selecionado: <b>${esc(c.bairros[selBairro])}</b></p>
      <div class="sede-actions"><button class="btn small ghost" data-act="bairros">Nomes dos bairros</button><button class="btn small primary" data-act="declareSede">Declarar sede aqui</button></div></div>`:'';
   const overT=new Set(c.towers.filter(t=>towerLoad(c,t)>cap()).map(t=>t.id));
   const mapEl=$('#map');
-  if(hasBlocks(c)&&c.geo){renderBoard(c,overT,sedeMode);return;}
+  if(hasBlocks(c)&&c.geo){mapEl.classList.remove('lockmode');renderBoard(c,overT,sedeMode);return;}
+  if(needsBlocks(c)){mapEl.classList.remove('svgmode');mapEl.classList.add('lockmode');QSig='';mapEl.innerHTML=lockHtml(c);return;}
+  mapEl.classList.remove('lockmode');
   if(mapEl.classList.contains('svgmode')){mapEl.classList.remove('svgmode');QSig='';}
   const lots=c.lots.map((l,i)=>{
     const col=l.x+Math.floor(l.x/3)+1,row=l.y+Math.floor(l.y/3)+1;
@@ -1366,6 +1374,13 @@ function quadraLook(c,q,overT){
   return {fill,cls,subs,sh,cov,fib};
 }
 function sectorPath(cx,cy,az,beam,r){if(!beam||beam>=360)return `M${cx-r} ${cy}a${r} ${r} 0 1 0 ${2*r} 0a${r} ${r} 0 1 0 ${-2*r} 0Z`;const n=Math.max(8,Math.round(beam/6));let d=`M${cx} ${cy}`;for(let i=0;i<=n;i++){const a=(az-beam/2+beam*i/n)*Math.PI/180;d+=`L${(cx+Math.sin(a)*r).toFixed(1)} ${(cy-Math.cos(a)*r).toFixed(1)}`;}return d+'Z';}
+function lockHtml(c){
+  const busy=blockBusy.has(c)||geoBusy.has(c),st=BSTAT.get(c),off=!navigator.onLine;
+  const secs=st&&st.next?Math.max(0,Math.ceil((st.next-Date.now())/1000)):0;
+  const title=!c.geo?(geoBusy.has(c)?(c.geoStep||`Procurando ${c.name} no mapa…`):off?'Sem internet agora':'Mapa da cidade ainda não carregado'):busy?`Rastreando as ruas e quadras de ${c.name}…`:off?'Sem internet agora':`Servidor de mapas ocupado`;
+  const sub=!c.geo&&!geoBusy.has(c)?'O tabuleiro de quadras é desenhado a partir do mapa real da cidade.':busy?'O jogo baixa as ruas do OpenStreetMap e desenha cada quarteirão. Leva alguns segundos.':off?'As quadras aparecem assim que a conexão voltar.':`Nova tentativa ${secs?`em ${secs} s`:'agora'}${st?` (tentativa ${st.n+1})`:''}.`;
+  return `<div class="qlock" role="status">${busy?'<span class="spin" aria-hidden="true"></span>':''}<b>${esc(title)}</b><p>${sub}</p><p class="muted" style="font-size:12px">As quadras só aparecem depois do rastreamento das ruas. Enquanto isso, a sede e as torres podem ser escolhidas no Mapa real.</p>${busy?'':`<button class="btn small primary" data-act="blocksRetry">${c.geo?'Tentar agora':'Carregar mapa'}</button>`}</div>`;
+}
 function renderBoard(c,overT,sedeMode){
   const el=$('#map');
   if(!QV||QV.city!==c.idx+':'+c.blocksAt)fitBoard(c);
@@ -1483,28 +1498,34 @@ function rehomeFamilies(c,blocks){
     if(o.t==='house'&&!o.poly)o.fams=[];}
   return moved;
 }
+const BSTAT=new Map();
+const needsBlocks=c=>!!c&&!hasBlocks(c)&&!c.blocksNone;
+function retryBlocks(c,why){const st=BSTAT.get(c)||{n:0};st.n++;st.err=why;const wait=Math.min(60000,4000*Math.pow(2,st.n-1));st.next=Date.now()+wait;clearTimeout(st.t);st.t=setTimeout(()=>{if(S&&needsBlocks(c)&&navigator.onLine)loadBlocks(c);},wait);BSTAT.set(c,st);}
 async function loadBlocks(c){
   if(!c||!c.geo||blockBusy.has(c)||!navigator.onLine)return;
-  blockBusy.add(c);c.geoStep='Desenhando as quadras pelas ruas…';
+  const st0=BSTAT.get(c);if(st0)clearTimeout(st0.t);
+  blockBusy.add(c);c.geoStep='Desenhando as quadras pelas ruas…';renderMap();
   try{
     const R=Math.round(clamp(c.geo.side*0.6,2000,c.pop>200000?2500:4000));
     const ar=`(around:${R},${c.geo.lat.toFixed(6)},${c.geo.lon.toFixed(6)})`;
     const r=await overpass(`[out:json][timeout:60];(way${ar}[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|pedestrian|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];way${ar}[railway=rail];);out geom;`,60000);
+    if(r.remark&&/error|timed out|timeout/i.test(r.remark))throw new Error(r.remark);
+    if(!(r.elements||[]).some(e=>e.type==='way'))throw new Error('sem ruas na resposta');
     const faces=streetFaces(r.elements||[],c.geo.lat,c.geo.lon)
       .filter(f=>f.area>=500&&f.area<=60000&&f.area/(f.per*f.per)>0.018&&Math.hypot(f.cx,f.cy)<=R*1.05)
       .sort((a,b)=>Math.hypot(a.cx,a.cy)-Math.hypot(b.cx,b.cy)).slice(0,1500);
-    if(faces.length<6){c.blocksTried=Date.now();return;}
+    if(faces.length<6){c.blocksNone=true;log(`${c.name}: o OpenStreetMap não tem ruas suficientes para desenhar as quadras. Usando o tabuleiro simples.`);save(true);return;}
     const kx=mPerLon(c.geo.lat);
     const blocks=faces.map((f,i)=>{const la=c.geo.lat+f.cy/mPerLat,lo=c.geo.lon+f.cx/kx;const g=geoToGrid(c.geo,la,lo);
       return {id:i,t:'house',x:+(g.x-.5).toFixed(4),y:+(g.y-.5).toFixed(4),area:Math.round(f.area),poly:simplifyRing(f.pts,1.5).map(([x,y])=>[+(c.geo.lat+y/mPerLat).toFixed(6),+(c.geo.lon+x/kx).toFixed(6)]),dom:0,fams:[]};});
     blockHomes(c,blocks);
     for(const q of blocks){q.b=blockBairro(c,q);delete q.ib;}
     const moved=rehomeFamilies(c,blocks);
-    c.blocks=blocks;c.blocksAt=Date.now();delete c.blocksTried;QV=null;QSig='';
+    c.blocks=blocks;c.blocksAt=Date.now();delete c.blocksTried;BSTAT.delete(c);QV=null;QSig='';
     log(`${c.name}: ${blocks.length} quadras desenhadas pelas ruas do OpenStreetMap, ${cityHomes(c).toLocaleString('pt-BR')} domicílios${moved?`, ${moved} cliente(s) e pendência(s) mantidos`:''}.`);
     toast(`${blocks.length} quadras reais de ${c.name} no tabuleiro.`);
     save(true);
-  }catch(e){c.blocksTried=Date.now();}
+  }catch(e){c.blocksTried=Date.now();retryBlocks(c,navigator.onLine?'busy':'offline');}
   finally{blockBusy.delete(c);c.geoStep='';LSig='';QSig='';renderAll();}
 }
 
@@ -1517,7 +1538,7 @@ function tutSteps(){
     {id:'outorga',t:`Peça a outorga de ${esc(c0.name)}`,d:`Com o CNPJ pronto, pague a outorga da Anatel para prestar serviço de internet na cidade (${brl0(c0.outorga)}).`,done:c0.outorgaPaid,act:'outorga',btn:'Comprar outorga'},
     {id:'licenca',t:'Faça o licenciamento',d:busy('alvara')?'Alvará em andamento. Deixe o relógio correr alguns dias.':'Peça o <b>alvará da prefeitura</b>. É a licença para funcionar no endereço e instalar torres.',done:docsDone(),act:'docs',btn:'Licenciamento'},
     {id:'torre',t:'Suba e configure a primeira torre',d:draft&&!draft.picking?'Escolha o terreno, a antena e gire o leque para as casas. Depois, na configuração: modo <code>AP</code>, um SSID, IP <code>10.1.0.2</code>, máscara <code>255.255.255.0</code> e gateway <code>10.1.0.1</code>.':'No <b>Mapa real</b>, toque em <b>+ Nova torre</b> e escolha um terreno perto das casas. A ficha técnica da configuração ajuda no rádio.',done:S.towersBuilt>=1,act:c0.geo?'newTowerReal':'focusMap',btn:'+ Nova torre'},
-    {id:'cliente',t:'Consiga o primeiro cliente',d:'Toque numa quadra com sinal (verde-água) e bata na porta. Escolha um plano que caiba no bolso da família.',done:S.signed>=1,act:'focusMap',btn:'Ir para o mapa'},
+    {id:'cliente',t:'Consiga o primeiro cliente',d:needsBlocks(c0)?'Aguardando o rastreamento das quadras da cidade. Assim que elas aparecerem, toque numa quadra com sinal e bata na porta.':'Toque numa quadra com sinal (verde-água) e bata na porta. Escolha um plano que caiba no bolso da família.',done:S.signed>=1,act:'focusMap',btn:'Ir para o mapa'},
   ];
 }
 function renderTut(){
@@ -1872,6 +1893,7 @@ function openCombo(k){
 }
 function blockNotice(c,why){
   if(why==='outorga')return `<div class="notice bad">Falta a outorga de ${esc(c.name)} (${brl0(c.outorga)}).<br><button class="btn small primary" data-act="outorga" style="margin-top:6px">Comprar outorga</button></div>`;
+  if(why==='quadras')return `<div class="notice warn">As quadras de ${esc(c.name)} ainda estão sendo rastreadas pelo mapa. As vendas voltam assim que elas aparecerem.</div>`;
   if(why==='rede')return `<div class="notice bad">A rede de ${esc(c.name)} está cheia (${netCap(c).toLocaleString('pt-BR')} assinantes no bloco /${netPrefix(c)}).<br><button class="btn small primary" data-act="net" style="margin-top:6px">Comprar a próxima caixa</button></div>`;
   if(why==='cnpj')return `<div class="notice bad">Abra a empresa primeiro: contrato social e CNPJ.<br><button class="btn small primary" data-act="docs" style="margin-top:6px">Abrir a empresa</button></div>`;
   if(why==='docs')return `<div class="notice bad">Falta o licenciamento: alvará da prefeitura.<br><button class="btn small primary" data-act="docs" style="margin-top:6px">Ver documentos</button></div>`;
@@ -2393,6 +2415,7 @@ document.addEventListener('click',e=>{
   else if(act==='fiber')openFiber();
   else if(act==='coins')openCoins();
   else if(act==='docs')openDocs();
+  else if(act==='blocksRetry'){const c=city();if(!c.geo)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else loadBlocks(c);}
   else if(act==='net')openNet();
   else if(act==='link')openLink();
   else if(act==='migSector')openMigSector();
@@ -2415,7 +2438,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen&&$('#moda
 
 /* ===================== Mapa real (OpenStreetMap) ===================== */
 const NOMI='https://nominatim.openstreetmap.org';
-const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 const PEOPLE_PER_HOME=2.8, EQUIP_COST=2000;
 const TOWER_SIZES=[{m2:150,h:18,km:0.8},{m2:300,h:30,km:1.3},{m2:600,h:45,km:2.0}];
 const BEAMS=[60,90,120];
@@ -2741,7 +2764,7 @@ function drawReal(c,fit){
       .on('click',ev=>{L.DomEvent.stopPropagation(ev);onMapClick(ev,i);}).addTo(LLayers);});
   }
   // quadras do jogo (sem malha de ruas): tamanho e cor pela participação
-  if(!hasBlocks(c))for(const l of c.lots){
+  if(!hasBlocks(c)&&c.blocksNone)for(const l of c.lots){
     if(l.t!=='house')continue;const hr=rng(hash(c.name+':'+l.x+':'+l.y)),g=gridToGeo(c.geo,l.x+0.5+(hr()-.5)*.6,l.y+0.5+(hr()-.5)*.6);
     const fs=l.fams||[],subs=fs.filter(isSub),sh=l.dom?subs.length/l.dom:0,cov=coverOf(c,l)||fiberAt(c,l),late=fs.some(f=>f.st==='late'||f.st==='suspended');
     L.circleMarker([g.lat,g.lon],{radius:4+Math.round(sh*9),color:'#fff',weight:1.5,fillColor:late?'#cf3b3b':subs.some(f=>f.tech==='fiber')?'#e5a21e':subs.length?'#0f9a8d':cov?'#7dcfae':'#9aa59a',fillOpacity:subs.length?1:.8})
@@ -2789,7 +2812,7 @@ let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;});
 window.addEventListener('appinstalled',()=>{deferredInstall=null;toast('App instalado!');});
 function setOnline(){document.body.classList.toggle('is-offline',!navigator.onLine);}
-window.addEventListener('online',()=>{setOnline();});
+window.addEventListener('online',()=>{setOnline();if(S)autoGeo();});
 window.addEventListener('offline',()=>{setOnline();toast('Sem internet: o jogo continua e salva no aparelho.');});
 window.addEventListener('pagehide',()=>{if(S)save(false);});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&S)save(false);});
@@ -2815,7 +2838,7 @@ if('serviceWorker' in navigator&&location.protocol!=='file:'){
 }
 setOnline();
 function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{if(S&&sp>0&&!modalOpen)tick();loop();},sp>0?1000/sp:500);}
-function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&!hasBlocks(c)&&!geoBusy.has(c)&&navigator.onLine&&(!c.blocksTried||Date.now()-c.blocksTried>600000))loadBlocks(c);}
+function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
   setTab('map');
   S=(data&&validSave(data.S))?data.S:loadLocal();

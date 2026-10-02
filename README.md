@@ -84,7 +84,8 @@ O jogo abre no **Mapa real** da cidade (OpenStreetMap). O botão **Quadras** mos
   - No tabuleiro: arraste para mover, use **+** e **−** para aproximar e **⤢** para ver a cidade toda. Toque numa quadra para bater nas portas.
   - Cada quadra mostra quantos já são seus clientes e fica mais escura conforme a sua participação. Isso prepara o jogo para dividir o mercado com outras provedoras no futuro.
   - Jogos salvos antes desta versão ganham as quadras reais sozinhos na próxima vez que abrirem com internet; clientes e pendências passam para a quadra real mais próxima, dentro do sinal da mesma torre.
-  - Sem internet ou numa cidade sem ruas no OpenStreetMap, o jogo usa o tabuleiro simples de 9 × 9.
+  - O tabuleiro só aparece depois do rastreamento das ruas. Enquanto isso, ele mostra o andamento e tenta de novo sozinho (4 servidores do OpenStreetMap, com novas tentativas a cada poucos segundos); a sede e as torres podem ser escolhidas no Mapa real, e as vendas esperam as quadras.
+  - Só numa cidade que realmente não tem ruas no OpenStreetMap o jogo usa o tabuleiro simples de 9 × 9.
 
 O mapa real precisa de internet. Sem conexão, o jogo continua normalmente no tabuleiro de quadras já baixado.
 
