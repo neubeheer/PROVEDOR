@@ -1096,7 +1096,7 @@ const fiberPlans=()=>FIBER_TIERS[S.fiberTier].plans;
 const isFiberPlan=id=>String(id)[0]==='f';
 /* Preço de tabela que o jogador ajusta em Planos e combos. Vale para vendas novas, migração e upgrade; quem já é cliente mantém o preço do contrato. */
 function pp(p){const v=S&&S.prices&&S.prices[p.id];return v!=null?v:p.price;}
-function cbPrice(k){const v=S&&S.prices&&S.prices['cb_'+k];return v!=null?v:cbPrice(k);}
+function cbPrice(k){const v=S&&S.prices&&S.prices['cb_'+k];return v!=null?v:COMBOS[k].price;}
 function planById(id){const p=PLANS.find(x=>x.id===id)||fiberPlans().find(x=>x.id===id);if(p)return {...p,price:pp(p)};const n=FIBER_NAMES[id];return n?{id,name:n[0],mb:n[1],price:0}:PLANS[0];}
 function planList(l){return l.tech==='fiber'?fiberPlans():PLANS;}
 function nextPlan(l){const list=planList(l);const i=list.findIndex(x=>x.id===l.plan);return i>=0&&i<list.length-1?list[i+1]:null;}
@@ -2034,7 +2034,13 @@ function panelHtml(k){
   return '';
 }
 function openPanel(k){if(!S||!PANELS[k])return;const [eb,t]=PANELS[k];openModal(head(eb,t)+`<div id="panelBody">${panelHtml(k)}</div>`);PANEL=k;document.querySelectorAll('.tabs [data-panel]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.panel===k)));}
-function refreshPanel(){if(!PANEL)return;const b=document.getElementById('panelBody');if(!b||!modalOpen){PANEL=null;return;}b.innerHTML=panelHtml(PANEL);}
+/* Os painéis da barra não pausam o jogo. Para não trocar um botão no meio do toque, a atualização espera o dedo sair da tela e acontece no máximo a cada 0,7 s. */
+let panelAt=0,panelT=null,panelDown=false;
+document.addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('#panelBody'))panelDown=true;},true);
+document.addEventListener('pointerup',()=>{if(panelDown){panelDown=false;setTimeout(refreshPanel,60);}},true);
+function refreshPanel(){if(!PANEL)return;const b=document.getElementById('panelBody');if(!b||!modalOpen){PANEL=null;return;}
+  const wait=700-(Date.now()-panelAt);if(panelDown||wait>0){clearTimeout(panelT);panelT=setTimeout(refreshPanel,Math.max(wait,120));return;}
+  panelAt=Date.now();b.innerHTML=panelHtml(PANEL);}
 
 /* Avisos de equipe: o prédio avisa quando falta gente num setor */
 function staffAlerts(){
@@ -3386,7 +3392,11 @@ if('serviceWorker' in navigator&&location.protocol!=='file:'){
 setOnline();
 try{if(localStorage.getItem('pt-portrait')==='1')document.body.classList.add('portrait-ok');}catch(e){}
 document.getElementById('rotOk').onclick=()=>{document.body.classList.add('portrait-ok');try{localStorage.setItem('pt-portrait','1');}catch(e){}};
-function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{if(S&&sp>0&&!modalOpen)tick();loop();},sp>0?1000/sp:500);}
+/* Um erro dentro de um dia de jogo não pode parar o relógio: o laço sempre agenda o próximo dia e o erro aparece na tela para ser reportado. */
+let lastErr='';
+function reportErr(e,where){const msg=(e&&e.message)||String(e);console.error(where,e);if(msg===lastErr)return;lastErr=msg;try{log('Erro no jogo ('+where+'): '+msg);}catch(x){}toast('⚠️ Erro no jogo: '+msg+'. Mande um print para o suporte.');}
+function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL))tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?1000/sp:500);}
+window.addEventListener('error',e=>{if(e&&e.error)reportErr(e.error,'tela');});
 function autoGeo(){if(!S)return;const c=city();if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
   setTab('map');
