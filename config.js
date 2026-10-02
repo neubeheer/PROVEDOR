@@ -8,6 +8,6 @@
      Termina em /exec. Veja o README, seção "Banco de quadras no Google Drive". */
 window.PT_CONFIG = {
   supabaseUrl: 'https://fatdynkmnbqehxkrovsv.supabase.co',
-  supabaseAnonKey: '',   // cole aqui a Publishable key (começa com sb_publishable_)
+  supabaseAnonKey: 'sb_publishable_fDykwKJbgZu8QQ9TK6m1oA_ptjXzLjH',   // cole aqui a Publishable key (começa com sb_publishable_)
   quadrasUrl: 'https://script.google.com/macros/s/AKfycbzijdrkDFG3wMZn-vj6YyTw32Jdy5jDQT2odjEqYO1bPQoNbpX-_L0HMiwPAuHsRg2rqQ/exec'
 };
