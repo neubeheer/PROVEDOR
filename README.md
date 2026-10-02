@@ -11,7 +11,7 @@ Funciona no computador e no celular, salva o progresso no próprio aparelho e co
 3. Compre a outorga da cidade. Sem ela, todo o resto fica bloqueado.
 4. Faça a documentação (contrato social, CNPJ e alvará).
 5. Suba uma torre num terreno vazio e configure o rádio.
-6. Toque nas casas com sinal e ofereça um plano.
+6. Toque numa quadra com sinal e bata nas portas: cada visita é uma família, que aceita ou recusa o plano.
 7. Monte os setores do prédio, contrate a equipe e acompanhe o relatório do mês.
 
 O botão **Ver níveis** mostra o que cada nível libera e quanto de bônus ele dá.
@@ -33,7 +33,7 @@ O jogo abre no **Mapa real** da cidade (OpenStreetMap). O botão **Quadras** mos
   - a direção da antena, arrastando a bolinha laranja ou usando **Melhor direção**.
 - **Cobertura:** o leque mostra quantos domicílios a torre alcança e quantos ainda estão sem sinal, além das construções mapeadas no OpenStreetMap dentro do leque.
 - O custo é o terreno (m² × preço) mais torre e rádio. Depois vem a configuração do rádio, como sempre.
-- As casas com sinal no mapa são as mesmas das quadras, onde você faz o porta a porta.
+- **Quadras:** os domicílios da cidade são divididos entre as quadras do tabuleiro (cerca de 60 a 100 por quadra numa cidade de 12 mil habitantes). Cada quadra mostra quantos já são seus clientes; no mapa, o ponto cresce conforme a sua participação. Isso prepara o jogo para dividir o mercado com outras provedoras no futuro.
 
 O mapa real precisa de internet. Sem conexão, o jogo continua normalmente nas quadras.
 
