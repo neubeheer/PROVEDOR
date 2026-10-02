@@ -808,6 +808,20 @@ async function drivePutFaces(c,faces,R){
   const k=cityKeys(c);
   try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({city_key:k.code||k.nk,name_key:k.nk,name:c.name,uf:c.uf||'',lat:c.geo.lat,lon:c.geo.lon,radius:R,faces,token:SB.session.access_token})});}catch(e){}
 }
+async function connTest(){
+  const row=(ok,t,d)=>`<div class="choice"><div><b>${ok===null?'⏳':ok?'✅':'❌'} ${t}</b><small>${d}</small></div></div>`;
+  const draw=r=>openModal(head('Conexões','Teste')+`<div class="choice-list">${r.join('')}</div><p class="muted" style="font-size:12.5px">As quadras só vão para o Drive quando um jogador logado abre uma cidade que ainda não está lá.</p>`);
+  const c=window.PT_CONFIG||{},r=[];
+  r.push(row(!!c.supabaseUrl,'URL do Supabase',c.supabaseUrl?esc(c.supabaseUrl):'Vazia no config.js.'));
+  r.push(row(!!c.supabaseAnonKey,'Chave do Supabase (Publishable)',c.supabaseAnonKey?'Preenchida.':'Vazia no config.js: sem ela não aparece o login.'));
+  r.push(row(!!(SB.session&&SB.session.user),'Conta',SB.session&&SB.session.user?'Conectado como '+esc(SB.session.user.email||''):'Ninguém conectado neste aparelho.'));
+  r.push(row(null,'Banco de quadras (Drive)','Testando o link…'));draw(r);
+  const u=quadrasUrl();
+  if(!u){r[3]=row(false,'Banco de quadras (Drive)','quadrasUrl vazio no config.js.');draw(r);return;}
+  try{const j=await fetchJson(u+(u.includes('?')?'&':'?')+'lista=1',{},15000);r[3]=row(!!(j&&j.ok),'Banco de quadras (Drive)',j&&j.ok?`Link respondendo: ${(j.chaves||[]).length} cidade(s) no Drive.`:'O link respondeu, mas com erro: '+esc(JSON.stringify(j).slice(0,120)));}
+  catch(e){r[3]=row(false,'Banco de quadras (Drive)','O link não respondeu. Confira se a implantação é "Qualquer pessoa" e se está na versão mais nova.');}
+  if(modalOpen)draw(r);
+}
 function openLogin(fromStart){
   if(!sbOn()){toast('Salvamento online não configurado.');return;}
   const logged=SB.session&&SB.session.user;
@@ -817,7 +831,7 @@ function openLogin(fromStart){
     <div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" type="email" autocomplete="email" maxlength="120"></div>
     <div class="field"><label for="lgPass">Senha</label><input class="input" id="lgPass" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"></div>
     <p class="geo-note" id="lgNote" aria-live="polite"></p>
-    <div class="foot" style="flex-wrap:wrap;gap:8px"><button class="btn ghost" id="lgSkip">${fromStart?'Jogar sem conta':'Agora não'}</button><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
+    <div class="foot" style="flex-wrap:wrap;gap:8px"><button class="btn ghost" id="lgSkip">${fromStart&&!S?'Jogar sem conta':'Continuar sem conta'}</button><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
     const note=m.querySelector('#lgNote');
     const run=async signup=>{const em=m.querySelector('#lgEmail').value.trim(),pw=m.querySelector('#lgPass').value;
       if(!/^\S+@\S+\.\S+$/.test(em)){note.textContent='Digite um e-mail válido.';return;}if(pw.length<6){note.textContent='A senha precisa de pelo menos 6 caracteres.';return;}
@@ -829,7 +843,7 @@ function openLogin(fromStart){
       }catch(e){note.textContent=e.message;m.querySelectorAll('button').forEach(b=>b.disabled=false);}};
     m.querySelector('#lgGo').onclick=()=>run(false);m.querySelector('#lgNew').onclick=()=>run(true);
     m.querySelector('#lgPass').onkeydown=e=>{if(e.key==='Enter')run(false);};
-    m.querySelector('#lgSkip').onclick=()=>{closeModal();if(fromStart&&!S)showStart();};
+    m.querySelector('#lgSkip').onclick=()=>{try{sessionStorage.setItem('pt-login-skip','1');}catch(e){}closeModal();if(fromStart&&!S)showStart();};
   });
 }
 const cloud={ref:null,status:'local',last:null,dirty:false,busy:false,t:null};
@@ -1517,6 +1531,7 @@ function renderTop(){
     <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
     <button class="icon-btn ${trafficGbps()>linkNow().g?'link-bad':trafficGbps()>linkNow().g*0.85?'link-warn':''}" data-act="link" aria-label="Link de internet">Link ${Math.round(trafficGbps()/linkNow().g*100)}%</button>
     <button class="icon-btn" data-act="bank" aria-label="Banco">Banco${S.loans.length?` · ${S.loans.length}`:''}</button>
+    ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="icon-btn" data-act="login" aria-label="Entrar na conta" style="background:var(--accent);color:#fff">Entrar</button>':''}
     <button class="icon-btn" data-act="menu" aria-label="Menu e salvamento"><span class="save-dot" id="saveDot"></span>Menu</button>`;
   renderSaveDot();
 }
@@ -1916,6 +1931,7 @@ function openMenu(){
     <div class="choice-list">
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
       ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
+      <div class="choice"><div><b>Testar conexões</b><small>Confere o Supabase (login) e o banco de quadras no Drive.</small></div><button class="btn small" data-act="connTest">Testar</button></div>
       <div class="choice"><div><b>Exportar JSON</b><small>Baixa todo o progresso num arquivo .json.</small></div><button class="btn small primary" id="mExp">Exportar</button></div>
       <div class="choice"><div><b>Importar JSON</b><small>Carrega um progresso salvo antes.</small></div><button class="btn small" id="mImp">Escolher arquivo</button></div>
       <div class="choice"><div><b>Colar JSON</b><small>Se o arquivo não abrir, cole o texto.</small></div><button class="btn small" id="mPaste">Colar</button></div>
@@ -2721,6 +2737,7 @@ document.addEventListener('click',e=>{
   else if(act==='docs')openDocs();
   else if(act==='fullscreen'){closeModal();(async()=>{try{await document.documentElement.requestFullscreen();if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock('landscape');}catch(e){}})();}
   else if(act==='login')openLogin(false);
+  else if(act==='connTest')connTest();
   else if(act==='diamonds')openDiamonds();
   else if(act==='ouvidoria')openOuvidoria();
   else if(act==='sede')openSede();
@@ -3157,6 +3174,7 @@ function start(data){
   if(S){migrate(S);for(const c of S.cities)for(const l of famsOf(c))if(l.st==='pending'&&!l.deal)l.st='none';renderAll();}
   else if(sbOn()&&!SB.session)openLogin(true);
   else showStart();
+  if(S&&sbOn()&&!SB.session){let skip=false;try{skip=sessionStorage.getItem('pt-login-skip')==='1';}catch(e){}if(!skip)setTimeout(()=>{if(!modalOpen&&!SB.session)openLogin(false);},900);}
   loop();
   initCloud();
   setTimeout(autoGeo,600);
