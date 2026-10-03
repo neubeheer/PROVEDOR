@@ -695,6 +695,123 @@ button.pill{cursor:pointer}
   .tabs.dock .rail-ico{width:22px;height:22px}
 }
 </style>
+<style>
+/* ============ Tela cheia de jogo: o mapa ocupa a tela e o HUD fica por cima (em pé e deitado) ============
+   Tamanhos pela menor medida da tela (vmin), então o mesmo layout serve do celular pequeno ao monitor. */
+:root{--ph:clamp(26px,6.6vmin,40px);--fs:clamp(11.5px,3.2vmin,17px);--gap:clamp(4px,1.3vmin,10px);--sideW:clamp(60px,15vmin,84px);--dockH:clamp(46px,11.5vmin,64px);
+  --sT:env(safe-area-inset-top,0px);--sB:env(safe-area-inset-bottom,0px);--sL:env(safe-area-inset-left,0px);--sR:env(safe-area-inset-right,0px);
+  --hudH:calc(var(--ph)*1.25 + 14px);--ovTop:calc(var(--sT) + var(--hudH) + 4px)}
+html body{height:100%;overflow:hidden;overscroll-behavior:none}
+html body #rotateHint{display:none!important}
+/* topo */
+html body .top{position:fixed;top:0;left:0;right:0;height:auto;z-index:40;display:block;background:linear-gradient(180deg,rgba(12,48,104,.82),rgba(12,48,104,.55) 70%,rgba(12,48,104,0));border:0;box-shadow:none;padding:calc(6px + var(--sT)) calc(8px + var(--sR)) 10px calc(8px + var(--sL));pointer-events:none}
+html body .top .brand{display:none}
+html body .stats{pointer-events:auto;display:flex;flex-wrap:nowrap;align-items:center;gap:var(--gap);margin:0;padding:0;width:auto;overflow:visible}
+html body .hud-br{display:none}
+html body .stats .pill{height:var(--ph);padding:0 4px 0 calc(var(--ph)*.78);margin-left:calc(var(--ph)*.4);border-width:2.5px;box-shadow:0 2px 0 var(--navy);min-width:0}
+html body .stats .pill b{font-size:var(--fs);padding-right:4px}
+html body .stats .pill-ico,html body .hud-time .pill-ico{width:calc(var(--ph)*1.12);height:calc(var(--ph)*1.12);left:calc(var(--ph)*-.42)}
+html body .pill-plus{width:calc(var(--ph)*.7);height:calc(var(--ph)*.7);font-size:calc(var(--ph)*.56);border-width:2px}
+html body .pill-bar{width:calc(var(--ph)*1.1);height:calc(var(--ph)*.26)}
+html body .hud-ava{width:calc(var(--ph)*1.25);height:calc(var(--ph)*1.25);border-width:2.5px;border-radius:calc(var(--ph)*.3)}
+html body .hud-xpbar{width:calc(var(--ph)*2.7);height:calc(var(--ph)*.56);border-width:2.5px}
+html body .hud-xpbar b{font-size:calc(var(--fs)*.74);line-height:calc(var(--ph)*.56 - 5px)}
+html body .hud-star{font-size:calc(var(--fs)*.72);padding:2px 7px;border-width:2px}
+html body .hud-gear{width:calc(var(--ph)*1.15);height:calc(var(--ph)*1.15);margin-left:auto;border-width:2.5px}
+html body .hud-cta{height:var(--ph);font-size:var(--fs);padding:0 10px}
+/* coluna da direita: data, velocidade, link e ferramentas do mapa */
+.hud-side{position:fixed;z-index:35;top:var(--ovTop);right:calc(8px + var(--sR));display:flex;flex-direction:column;align-items:flex-end;gap:var(--gap);pointer-events:none;max-height:calc(100dvh - var(--ovTop) - var(--dockH) - 30px - var(--sB));overflow:auto;scrollbar-width:none}
+.hud-side>*{pointer-events:auto}
+#hudTime{display:flex;flex-direction:column;align-items:flex-end;gap:var(--gap)}
+#hudTime .pill{height:calc(var(--ph)*.9);margin-left:calc(var(--ph)*.4);padding:0 4px 0 calc(var(--ph)*.7);border-width:2.5px;box-shadow:0 2px 0 var(--navy)}
+#hudTime .pill b{font-size:calc(var(--fs)*.85)}
+#hudTime .pill-ico{width:calc(var(--ph));height:calc(var(--ph));left:calc(var(--ph)*-.38)}
+html body #hudTime .speed{height:auto;padding:2px;border-width:2.5px;display:flex}
+html body #hudTime .speed button{padding:calc(var(--ph)*.12) calc(var(--ph)*.22);font-size:calc(var(--fs)*.8);min-height:0}
+#mapTools .real-tools{display:flex;flex-direction:column;align-items:flex-end;gap:var(--gap);margin:0}
+#mapTools .grp{display:contents}
+#mapTools .btn{width:var(--sideW);min-height:0;height:auto;padding:5px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:calc(var(--fs)*.68);line-height:1.1;border-radius:14px;text-align:center}
+#mapTools .btn .ti{font-size:calc(var(--fs)*1.25);line-height:1}
+#mapTools .btn.ghost{background:linear-gradient(180deg,#fff,#e3ebf5)}
+/* mapa no fundo */
+html body .layout{position:fixed!important;inset:0;display:block!important;padding:0;margin:0;max-width:none;grid-template-columns:none}
+html body .pane-map{display:block!important;height:100%;overflow:visible}
+html body .pane-map>.card{background:transparent;border:0;box-shadow:none;padding:0;border-radius:0;height:100%;display:block}
+html body #realWrap:not([hidden]){position:fixed;inset:0;z-index:1}
+html body .realmap{position:absolute;inset:0;width:100%;height:100%!important;min-height:0;border:0;border-radius:0;box-shadow:none}
+html body #gridWrap:not([hidden]){position:fixed;left:0;right:0;top:var(--ovTop);bottom:calc(var(--dockH) + 24px + var(--sB));overflow:auto;padding:8px calc(var(--sideW) + 18px) 8px 8px;z-index:1}
+html body #gridWrap .map{width:min(100%,calc(100dvh - var(--ovTop) - var(--dockH) - 50px));margin:0 auto}
+html body .legend{display:none}
+/* coluna da esquerda: cartão da cidade, tutorial, crises, sede */
+.ov-left{position:fixed;z-index:35;top:var(--ovTop);left:calc(8px + var(--sL));width:min(360px,40vw);display:flex;flex-direction:column;gap:var(--gap);pointer-events:none;max-height:calc(100dvh - var(--ovTop) - var(--dockH) - 30px - var(--sB));overflow:auto;scrollbar-width:none}
+.ov-left>*{pointer-events:auto}
+.ov-left>div:empty{display:none}
+html body .map-head{display:block;margin:0}
+.city-card{background:linear-gradient(180deg,#fffdf6,var(--cream));border:2.5px solid var(--navy);border-radius:14px;box-shadow:0 3px 0 rgba(15,35,80,.45);padding:6px 8px;display:flex;flex-direction:column;gap:3px;max-width:100%}
+.cc-row{display:flex;align-items:center;gap:6px;min-width:0}
+html body .city-card h2{font-family:var(--display);font-weight:400;font-size:calc(var(--fs)*1.15);line-height:1.05;color:var(--navy);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.city-card h2 small{font-size:.7em}
+.city-card select.input{flex:0 1 auto;min-width:0;max-width:44%;padding:2px 4px!important;font-size:calc(var(--fs)*.78)!important;height:auto;min-height:0}
+html body .city-card .eyebrow{display:block;font-size:calc(var(--fs)*.66);letter-spacing:.03em;color:#4b5b78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-info{position:relative;flex:none;margin-left:auto;width:calc(var(--ph)*.85);height:calc(var(--ph)*.85);border-radius:50%;border:2.5px solid var(--navy);background:radial-gradient(circle at 40% 30%,#9bd8ff,#3a9be8);color:#fff;font:400 calc(var(--fs)*1.05)/1 var(--display);text-shadow:0 1.5px 0 var(--navy);box-shadow:0 2px 0 var(--navy);cursor:pointer;padding:0;display:grid;place-items:center}
+.cc-info em{position:absolute;top:-7px;right:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#ff3b5c;border:2px solid #fff;font:400 10.5px/13px var(--display);font-style:normal;text-shadow:none}
+.city-chips{gap:8px}
+html body .ov-left .tut{margin:0;padding:8px 10px}
+html body .ov-left .tut .tut-body p{font-size:calc(var(--fs)*.75)}
+html body .ov-left .crisis,html body .ov-left .sede-bar{margin:0;font-size:calc(var(--fs)*.75)}
+/* botão Expandir grande, embaixo à direita */
+.fab-expand{position:fixed;z-index:36;right:calc(10px + var(--sR));bottom:calc(22px + var(--sB));min-width:calc(var(--dockH)*1.35);height:calc(var(--dockH)*1.12);padding:4px 10px;border-radius:16px;border:3px solid var(--navy);background:linear-gradient(180deg,#ffe066,var(--sun) 60%,#e8a400);box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),0 4px 0 var(--navy);color:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;font-family:var(--display)}
+.fab-expand span{font-size:calc(var(--dockH)*.38);line-height:1}
+.fab-expand b{font-weight:400;font-size:calc(var(--fs)*.9);line-height:1.1}
+.fab-expand small{font-size:calc(var(--fs)*.6);line-height:1}
+.fab-expand:active{transform:translateY(2px);box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),0 2px 0 var(--navy)}
+/* barra de painéis embaixo, no centro */
+html body .tabs.dock{display:flex!important;position:fixed;z-index:34;top:auto;left:50%;right:auto;bottom:calc(8px + var(--sB));transform:translateX(-50%);flex-direction:row;justify-content:center;width:auto;height:auto;gap:var(--gap);padding:5px;border-radius:18px;border:3px solid var(--navy);background:linear-gradient(180deg,rgba(18,64,128,.92),#123f80)}
+html body .tabs.dock button{flex:0 0 auto;width:calc(var(--dockH)*1.18);height:var(--dockH);padding:3px 2px;gap:1px;font-size:calc(var(--fs)*.72);border-radius:13px}
+html body .tabs.dock .rail-ico{width:calc(var(--dockH)*.42);height:calc(var(--dockH)*.42)}
+/* painel de montar torre: folha embaixo à esquerda */
+html body #realTools{position:static;margin:0}
+html body #realTools .geo-note{display:none}
+html body #draftPanel:not(:empty){position:fixed;z-index:37;left:calc(8px + var(--sL));bottom:calc(var(--dockH) + 26px + var(--sB));width:min(460px,calc(100vw - var(--sideW) - 36px));max-height:calc(100dvh - var(--ovTop) - var(--dockH) - 40px - var(--sB));overflow:auto;background:var(--cream);border:3px solid var(--navy);border-radius:16px;box-shadow:0 5px 0 rgba(15,35,80,.45);padding:10px}
+html body #realTools .real-empty{position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));min-height:0;background:var(--cream);border:3px solid var(--navy);border-radius:16px;box-shadow:0 5px 0 rgba(15,35,80,.45)}
+html body .leaflet-control-attribution{font-size:9px}
+@media (pointer:coarse){html body .leaflet-control-zoom{display:none}}
+html body .leaflet-top.leaflet-left{top:calc(var(--ovTop) + 70px)}
+/* janelas e avisos */
+html body .modal-wrap{place-items:center;padding:calc(8px + var(--sT)) calc(8px + var(--sR)) calc(8px + var(--sB)) calc(8px + var(--sL))}
+html body .modal{width:min(760px,100%);max-height:100%;border-radius:18px;padding:clamp(10px,2.4vmin,18px)}
+html body .toast{left:50%;right:auto;transform:translateX(-50%);bottom:calc(var(--dockH) + 30px + var(--sB))}
+html body.modal-open .toast{top:calc(10px + var(--sT));bottom:auto}
+/* celular deitado e baixo: um pouco mais compacto */
+@media (max-height:430px) and (orientation:landscape){
+  :root{--ph:clamp(24px,7vmin,32px);--dockH:clamp(42px,12vmin,52px)}
+  .ov-left{width:min(320px,36vw)}
+  html body .ov-left .tut .tut-body p{display:none}
+}
+@media (max-width:720px) and (orientation:landscape){html body .pill-bar{display:none}}
+/* em pé: duas linhas no topo (nível, caixa e menu; depois os outros recursos) */
+@media (orientation:portrait){
+  :root{--ph:clamp(26px,7.4vw,38px);--fs:clamp(11.5px,3.5vw,17px);--sideW:clamp(56px,15vw,76px);--dockH:clamp(46px,12.5vw,62px);--hudH:calc(var(--ph)*2.5 + 22px)}
+  html body .stats{flex-wrap:wrap;row-gap:8px}
+  html body .stats>*{order:3}
+  html body .stats .hud-lvl,html body .stats .pill.money{order:0}
+  html body .stats .hud-gear,html body .stats .hud-cta{order:1}
+  html body .hud-br{display:block;order:2;flex-basis:100%;height:0}
+  html body .stats .pill.money{flex:1 1 auto}
+  html body .stats .pill:not(.money){flex:1 1 auto;margin-left:calc(var(--ph)*.34)}
+  html body .stats .pill:not(.money) b{padding-right:2px}
+  html body .stats .pill-plus{width:calc(var(--ph)*.62);height:calc(var(--ph)*.62)}
+  #hudTime{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 16px - var(--sL) - var(--sR))}
+  html body #hudTime .speed button{padding:calc(var(--ph)*.1) calc(var(--ph)*.18);font-size:calc(var(--fs)*.75)}
+  .ov-left{top:calc(var(--ovTop) + var(--ph)*1.8 + 20px)}
+  #hudTime .pill.link{order:5}
+  html body .pill-bar{display:none}
+  .ov-left{width:calc(100vw - var(--sideW) - 34px - var(--sL) - var(--sR))}
+  html body .tabs.dock{left:calc(8px + var(--sL));right:auto;transform:none;max-width:calc(100vw - var(--dockH)*1.5 - 40px)}
+  html body .tabs.dock button{width:calc((100vw - var(--dockH)*1.5 - 76px)/5);min-width:0}
+  html body #draftPanel:not(:empty){width:calc(100vw - 16px - var(--sL) - var(--sR));bottom:calc(var(--dockH) + 26px + var(--sB))}
+}
+</style>
 </head>
 <body>
 
@@ -705,6 +822,7 @@ button.pill{cursor:pointer}
   </div>
   <div class="stats" id="stats"></div>
 </header>
+<aside class="hud-side" aria-label="Tempo e ferramentas do mapa"><div id="hudTime"></div><div id="mapTools"></div></aside>
 
 <main class="layout">
   <section class="pane pane-building" aria-label="Prédio da empresa" hidden>
@@ -713,8 +831,7 @@ button.pill{cursor:pointer}
   </section>
   <section class="pane pane-map" aria-label="Mapa da cidade">
     <div class="card">
-      <div class="map-head" id="mapHead"></div>
-      <div id="tutBar"></div><div id="crisisBar"></div><div id="sedeBar"></div>
+      <div class="ov-left"><div class="map-head" id="mapHead"></div><div id="tutBar"></div><div id="crisisBar"></div><div id="sedeBar"></div></div>
       <div class="map-wrap" id="gridWrap"><div class="map" id="map"></div></div>
       <div id="realWrap" hidden><div class="realmap" id="realMap"></div><div id="realTools"></div></div>
       <div class="legend" id="gridLegend">
@@ -746,7 +863,6 @@ button.pill{cursor:pointer}
   <button type="button" data-panel="report"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M10 20V4M15 20v-7M20 20V8M3 20h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Relatório</button>
   <button type="button" data-panel="log"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Registro</button>
 </nav>
-<div id="rotateHint" role="dialog" aria-label="Gire o celular"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="20" y="6" width="24" height="44" rx="5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="32" cy="44" r="2" fill="#fff"/><path d="M50 30a18 18 0 0 1-8 15" fill="none" stroke="#f0661a" stroke-width="3" stroke-linecap="round"/><path d="M43 41l-1 5 5 0" fill="none" stroke="#f0661a" stroke-width="3" stroke-linecap="round"/></svg><b>Gire o celular para jogar deitado</b><p>O Provedor Tycoon foi feito para o celular na horizontal: mapa grande de um lado, prédio e missões do outro.</p><button class="btn primary" id="rotOk" type="button">Continuar em pé</button></div>
 
 <div class="modal-wrap" id="modalWrap" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" hidden></div>
@@ -928,6 +1044,7 @@ function makeCity0(name,uf,idx){
 function newMonth(){return {upgrades:0,ligacoes:0,mkt:0,novos:0,quits:0,complaints:0,migrados:0,retidos:0,pedidos:0,coins:0,loanPaid:0,cancel:0,torres:0,inv:0,bonus:0,recolhidos:0,perdidos:0,calotes:0,recuperado:0,eventos:[],missoes:[]};}
 function migrate(st){
   hydrateFams(st);
+  if(st.stock>0&&st.cities&&st.cities.length){const ci=(st.sede&&st.sede.ci)||0,c=st.cities[ci]||st.cities[0];c.eq=c.eq||{r:0,o:0};c.eq.r+=st.stock;st.stock=0;}
   for(const c of st.cities){let conv=false;for(const l of c.lots){if(l.t!=='house'||l.fams)continue;conv=true;const f={x:l.x,y:l.y,i:0,fam:l.fam};for(const k of ['st','plan','combo','price','tid','ip','tech','since','debt','lateSince','disc','reason','reqUntil','cpe','cpeSince','until','deal','negUntil','tried']){if(l[k]!==undefined){f[k]=l[k];delete l[k];}}if(!f.st)f.st='none';l.fams=(f.st!=='none'||f.cpe)?[f]:[];l.dom=0;}
     if(conv||c.lots.some(l=>l.t==='house'&&!l.dom))setQuadraHomes(c,Math.round((c.geo&&c.geo.homes)||c.pop/2.8));}
   st.partners=st.partners||0;st.kits=st.kits||0;st.servers=st.servers||{};st.fiberTier=st.fiberTier||0;st.migrated=st.migrated||0;st.complaints=st.complaints||0;
@@ -1193,7 +1310,13 @@ const cnpjDone=()=>!!(S.docs.cnpj&&S.docs.cnpj.done);
    Dentro de inB(prédio, fn) (tela de um prédio, contratação, demissões), valem só os dados daquele prédio. */
 let BCTX=null;
 const hqCities=()=>S.cities.filter(c=>c.hq);
-function allFloors(){return [S.floors,...hqCities().map(c=>c.hq.floors)];}
+function allFloors(){return [S.floors,...hqCities().map(c=>c.hq.floors),...S.cities.filter(c=>c.galpao&&!c.hq).map(c=>c.galpao)];}
+/* Galpão de logística de cada cidade: o da sede, o da sede regional ou o galpão próprio de uma filial. */
+const galpaoBuilt=fl=>!!(fl&&fl.logistica&&fl.logistica.built);
+function galpaoOf(c){const fl=S.sede&&S.sede.ci===c.idx?S.floors:c.hq?c.hq.floors:c.galpao||null;return galpaoBuilt(fl)?fl:null;}
+const canGalpao=c=>!!(c&&!c.hq&&!c.galpao&&!(S.sede&&S.sede.ci===c.idx)&&(c.store||(c.areas||[]).length));
+const GALPAO_COST=20000;
+function ctxCity(){if(!BCTX||BCTX===S.floors)return S.cities[(S.sede&&S.sede.ci)||0]||S.cities[0];return S.cities.find(c=>(c.hq&&c.hq.floors===BCTX)||c.galpao===BCTX)||S.cities[0];}
 function buildings(){return BCTX?[BCTX]:allFloors();}
 function inB(fl,fn){const prev=BCTX;BCTX=fl;try{return fn();}finally{BCTX=prev;}}
 const built=id=>buildings().some(f=>f[id]&&f[id].built);
@@ -1273,8 +1396,15 @@ const shieldOn=k=>!!(S.shield&&S.shield[k]>=monthOf(S.day));
 function crisisBlocked(id){const cr=CRISES.find(x=>x.id===id);return !!(cr&&cr.kind&&shieldOn(cr.kind));}
 function effect(id){return !!(S.crisis&&S.crisis.id===id&&monthOf(S.day)<=S.crisis.until)&&!crisisBlocked(id);}
 const cpeCost=()=>Math.round(CPE_COST*(effect('dolar')?1.6:1)*(effect('chips')?2:1));
-function cpeFor(){if(S.stock>0)return 0;return cpeCost();}
-function takeCpe(){if(S.stock>0){S.stock--;return true;}return spend(cpeCost());}
+/* Equipamentos em comodato ficam no estoque de cada cidade, separados: rádios (CPE) e ONUs (fibra).
+   A instalação usa o estoque da cidade; sem estoque, compra um novo. */
+const eqOf=c=>c.eq||(c.eq={r:0,o:0});
+const eqTotal=k=>S.cities.reduce((t,c)=>t+eqOf(c)[k],0);
+const eqName=l=>l.cpeK==='o'?'ONU':'Rádio';
+function cpeFor(c){return c&&eqOf(c).r>0?0:cpeCost();}
+function takeCpe(c){if(c&&eqOf(c).r>0){c.eq.r--;return true;}return spend(cpeCost());}
+function onuFor(c){return c&&eqOf(c).o>0?0:ONU_COST;}
+function takeOnu(c){if(c&&eqOf(c).o>0){c.eq.o--;return true;}return spend(ONU_COST);}
 function reasonFor(c,l,offline,over){
   if(offline)return 'sinal';
   if(l.tech==='fiber')return ['caro','mudar','conc','conc'][Math.floor(Math.random()*4)];
@@ -1310,8 +1440,8 @@ function requestCancel(c,l,reason){
 }
 function cancelClient(c,l,why){delete l.reason;delete l.reqUntil;delete l.disc;
   c.used=c.used.filter(o=>o!==l.ip);l.st='refused';l.until=S.day+60;l.tid=null;delete l.debt;delete l.lateSince;delete l.negUntil;
-  l.cpe=true;l.cpeSince=S.day;S.cur.cancel++;
-  log(`${l.fam.name} cancelou (${why}). O rádio em comodato ficou na casa.`);
+  l.cpe=true;l.cpeSince=S.day;l.cpeK=l.tech==='fiber'?'o':'r';S.cur.cancel++;
+  log(`${l.fam.name} cancelou (${why}). ${l.cpeK==='o'?'A ONU':'O rádio'} em comodato ficou na casa.`);
 }
 function allClients(){return S.cities.reduce((s,c)=>s+cityClients(c),0);}
 function towerAt(c,l){return c.towers.find(t=>t.x===l.x&&t.y===l.y);}
@@ -1387,12 +1517,15 @@ function monthEnd(){
   }
   for(const c of S.cities)for(const l of famsOf(c))delete l.recTried;
   // logística
-  let capL=capOf('logistica',6);
-  for(const c of S.cities)for(const l of famsOf(c)){
-    if(!l.cpe)continue;
-    if(capL>0){capL--;if(Math.random()<0.88){l.cpe=false;S.stock++;S.cur.recolhidos++;}continue;}
-    if(S.day-l.cpeSince>=90){l.cpe=false;S.cur.perdidos++;log(`Rádio da casa de ${l.fam.name} foi dado como perdido.`);}
-  }
+  // cada galpão recolhe na sua cidade; o da sede também atende cidades sem galpão, gastando 2 viagens por equipamento
+  const capMain={n:galpaoBuilt(S.floors)?inB(S.floors,()=>capOf('logistica',6)):0};
+  for(const c of S.cities){const fl=galpaoOf(c),cap=fl===S.floors?capMain:{n:fl?inB(fl,()=>capOf('logistica',6)):0};
+    for(const l of famsOf(c)){
+      if(!l.cpe)continue;
+      let go=false;if(cap.n>0){cap.n--;go=true;}else if(!fl&&capMain.n>=2){capMain.n-=2;go=true;}
+      if(go){if(Math.random()<0.88){l.cpe=false;eqOf(c)[l.cpeK||'r']++;S.cur.recolhidos++;}continue;}
+      if(S.day-l.cpeSince>=90){l.cpe=false;S.cur.perdidos++;log(`${eqName(l)} da casa de ${l.fam.name} (${c.name}) foi dado como perdido.`);}
+    }}
   // setor de migração e upgrade: ligações para a base
   migrationCalls();
   // concorrência entre jogadores
@@ -1451,7 +1584,7 @@ function monthEnd(){
   const saldo=rev+parc-exp;
   const payCl=S.cities.reduce((s,c)=>s+famsOf(c).filter(pays).length,0),ticket=payCl?rev/payCl:0,sla=clients?Math.min(1,ccCap/clients):1,cac=cacNow();
   const metas=evalGoals({ticket,sla,cac,clients,m});
-  S.history.push({m,traf:+peakT.toFixed(3),linkG:linkNow().g,ticket,sla,cac,metas,loanPay:Math.round(loanPay),staff:staffCost,link,maint,content,fiberMaint,serverCost,storeCost,promoCost:(S.cur.promoCost||0),exp,saldo,lateUnpaid,inad:lateCount(),stock:S.stock,clientes:allClients(),fibra:fiberCl,rep:Math.round(S.rep),caixa:S.money,...S.cur});
+  S.history.push({m,traf:+peakT.toFixed(3),linkG:linkNow().g,ticket,sla,cac,metas,loanPay:Math.round(loanPay),staff:staffCost,link,maint,content,fiberMaint,serverCost,storeCost,promoCost:(S.cur.promoCost||0),exp,saldo,lateUnpaid,inad:lateCount(),stock:eqTotal('r'),onus:eqTotal('o'),clientes:allClients(),fibra:fiberCl,rep:Math.round(S.rep),caixa:S.money,...S.cur});
   S.history=S.history.slice(-24);
   S.cur=newMonth();repView=null;setGoalTargets();
   if(saldo>0)addXp(10);
@@ -1535,9 +1668,9 @@ function migTargets(){
 }
 function migrateClient(c,l,same){
   const fp=fiberPlans()[0],oldPrice=l.price;
-  if(S.money<ONU_COST)return false;S.money-=ONU_COST;S.cur.inv+=ONU_COST;if(!opsOf('tecnico')){S.money-=THIRD_COST;}
+  if(S.money<onuFor(c))return false;takeOnu(c);if(!opsOf('tecnico')){S.money-=THIRD_COST;}
   l.tech='fiber';l.tid=null;l.plan=fp.id;l.price=same?oldPrice:Math.round((pp(fp)+l.combo.reduce((s,k)=>s+cbPrice(k),0))*100)/100;delete l.disc;
-  S.stock++;S.migrated=(S.migrated||0)+1;S.cur.migrados++;if(cpOn('migra'))l.disc={pct:1,until:monthOf(S.day)};addXp(15);return true;
+  eqOf(c).r++;S.migrated=(S.migrated||0)+1;S.cur.migrados++;if(cpOn('migra'))l.disc={pct:1,until:monthOf(S.day)};addXp(15);return true;
 }
 function migrationCalls(){
   const calls=capOf('migracao',30);if(!calls)return;
@@ -1735,9 +1868,9 @@ function attemptSale(c,who,sure,pre){
   const o=bestOffer(c,lot,salesTech());if(!o)return false;
   if(sure||Math.random()<o.p){
     const fib=isFiberPlan(o.plan);
-    const cost=(fib?ONU_COST:cpeFor())+(opsOf('tecnico')>0?0:THIRD_COST);
+    const cost=(fib?onuFor(c):cpeFor(c))+(opsOf('tecnico')>0?0:THIRD_COST);
     if(S.money<cost)return false;
-    if(fib)spend(ONU_COST);else takeCpe();
+    if(fib)takeOnu(c);else takeCpe(c);
     if(!opsOf('tecnico'))spend(THIRD_COST);
     activate(c,lot,{plan:o.plan,combo:o.combo,price:o.price,tid:fib?null:coverOf(c,lot).t.id},nextIp(c));
     if(who!=='promo')log(`${who==='loja'?'Loja':who==='carreata'?'Carreata':who==='conc'?'Portabilidade: veio da concorrência':who==='indica'?'Indicação de cliente':'Vendedor'} fechou com ${lot.fam.name} (${c.name}): ${planLabel(o.plan,o.combo)}.`);save(true);
@@ -1842,19 +1975,22 @@ function renderTop(){
   const plus=(act,lab)=>`<button class="pill-plus" data-act="${act}" aria-label="${lab}">+</button>`;
   $('#stats').innerHTML=`
     <button class="hud-lvl" data-act="levels" aria-label="Nível ${lvl}, ver níveis"><span class="hud-ava">${HUD_ICO.tower}</span><span class="hud-xp"><span class="hud-xpbar"><i style="width:${pct}%"></i><b>${(S.xp-lo).toLocaleString('pt-BR')}/${(hi-lo).toLocaleString('pt-BR')}</b></span><span class="hud-star">★ Nv.${lvl}${ceoOn()?' · CEO':''}</span></span></button>
-    <div class="pill money ${S.money<0?'neg':''}" title="Caixa"><span class="pill-ico">${HUD_ICO.cash}</span><b>${brl0(S.money)}</b>${plus('bank','Banco e empréstimos')}</div>
+    <div class="pill money ${S.money<0?'neg':''}" title="Caixa"><span class="pill-ico">${HUD_ICO.cash}</span><b>${brl0(S.money)}</b>${plus('bank','Banco e empréstimos')}</div><i class="hud-br" aria-hidden="true"></i>
     <div class="pill" title="Clientes${rf.f?` · rádio ${rf.r}, fibra ${rf.f}`:''}"><span class="pill-ico">${HUD_ICO.people}</span><b>${allClients().toLocaleString('pt-BR')}</b></div>
     <div class="pill" title="Reputação"><span class="pill-ico">${HUD_ICO.heart}</span><b>${Math.round(S.rep)}</b><span class="pill-bar"><i style="width:${S.rep}%"></i></span></div>
     <div class="pill coin" title="Selos de fidelidade"><span class="pill-ico">${HUD_ICO.coin}</span><b>${S.coins}</b>${plus('coins','Selos de fidelidade')}</div>
     <div class="pill dia" title="Diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${S.diamonds||0}</b>${plus('diamonds','Diamantes')}</div>
-    <div class="pill date" title="Data"><span class="pill-ico">${HUD_ICO.cal}</span><b>${dt}</b></div>
-    <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
-    <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b>Link ${Math.round(lu*100)}%</b></button>
     ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
+  const ht=$('#hudTime');if(ht)ht.innerHTML=`
+    <div class="pill date" title="Data"><span class="pill-ico">${HUD_ICO.cal}</span><b>${dt}</b></div>
+    <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
+    <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b>Link ${Math.round(lu*100)}%</b></button>`;
   const al=staffAlerts(),tb=document.querySelector('.tabs [data-panel="building"]');if(tb)tb.dataset.badge=al.length||'';notifyAlerts(al);
   renderSaveDot();
 }
+let CITY_CHIPS='',CITY_LINE='';
+function openCityInfo(){const c=city();openModal(head('Cidade',esc(c.name)+(c.uf?' '+esc(c.uf):''))+`<p class="muted" style="margin-top:0">${CITY_LINE} · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><div class="map-meta city-chips">${CITY_CHIPS}</div><p class="muted" style="font-size:12.5px">${esc(($('#geoNote')||{}).textContent||'')}</p><div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
 function renderMap(){
   const c=city(),sedeMode=S.phase==='sede'&&S.ci===0;
   mapView=c.geo?'real':'grid';
@@ -1864,8 +2000,10 @@ function renderMap(){
   const og=c.outorgaPaid?'<span class="chip ok">Outorga paga</span>':(c.regionsPaid||[]).length?`<button class="chip warn" data-act="outorga" style="border:0;cursor:pointer">Outorga: ${c.regionsPaid.length}/${(cityRegions(c)||[]).length} regiões</button>`:`<button class="chip bad" data-act="outorga" style="border:0;cursor:pointer">Sem outorga · ${isBig(c)?'por região ou cidade':brl0(c.outorga)}</button>`;
   const il=c.idx>0?(c.ilink>=0?(()=>{const u=cityTraffic(c)/CITY_LINKS[c.ilink].g;return `<button class="chip ${u>1?'bad':u>0.85?'warn':''}" data-act="net" style="border:0;cursor:pointer">Interligação ${gb(CITY_LINKS[c.ilink].g)} · ${Math.round(u*100)}%</button>`;})():'<button class="chip bad" data-act="net" style="border:0;cursor:pointer">Sem interligação</button>'):'';
   const sel=S.cities.length>1?`<select class="input" id="citySel" style="width:auto;padding:5px 8px" aria-label="Trocar cidade">${S.cities.map((cc,i)=>`<option value="${i}" ${i===S.ci?'selected':''}>${esc(cc.name)}</option>`).join('')}</select>`:'';
-  $('#mapHead').innerHTML=`<div><p class="eyebrow">${c.pop.toLocaleString('pt-BR')} habitantes · ${cl.toLocaleString('pt-BR')} clientes (${homesAll?Math.round(cl/homesAll*100):0}%) · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><h2>${esc(c.name)}${c.uf?` <small style="font-size:14px">${esc(c.uf)}</small>`:''}</h2></div>
-   <div class="map-meta">${!sedeMode&&levelOf(S.xp)>=EXPAND_LEVEL?`<button class="btn small primary" data-act="city">🌎 Expandir${allClients()>=indepReq()?' · nova operação':''}</button>`:''}${c.geo?'':`<button class="btn small primary" data-act="geoLoad" ${geoBusy.has(c)?'disabled':''}>${geoBusy.has(c)?'Carregando mapa…':'Carregar mapa real'}</button>`}${sel}<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${(()=>{const rp=rivalPressure(c);return rp.rs.length?`<button class="chip ${rp.edge>0.03?'bad':rp.edge<-0.03?'ok':'warn'}" data-act="rivals" style="cursor:pointer">Concorrentes ${rp.rs.length} · ${Math.round(rp.occ*100)}% da cidade</button>`:(rivalsOn()&&sbOn()&&SB.session&&SB.session.user&&!sedeMode?'<button class="chip" data-act="rivals" style="cursor:pointer">Sem concorrentes</button>':'');})()}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}</div>`;
+  CITY_CHIPS=`<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${(()=>{const rp=rivalPressure(c);return rp.rs.length?`<button class="chip ${rp.edge>0.03?'bad':rp.edge<-0.03?'ok':'warn'}" data-act="rivals" style="cursor:pointer">Concorrentes ${rp.rs.length} · ${Math.round(rp.occ*100)}% da cidade</button>`:(rivalsOn()&&sbOn()&&SB.session&&SB.session.user&&!sedeMode?'<button class="chip" data-act="rivals" style="cursor:pointer">Sem concorrentes</button>':'');})()}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}`;
+  const nBad=(CITY_CHIPS.match(/class="chip bad/g)||[]).length;
+  CITY_LINE=`${c.pop.toLocaleString('pt-BR')} habitantes · ${cl.toLocaleString('pt-BR')} clientes (${homesAll?Math.round(cl/homesAll*100):0}%)`;
+  $('#mapHead').innerHTML=`<div class="city-card"><div class="cc-row"><h2>${esc(c.name)}${c.uf?` <small>${esc(c.uf)}</small>`:''}</h2>${sel}<button class="cc-info" data-act="cityInfo" aria-label="Detalhes da cidade">i${nBad?`<em>${nBad}</em>`:''}</button></div><p class="eyebrow">${CITY_LINE}</p></div>${!sedeMode&&levelOf(S.xp)>=EXPAND_LEVEL?`<button class="fab-expand" data-act="city"><span aria-hidden="true">🌎</span><b>Expandir</b>${allClients()>=indepReq()?'<small>nova operação</small>':''}</button>`:''}`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
   $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
@@ -2169,7 +2307,7 @@ function builtFloorHtml(f,cls){
   return `<div class="${cls}"><div class="floor-top"><span class="floor-name"><small>${f.annex?'Galpão anexo':floorLabel(f)}</small>${f.name}</span><span class="floor-lvl">${hc} pessoa(s)<br>${brl0(rolesSum(f))}/mês</span></div>
     ${windowsHtml(hc)}
     <div class="floor-meta"><span class="chip ${hc===0?'bad':e<0.9?'warn':'ok'}">${hc===0?'Sem equipe':'Eficiência '+Math.round(e*100)+'%'}</span>${iss.length?`<span>${iss.join(' · ')}</span>`:''}</div>
-    ${f.annex?`<p class="floor-desc"><b>Estoque: ${S.stock} rádio(s)</b>${S.cities.reduce((s,c)=>s+famsOf(c).filter(l=>l.cpe).length,0)?` · ${S.cities.reduce((s,c)=>s+famsOf(c).filter(l=>l.cpe).length,0)} para recolher`:''}${S.kits?` · ${S.kits} torre(s) desmontada(s)`:''}</p>`:''}
+    ${f.annex?(()=>{const cc=ctxCity(),e=eqOf(cc),n=famsOf(cc).filter(l=>l.cpe).length;return `<p class="floor-desc"><b>Estoque em ${esc(cc.name)}: ${e.r} rádio(s) · ${e.o} ONU(s)</b>${n?` · ${n} para recolher`:''}${S.kits?` · ${S.kits} torre(s) desmontada(s)`:''}</p>`;})():''}
     <div class="floor-actions"><button class="btn small signal" data-act="team" data-f="${f.id}">Equipe</button>${extra}</div></div>`;
 }
 function rolesSum(f){const R=rolesOf(f),t=team(f.id);let s=0;for(const k in t)s+=(t[k]||0)*((R[k]||{}).sal||0);return s+careerExtra(f);}
@@ -2250,13 +2388,22 @@ function hqBuildingHtml(ci){const c=S.cities[ci];if(!c||!c.hq)return '';return i
   h+='<div class="door"></div>'+floorHtml(FLOORS.find(x=>x.annex),lvl);
   return h.replace(/data-f="/g,`data-hq="${ci}" data-f="`);});}
 let PANEL_B=null;
+function logisticsHtml(){if(!S.cities.length)return '';
+  const main=galpaoOf(S.cities[(S.sede&&S.sede.ci)||0]||S.cities[0]);
+  const rows=S.cities.map(c=>{const e=eqOf(c),n=famsOf(c).filter(l=>l.cpe).length,fl=galpaoOf(c),own=fl&&fl!==S.floors,ci=c.idx;
+    const who=fl===S.floors?'Galpão da sede':c.hq?(fl?'Galpão da sede regional':'Sede regional sem galpão (compre no prédio)'):c.galpao?'Galpão da filial':main?'Atendida pelo galpão da sede (2 viagens por equipamento)':'Sem galpão';
+    const drv=fl?inB(fl,()=>opsOf('logistica')):0;
+    const btn=c.galpao&&!c.hq?`<button class="btn small signal" data-act="team" data-f="logistica" data-hq="${ci}">Motoristas · ${drv}</button>`:canGalpao(c)?`<button class="btn small primary" data-act="galpao" data-c="${ci}">Galpão · ${brl0(GALPAO_COST)}</button>`:'';
+    return `<div class="choice"><div><b>${esc(c.name)}</b><small>${e.r} rádio(s) · ${e.o} ONU(s) no estoque${n?` · ${n} para recolher`:''}<br>${who}${fl?` · ${drv} motorista(s), até ${inB(fl,()=>capOf('logistica',6))}/mês`:''}</small></div>${btn}</div>`;}).join('');
+  return `<div class="notice" style="margin-top:12px"><b>Logística e estoque por cidade</b><p class="muted" style="margin:4px 0 0;font-size:12.5px">Rádios e ONUs ficam no estoque da cidade onde foram recolhidos. Filiais (loja ou filial de área) podem ter galpão próprio com motoristas.</p><div class="choice-list" style="margin-top:8px">${rows}</div></div>`;}
+function buildGalpao(ci){const c=S.cities[ci];if(!canGalpao(c))return;if(!spend(GALPAO_COST))return;c.galpao={logistica:{built:true,team:{}}};addXp(40);log(`Galpão de logística aberto na filial de ${c.name}.`);save(true);toast(`Galpão em ${c.name}! Contrate motoristas.`);openTeam('logistica',ci);}
 function buildingPanelHtml(){
   const hqs=hqCities(),cand=S.cities.filter(canHQ);
   if(PANEL_B!=null&&!(S.cities[PANEL_B]&&S.cities[PANEL_B].hq))PANEL_B=null;
   const tabs=hqs.length?`<div class="seg" style="margin-bottom:10px"><button data-pb="main" aria-pressed="${PANEL_B==null}">Sede · ${esc((S.cities[(S.sede&&S.sede.ci)||0]||{}).name||'principal')}</button>${hqs.map(c=>`<button data-pb="${c.idx}" aria-pressed="${PANEL_B===c.idx}">Regional · ${esc(c.name)}</button>`).join('')}</div>`:'';
   const conv=cand.length?`<div class="notice"><b>Filiais que podem virar sede regional</b><div class="choice-list" style="margin-top:8px">${cand.map(c=>`<div class="choice"><div><b>${esc(c.name)}</b><small>Prédio próprio com andares e equipes. ${brl0(HQ_COST)} na conversão + ${brl0(HQ_MAINT)}/mês.</small></div><button class="btn small primary" data-act="hqConvert" data-c="${c.idx}">Converter · ${brl0(HQ_COST)}</button></div>`).join('')}</div></div>`:'';
   const body=PANEL_B!=null?hqBuildingHtml(PANEL_B):`<div class="building">${$('#building').innerHTML}</div>`;
-  return alertsHtml()+tabs+`<div class="sede-modal"><div class="building">${body}</div></div>`+conv;
+  return alertsHtml()+tabs+`<div class="sede-modal"><div class="building">${body}</div></div>`+conv+logisticsHtml();
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-pb]');if(!b||!S)return;PANEL_B=b.dataset.pb==='main'?null:+b.dataset.pb;refreshPanel();});
 
@@ -2809,14 +2956,14 @@ function openCoins(){
   });
 }
 let TEAM_CI=null;
-function openTeam(id,ci){if(ci===undefined)ci=TEAM_CI;TEAM_CI=ci;const hc=ci!=null&&S.cities[ci]&&S.cities[ci].hq;inB(hc?hc.floors:S.floors,()=>openTeamIn(id,hc?S.cities[ci]:null));}
+function openTeam(id,ci){if(ci===undefined)ci=TEAM_CI;TEAM_CI=ci;const cc=ci!=null&&S.cities[ci],fl=cc&&cc.hq?cc.hq.floors:cc&&cc.galpao&&id==='logistica'?cc.galpao:null;inB(fl||S.floors,()=>openTeamIn(id,fl?cc:null));}
 function openTeamIn(id,hqc){
   const f=FLOORS.find(x=>x.id===id);if(!built(id))return;
   const R=rolesOf(f),t=team(id),hc=headcount(id),capN=sectorCap(),e=effOf(id),iss=effIssues(id);
   const rows=Object.entries(R).map(([k,r])=>`<div class="role-row"><div><b>${r.t}</b><small>${brl0(r.sal)}/mês · ${k==='op'?ROLE_HINT[id]:ROLE_HINT[k]}</small></div><div class="role-ctl"><button class="btn small ghost" data-rm="${k}" ${(t[k]||0)>0?'':'disabled'} aria-label="Dispensar ${r.t}">−</button><b>${t[k]||0}</b><button class="btn small signal" data-add="${k}" ${hc>=capN?'disabled':''} aria-label="Contratar ${r.t}">+ ${brl0(hireCost())}</button></div></div>`).join('');
   const partners=id==='rh'?`<h3 style="font-size:15px;margin:14px 0 8px">Sócios</h3><div class="role-row"><div><b>Sócio</b><small>Entra com ${brl0(PARTNER_CASH)} de capital, recebe ${brl0(PARTNER_PAY)}/mês de pró-labore e dá +5% de eficiência a todos os setores. Para sair, a empresa devolve o capital.</small></div><div class="role-ctl"><button class="btn small ghost" data-prm ${S.partners?'':'disabled'}>−</button><b>${S.partners||0}</b><button class="btn small primary" data-padd ${(S.partners||0)>=2?'disabled':''}>+</button></div></div>`:'';
   const FLD=BCTX;
-  openModal(head(`${f.annex?'Galpão':floorLabel(f)} · ${f.name}${hqc?' · regional '+esc(hqc.name):''}`,'Equipe')+`<div class="kpis"><div class="kpi"><span>Pessoas</span><b>${hc}/${capN}</b></div><div class="kpi"><span>Eficiência</span><b>${hc?Math.round(e*100)+'%':'—'}</b></div><div class="kpi"><span>Folha</span><b>${brl0(rolesSum(f))}</b></div></div>
+  openModal(head(`${f.annex?'Galpão':floorLabel(f)} · ${f.name}${hqc?(hqc.hq?' · regional ':' · filial ')+esc(hqc.name):''}`,'Equipe')+`<div class="kpis"><div class="kpi"><span>Pessoas</span><b>${hc}/${capN}</b></div><div class="kpi"><span>Eficiência</span><b>${hc?Math.round(e*100)+'%':'—'}</b></div><div class="kpi"><span>Folha</span><b>${brl0(rolesSum(f))}</b></div></div>
     ${iss.length?`<div class="notice warn">Falta gente na liderança: ${iss.join(' e ')}. A eficiência do setor cai.</div>`:''}
     ${hc>=capN?`<div class="notice bad">Limite de ${capN} pessoas por setor. ${built('rh')?'Contrate mais analistas de RH para abrir vagas.':'Monte o RH para abrir mais vagas.'}</div>`:''}
     ${id==='comercial'?salesTechHtml()+promoHtml():''}${id==='recuperacao'?graceHtml():''}${rows}${partners}${careerHtml(id)}
@@ -2976,8 +3123,8 @@ function openMigrate(c,l){
     m.querySelectorAll('input[name=fplan]').forEach(x=>x.onchange=upd);upd();
     m.querySelector('#mgGo').onclick=()=>{
       const r=ch(),pid=read();
-      if(S.money<ONU_COST){toast(`Falta caixa para a ONU (${brl0(ONU_COST)}).`);return;}
-      if(Math.random()<r.p){spend(ONU_COST);if(!opsOf('tecnico'))spend(THIRD_COST);l.tech='fiber';l.tid=null;l.plan=pid;l.price=r.price;delete l.disc;S.stock++;S.migrated=(S.migrated||0)+1;S.cur.migrados++;addXp(15);
+      if(S.money<onuFor(c)){toast(`Falta caixa para a ONU (${brl0(ONU_COST)}).`);return;}
+      if(Math.random()<r.p){takeOnu(c);if(!opsOf('tecnico'))spend(THIRD_COST);l.tech='fiber';l.tid=null;l.plan=pid;l.price=r.price;delete l.disc;eqOf(c).r++;S.migrated=(S.migrated||0)+1;S.cur.migrados++;addXp(15);
         log(`${l.fam.name} migrou para ${planById(pid).name}. Rádio voltou ao estoque.`);event(`Migração: ${l.fam.name}`);checkMissions();save(true);
         openModal(head('Migração','Cliente na fibra!')+`<p><b>${esc(l.fam.name)}</b> agora tem ${planById(pid).name} por ${brl(r.price)}/mês.${opsOf('tecnico')?'':` Instalação terceirizada: ${brl0(THIRD_COST)}.`}</p><div class="foot"><span></span><button class="btn primary" data-close>Ok</button></div>`);}
       else{save(true);openModal(head('Migração','Ainda não')+`<p>${esc(l.fam.name)} prefere continuar no rádio por enquanto. Tente com outro plano ou quando a fibra ficar mais barata.</p><div class="foot"><span></span><button class="btn" data-close>Ok</button></div>`);}
@@ -3037,13 +3184,14 @@ function openDebt(c,l){
 }
 function openRecover(c,l){
   const left=Math.max(0,90-(S.day-l.cpeSince));
-  openModal(head('Comodato',`Rádio na casa de ${esc(l.fam.name)}`)+`<p>Essa família cancelou, mas o rádio é da empresa (comodato). Recolhido, ele volta para o estoque e a próxima instalação sai sem custo de equipamento.</p>
-    <div class="notice warn">Se não for recolhido em ${left} dia(s), o rádio é dado como perdido.</div>
+  const en=eqName(l),enL=en==='ONU'?'a ONU':'o rádio';
+  openModal(head('Comodato',`${en} na casa de ${esc(l.fam.name)}`)+`<p>Essa família cancelou, mas ${enL} é da empresa (comodato). Recolhido, volta para o estoque de ${esc(c.name)} e a próxima instalação sai sem custo de equipamento.</p>
+    <div class="notice warn">Se não for recolhido em ${left} dia(s), ${enL} é dado como perdido.</div>
     <p class="muted">${built('logistica')&&staff('logistica')?'A logística recolhe automaticamente no fechamento do mês, mas você pode ir agora.':'Com o galpão de logística e motoristas, isso acontece sozinho todo mês.'}</p>
     <div class="foot"><span>Frete: <b>${brl0(60)}</b></span><button class="btn primary" id="rGo">Recolher agora</button></div>`,m=>{
     m.querySelector('#rGo').onclick=()=>{
       if(!spend(60))return;
-      if(Math.random()<0.75){l.cpe=false;S.stock++;S.cur.recolhidos++;addXp(5);log(`Rádio da casa de ${l.fam.name} recolhido para o estoque.`);save(true);closeModal();toast(`Rádio no estoque (${S.stock}).`);}
+      if(Math.random()<0.75){const k=l.cpeK||'r';l.cpe=false;eqOf(c)[k]++;S.cur.recolhidos++;addXp(5);log(`${en} da casa de ${l.fam.name} recolhido para o estoque de ${c.name}.`);save(true);closeModal();toast(`${en} no estoque de ${c.name} (${eqOf(c)[k]}).`);}
       else{save(true);openModal(head('Comodato','Ninguém em casa')+`<p>A família não estava. Tente de novo outro dia.</p><div class="foot"><span></span><button class="btn" data-close>Ok</button></div>`);}
     };
   });
@@ -3107,16 +3255,16 @@ function openPap(c,lot){
     <p class="eyebrow" style="margin-bottom:6px">Plano</p><div class="opts">${plans}</div>
     <p class="eyebrow" style="margin-bottom:6px">Combo</p><div class="opts" style="grid-template-columns:repeat(2,minmax(0,1fr))">${combos}</div>
     <div class="foot"><div>Total <b id="papTotal"></b> <span class="chip" id="papChance"></span></div><button class="btn primary" id="papGo" ${block?'disabled':''}>Oferecer plano</button></div>
-    <p class="muted" style="font-size:12.5px;margin-top:8px">${fibHere?`Na fibra, a ONU custa ${brl0(ONU_COST)}. `:''}${S.stock?`O rádio sai do estoque (${S.stock} disponíveis), sem custo.`:`O rádio do cliente (CPE) fica em comodato e custa ${brl0(cpeCost())} para a empresa${effect('dolar')?' (dólar alto)':''}.`}</p>`,m=>{
+    <p class="muted" style="font-size:12.5px;margin-top:8px">${fibHere?(eqOf(c).o?`Na fibra, a ONU sai do estoque de ${esc(c.name)} (${eqOf(c).o}), sem custo. `:`Na fibra, a ONU custa ${brl0(ONU_COST)}. `):''}${eqOf(c).r?`O rádio sai do estoque de ${esc(c.name)} (${eqOf(c).r} disponíveis), sem custo.`:`O rádio do cliente (CPE) fica em comodato e custa ${brl0(cpeCost())} para a empresa${effect('dolar')?' (dólar alto)':''}.`}</p>`,m=>{
     const read=()=>({plan:m.querySelector('input[name=plan]:checked').value,combo:[...m.querySelectorAll('input[type=checkbox]:checked')].map(x=>x.value)});
     const upd=()=>{const o=read();const r=chance(c,lot,o.plan,o.combo);m.querySelector('#papTotal').textContent=brl(r.price)+'/mês';const ch=m.querySelector('#papChance');ch.textContent='Chance '+(r.p>=0.62?'alta':r.p>=0.38?'média':'baixa');ch.className='chip '+(r.p>=0.62?'ok':r.p>=0.38?'warn':'bad');};
     m.querySelectorAll('.opt input').forEach(x=>x.onchange=upd);upd();
     m.querySelector('#papGo').onclick=()=>{
       const o=read();const r=chance(c,lot,o.plan,o.combo);
-      const fib=isFiberPlan(o.plan),eq=fib?ONU_COST:cpeFor();
+      const fib=isFiberPlan(o.plan),eq=fib?onuFor(c):cpeFor(c);
       if(S.money<eq){toast(`Falta caixa para o equipamento (${brl0(eq)}).`);return;}
       if(Math.random()<r.p){
-        if(fib)spend(ONU_COST);else takeCpe();
+        if(fib)takeOnu(c);else takeCpe(c);
         lot.st='pending';lot.deal={plan:o.plan,combo:o.combo,price:r.price,tid:fib?null:cov.t.id};
         log(`${f.name} assinou ${planLabel(o.plan,o.combo)}.`);save(true);
         openInstall(c,lot,lot.deal,false);
@@ -3332,6 +3480,8 @@ document.addEventListener('click',e=>{
   else if(act==='indep')openIndep();
   else if(act==='rivals'){if(LM)LM.closePopup();openRivals();}
   else if(act==='hqConvert')convertHQ(+a.dataset.c);
+  else if(act==='cityInfo')openCityInfo();
+  else if(act==='galpao')buildGalpao(+a.dataset.c);
   else if(act==='team')openTeam(a.dataset.f,a.dataset.hq!=null?+a.dataset.hq:null);
   else if(act==='servers')openServers();
   else if(act==='marketing')openMarketing();
@@ -3651,6 +3801,7 @@ function renderReal(){
   if(grid)return;
   const c=city(),tools=$('#realTools');
   if(!c.geo){
+    const mt0=$('#mapTools');if(mt0)mt0.innerHTML='';
     const busy=geoBusy.has(c);
     $('#realMap').hidden=true;
     tools.innerHTML=`<div class="real-empty"><b>${busy?esc(c.geoStep||`Buscando ${c.name} no mapa…`):c.geoError==='offline'?'Sem internet agora':c.geoError==='notfound'?`Não encontrei ${esc(c.name)}${c.uf?'/'+esc(c.uf):''} no mapa`:'Mapa real ainda não carregado'}</b><p class="muted" style="margin:0;max-width:440px">${busy?'Os dados vêm do OpenStreetMap.':c.geoError==='notfound'?'Confira o nome da cidade e o estado.':'O mapa real precisa de internet. Enquanto isso, o jogo funciona nas quadras.'}</p><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${busy?'':`<button class="btn primary small" data-act="geoLoad">Carregar mapa real</button>`}</div></div>`;
@@ -3665,9 +3816,10 @@ function renderReal(){
     if(first||wait<=0){clearTimeout(LDrawT);LDrawT=null;LSig=sig;LDrawAt=Date.now();drawReal(c,first);}else if(!LDrawT||!TICKR){clearTimeout(LDrawT);LDrawT=setTimeout(()=>{LDrawT=null;renderReal();},wait);}}
   if(!$('#draftPanel')||tools.dataset.phase!==S.phase){
     tools.dataset.phase=S.phase;
-    tools.innerHTML=`<div class="real-tools"><div class="grp">${S.phase==='sede'?'':`<button class="btn small primary" data-act="newTower">+ Nova torre</button>`}<button class="btn small ghost" data-act="gpsMe">📍 Onde estou</button></div><div class="grp"><button class="btn small ghost" data-act="geoLoad">Atualizar mapa</button></div></div><div id="draftPanel"></div><p class="geo-note" id="geoNote"></p>`;
+    tools.innerHTML=`<div class="real-tools"><div class="grp">${S.phase==='sede'?'':`<button class="btn small primary" data-act="newTower"><span class="ti" aria-hidden="true">📡</span>Nova torre</button>`}<button class="btn small ghost" data-act="gpsMe"><span class="ti" aria-hidden="true">📍</span>Onde estou</button></div><div class="grp"><button class="btn small ghost" data-act="geoLoad"><span class="ti" aria-hidden="true">🔄</span>Atualizar</button></div></div><div id="draftPanel"></div><p class="geo-note" id="geoNote"></p>`;
+    const rt=tools.querySelector('.real-tools'),mt=$('#mapTools');if(rt&&mt){mt.innerHTML='';mt.appendChild(rt);}
   }
-  const nb=tools.querySelector('[data-act="newTower"]');if(nb)nb.hidden=!!draft;
+  const nb=document.querySelector('#mapTools [data-act="newTower"]');if(nb)nb.hidden=!!draft;
   const srcTxt={ibge:`Bairros e domicílios oficiais do IBGE, Censo 2022 (${(c.geo.homes||0).toLocaleString('pt-BR')} domicílios).`,cep:`Bairros identificados cruzando as ruas com os CEPs dos Correios (ViaCEP). Domicílios estimados pela população (≈ ${c.geo.homes.toLocaleString('pt-BR')}).`,osm:`Bairros do OpenStreetMap. Domicílios estimados pela população (≈ ${c.geo.homes.toLocaleString('pt-BR')}).`}[c.geo.source||'osm'];
   $('#geoNote').textContent=(S.phase==='sede'?'Toque no mapa para escolher o ponto exato da sede. ':'Toque numa quadra para vender e ver os clientes; fora das quadras, veja o bairro e o preço do m². ')+srcTxt;
   if(draft&&!$('#draftPanel').innerHTML)renderDraftPanel(c);
@@ -3791,8 +3943,6 @@ if('serviceWorker' in navigator&&location.protocol!=='file:'){
   });
 }
 setOnline();
-try{if(localStorage.getItem('pt-portrait')==='1')document.body.classList.add('portrait-ok');}catch(e){}
-document.getElementById('rotOk').onclick=()=>{document.body.classList.add('portrait-ok');try{localStorage.setItem('pt-portrait','1');}catch(e){}};
 /* Um erro dentro de um dia de jogo não pode parar o relógio: o laço sempre agenda o próximo dia e o erro aparece na tela para ser reportado. */
 let lastErr='';
 function reportErr(e,where){const msg=(e&&e.message)||String(e);console.error(where,e);if(msg===lastErr)return;lastErr=msg;try{log('Erro no jogo ('+where+'): '+msg);}catch(x){}toast('⚠️ Erro no jogo: '+msg+'. Mande um print para o suporte.');}
