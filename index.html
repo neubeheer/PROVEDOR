@@ -998,6 +998,16 @@ const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900}
 const START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
 const BIG_CITY=50000, REGION_POP=20000;
 const PROMO_LEVEL=100;
+/* Nível 150: empresas terceirizadas assumem setores inteiros (equipe pronta, com supervisores e gerente) cobrando uma taxa
+   sobre os salários; consultorias treinam a equipe de um setor e sobem a eficiência por alguns meses.
+   Nível 200: planos corporativos com link dedicado, vendidos por executivos de contas para as empresas da cidade (precisa de fibra). */
+const OUTS_LEVEL=150,CORP_LEVEL=200;
+const OUT_SECTORS=['callcenter','comercial','tecnico','retencao','recuperacao','logistica','ouvidoria','migracao','marketing'];
+const OUT_PACKS=[{id:'p',name:'Pequena',ops:5,sup:1,ger:0},{id:'m',name:'Média',ops:15,sup:3,ger:1},{id:'g',name:'Grande',ops:40,sup:8,ger:1}];
+const OUT_FEE=0.45;
+const TRAININGS=[{id:'b',name:'Treinamento básico',bonus:.08,months:6,per:600},{id:'a',name:'Treinamento avançado',bonus:.15,months:6,per:1500},{id:'l',name:'Liderança e gestão',bonus:.22,months:12,per:3500}];
+const CORP_PLANS=[{id:'d50',name:'Dedicado 50 Mega',mb:50,price:1490},{id:'d100',name:'Dedicado 100 Mega',mb:100,price:2390},{id:'d300',name:'Dedicado 300 Mega',mb:300,price:4990},{id:'d1g',name:'Dedicado 1 Giga',mb:1000,price:11900}];
+const EXEC_SAL=4500,EXEC_HIRE=3000,EXEC_VISITS=4;
 const INDEP_SUBS=5000, INDEP_MUL=5, INDEP_BACKBONE=10000000;
 const GRACE=[{m:1,acc:0.45},{m:2,acc:0.6},{m:3,acc:0.75}];
 const RIVAL_LEVEL=18, OFFLINE_LEVEL=22, OFFLINE_CAP=10000, OFFLINE_MIN_MIN=10, OFFLINE_RATE=0.1, CEO_DIAMONDS=20, CEO_MAX_H=8;
@@ -1076,6 +1086,8 @@ const LEVELS=[
   {l:16,items:['OLT XGS-PON: Fibra 600 Mega']},
   {l:18,items:['Concorrência entre jogadores: disputa por assinantes com quem atende a mesma cidade']},
   {l:100,items:['Promoções de contratação no Comercial (instalação grátis, mensalidades com desconto, fidelidade, plano em oferta)','Campanhas para clientes no Marketing (clube de vantagens, indique um amigo, migração premiada)']},
+  {l:150,items:['Empresas terceirizadas assumem setores inteiros (Prédio → Terceirizadas e consultorias)','Consultorias de treinamento sobem a eficiência das equipes']},
+  {l:200,items:['Planos corporativos com link dedicado para as empresas da cidade (Planos → Corporativo)','Executivos de contas vendem para empresas; SLA: link estourado dá desconto e perde cliente']},
   {l:22,items:['Empresa rende offline: até R$ 10 mil enquanto você está fora','CEO contratado com diamantes administra a empresa quando você sai']},
 ];
 const XP_TABLE=[['Documento pronto',15],['Andar comprado',30],['Combo lançado',40],['Torre no ar',50],['Outorga paga',60],['Nova cidade',80],['Cliente novo',20],['Instalar o rádio você mesmo','+10 extra'],['Mês com lucro',10],['Recuperar inadimplente',15],['Recolher rádio',5],['Reter um cliente',10],['Migrar cliente para fibra',15],['Backbone de fibra',150],['Caixa CTO',20]];
@@ -1463,7 +1475,7 @@ const cnpjDone=()=>!!(S.docs.cnpj&&S.docs.cnpj.done);
    Dentro de inB(prédio, fn) (tela de um prédio, contratação, demissões), valem só os dados daquele prédio. */
 let BCTX=null;
 const hqCities=()=>S.cities.filter(c=>c.hq);
-function allFloors(){return [S.floors,...hqCities().map(c=>c.hq.floors),...S.cities.filter(c=>c.galpao&&!c.hq).map(c=>c.galpao)];}
+function allFloors(){return [S.floors,...hqCities().map(c=>c.hq.floors),...S.cities.filter(c=>c.galpao&&!c.hq).map(c=>c.galpao),...(S.outs&&Object.keys(S.outs).length?[S.outs]:[])];}
 /* Galpão de logística de cada cidade: o da sede, o da sede regional ou o galpão próprio de uma filial. */
 const galpaoBuilt=fl=>!!(fl&&fl.logistica&&fl.logistica.built);
 function galpaoOf(c){const fl=S.sede&&S.sede.ci===c.idx?S.floors:c.hq?c.hq.floors:c.galpao||null;return galpaoBuilt(fl)?fl:null;}
@@ -1492,6 +1504,7 @@ function effOf(id){
   if(headcount(id)>=8&&!t.ger)e-=0.15;if(t.ger)e+=0.05;e+=0.05*(S.partners||0);if(S.money<0)e-=0.1;
   const cr=careerOf(id),o=opsOf(id);if(o)e+=(0.12*cr.pl+0.25*cr.sr)/o;
   const gf=S.goalFx&&S.goalFx[id];if(gf&&gf.m===monthOf(S.day))e+=gf.e;
+  const tr=S.train&&S.train[id];if(tr&&tr.until>=monthOf(S.day))e+=tr.b;
   return clamp(e,0.4,1.45);
 }
 const capOf=(id,per)=>Math.floor(opsOf(id)*per*effOf(id)+1e-9);
@@ -1671,7 +1684,7 @@ function monthEnd(){
   for(const c of S.cities)for(const l of famsOf(c))delete l.recTried;
   // logística
   // cada galpão recolhe na sua cidade; o da sede também atende cidades sem galpão, gastando 2 viagens por equipamento
-  const capMain={n:galpaoBuilt(S.floors)?inB(S.floors,()=>capOf('logistica',6)):0};
+  const capMain={n:(galpaoBuilt(S.floors)?inB(S.floors,()=>capOf('logistica',6)):0)+(S.outs&&S.outs.logistica?inB(S.outs,()=>capOf('logistica',6)):0)};
   for(const c of S.cities){const fl=galpaoOf(c),cap=fl===S.floors?capMain:{n:fl?inB(fl,()=>capOf('logistica',6)):0};
     for(const l of famsOf(c)){
       if(!l.cpe)continue;
@@ -1711,8 +1724,9 @@ function monthEnd(){
   if(S.autoCoins){const keep=S.coinKeep||0,n=Math.max(0,S.coins-keep);if(n){S.coins-=n;S.money+=n*COIN_RATE;S.cur.coinCash=(S.cur.coinCash||0)+n*COIN_RATE;log(`Conversão automática: ${n} selos viraram ${brl0(n*COIN_RATE)}.`);}}
   S.retCap=capOf('retencao',5);
   const promoCost=clientCampaignsMonth();
-  const exp=staffCost+link+maint+content+fiberMaint+serverCost+storeCost+promoCost+Math.round(loanPay);
-  S.money+=rev+parc-exp;
+  const outsFee=outsFeeNow(),corp=corpMonth(util,cityU);
+  const exp=staffCost+link+maint+content+fiberMaint+serverCost+storeCost+promoCost+Math.round(loanPay)+outsFee+corp.cost;
+  S.money+=rev+parc+corp.rev-exp;
   // reputação
   let dRep=0;
   if(clients>0){if(ccCap<=0)dRep-=clients>8?5:1;else if(clients<=ccCap)dRep+=2;else dRep-=3;}
@@ -1726,7 +1740,7 @@ function monthEnd(){
   // rotatividade (RH)
   let quits=0;const where=[];
   const qBase=(Math.max(0.008,0.04-opsOf('rh')*0.008)+(S.money<0?0.05:0)+(effect('crise')?0.01:0))*(S.career&&S.career.on?0.75:1);
-  for(const FLb of allFloors())inB(FLb,()=>{for(const f of FLOORS){
+  for(const FLb of allFloors().filter(f=>f!==S.outs))inB(FLb,()=>{for(const f of FLOORS){
     if(!built(f.id)||f.id==='recepcao'||f.id==='rh')continue;const t=team(f.id);let q=0;const cr=careerOf(f.id),ops0=Math.max(1,opsOf(f.id)),qS=qBase*(1-0.5*(cr.pl+cr.sr)/ops0);
     for(const k in t){let n=t[k]||0;for(let i=0;i<n;i++)if(Math.random()<qS){t[k]--;q++;}}
     normCareer(f.id);
@@ -1734,10 +1748,10 @@ function monthEnd(){
   }});
   if(quits){S.cur.quits+=quits;log(`${quits} funcionário(s) pediram demissão (${where.join(', ')}).${built('rh')?'':' Um RH segura a equipe.'}`);}
   S.cur.calotes+=calNow;
-  const saldo=rev+parc-exp;
+  const saldo=rev+parc+corp.rev-exp;
   const payCl=S.cities.reduce((s,c)=>s+famsOf(c).filter(pays).length,0),ticket=payCl?rev/payCl:0,sla=clients?Math.min(1,ccCap/clients):1,cac=cacNow();
   const metas=evalGoals({ticket,sla,cac,clients,m});
-  S.history.push({m,traf:+peakT.toFixed(3),linkG:linkNow().g,ticket,sla,cac,metas,loanPay:Math.round(loanPay),staff:staffCost,link,maint,content,fiberMaint,serverCost,storeCost,promoCost:(S.cur.promoCost||0),exp,saldo,lateUnpaid,inad:lateCount(),stock:eqTotal('r'),onus:eqTotal('o'),clientes:allClients(),fibra:fiberCl,rep:Math.round(S.rep),caixa:S.money,...S.cur});
+  S.history.push({m,traf:+peakT.toFixed(3),linkG:linkNow().g,ticket,sla,cac,metas,loanPay:Math.round(loanPay),staff:staffCost,link,maint,content,fiberMaint,serverCost,storeCost,promoCost:(S.cur.promoCost||0),outsFee,corpRev:corp.rev,corpCost:corp.cost,corpN:corpCount(),corpNovos:corp.novos,corpPerdas:corp.perdas,exp,saldo,lateUnpaid,inad:lateCount(),stock:eqTotal('r'),onus:eqTotal('o'),clientes:allClients(),fibra:fiberCl,rep:Math.round(S.rep),caixa:S.money,...S.cur});
   S.history=S.history.slice(-24);
   S.cur=newMonth();repView=null;setGoalTargets();
   if(saldo>0)addXp(10);
@@ -1787,7 +1801,7 @@ function openNet(ci){
 /* ===================== Link de internet e tráfego ===================== */
 const TRAFFIC_MIX=[['YouTube','yt'],['Netflix','nf'],['Facebook, Instagram e WhatsApp','meta'],['TikTok','tt'],['Jogos online','game']];
 function cacheRed(){if(!built('noc'))return 0;return SERVERS.reduce((s,sv)=>s+(S.servers[sv.id]?sv.share*0.8:0),0);}
-function trafficRaw(){let mb=0;for(const c of S.cities)for(const l of famsOf(c))if(pays(l)||l.st==='late')mb+=planById(l.plan).mb||10;return mb*0.025*(1+monthOf(S.day)*0.004)/1000;}
+function trafficRaw(){let mb=0;for(const c of S.cities)for(const l of famsOf(c))if(pays(l)||l.st==='late')mb+=planById(l.plan).mb||10;return mb*0.025*(1+monthOf(S.day)*0.004)/1000+corpMb()*0.6/1000;}
 /* Durante um desenho (RC) o tráfego é calculado uma vez só. */
 function trafficGbps(){if(RC&&RC.has("tg"))return RC.get("tg");const v=trafficRaw()*(1-cacheRed());if(RC)RC.set("tg",v);return v;}
 const linkNow=()=>LINKS[clamp(S.link||0,0,LINKS.length-1)];
@@ -2542,6 +2556,7 @@ function plansHtml(){
   h+='<h3 style="margin:14px 0 6px">Combos</h3>'+Object.entries(COMBOS).map(([k,cb])=>S.combos[k]?priceRow('cb_'+k,'+ '+cb.name,cb.price,cbPrice(k),'custa '+brl(cb.unit)+'/cliente')
     :lvl>=cb.level&&companyLicensed()?`<div class="role-row"><div><b>+ ${cb.name}</b><small>Contrato com ${cb.who}</small></div><button class="btn small primary" data-act="combo-${k}">Lançar · ${brl0(cb.cost)}</button></div>`
     :`<div class="role-row"><div><b>+ ${cb.name}</b><small>Libera no nível ${cb.level}</small></div><span class="chip">🔒</span></div>`).join('');
+  h+=corpHtml();
   return h;
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-price]');if(!b||!S)return;const id=b.dataset.price,d=+b.dataset.d;
@@ -2565,6 +2580,62 @@ function hqBuildingHtml(ci){const c=S.cities[ci];if(!c||!c.hq)return '';return i
   h+='<div class="door"></div>'+floorHtml(FLOORS.find(x=>x.annex),lvl);
   return h.replace(/data-f="/g,`data-hq="${ci}" data-f="`);});}
 let PANEL_B=null;
+/* ===== Terceirizadas e consultorias (nível 150) ===== */
+function outTeam(id,pk){const p=OUT_PACKS.find(x=>x.id===pk);return id==='callcenter'?{voz:p.ops,n2:Math.ceil(p.ops/5),sup:p.sup,ger:p.ger}:{op:p.ops,sup:p.sup,ger:p.ger};}
+function teamSal(id,t){const R=rolesOf(FLOORS.find(f=>f.id===id));let s=0;for(const k in t)s+=(t[k]||0)*((R[k]||{}).sal||0);return s;}
+const outMonthly=(id,pk)=>Math.round(teamSal(id,outTeam(id,pk))*(1+OUT_FEE));
+function outsFeeNow(){let s=0;for(const [id,f] of Object.entries(S.outs||{}))s+=Math.round(teamSal(id,f.team)*OUT_FEE);return s;}
+function openOuts(){const lvl=levelOf(S.xp);if(lvl<OUTS_LEVEL){toast(`Libera no nível ${OUTS_LEVEL}.`);return;}
+  S.outs=S.outs||{};S.train=S.train||{};const m=monthOf(S.day);
+  const rows=OUT_SECTORS.map(id=>{const f=FLOORS.find(x=>x.id===id),cur=S.outs[id];
+    return `<div class="choice"><div><b>${f.name}</b><small>${cur?`Contrato ${OUT_PACKS.find(p=>p.id===cur.pack).name} · ${Object.values(cur.team).reduce((a,b)=>a+b,0)} pessoas · ${brl0(outMonthly(id,cur.pack))}/mês`:built(id)?'Equipe própria':'Setor não montado: a terceirizada assume o setor inteiro'}</small></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${OUT_PACKS.map(p=>`<button class="btn small ${cur&&cur.pack===p.id?'primary':''}" data-out="${id}" data-pk="${p.id}" title="${p.ops} operadores, ${p.sup} supervisor(es)${p.ger?', 1 gerente':''}">${p.name} · ${brl0(outMonthly(id,p.id))}</button>`).join('')}${cur?`<button class="btn small ghost" data-out="${id}" data-pk="">Encerrar</button>`:''}</div></div>`;}).join('');
+  const trRows=OUT_SECTORS.concat(['rh','noc']).filter(id=>headcount(id)>0).map(id=>{const f=FLOORS.find(x=>x.id===id),hc=headcount(id),cur=S.train[id],on=cur&&cur.until>=m;
+    return `<div class="choice"><div><b>${f.name}</b><small>${hc} pessoa(s) · eficiência ${Math.round(effOf(id)*100)}%${on?` · <b style="color:var(--signal)">${TRAININGS.find(t=>t.id===cur.id).name} +${Math.round(cur.b*100)}% até o mês ${cur.until}</b>`:''}</small></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${TRAININGS.map(t=>`<button class="btn small" data-train="${id}" data-t="${t.id}" ${on&&cur.b>=t.bonus?'disabled':''} title="+${Math.round(t.bonus*100)}% de eficiência por ${t.months} meses">${t.name} · ${brl0(t.per*hc)}</button>`).join('')}</div></div>`;}).join('');
+  openModal(head('Gestão','Terceirizadas e consultorias')+`<p class="muted" style="margin-top:0">A terceirizada traz a equipe pronta (operadores, supervisores e gerente), soma na capacidade do setor e não pede demissão. Cobra os salários mais ${Math.round(OUT_FEE*100)}% de taxa por mês; a contratação custa um mês adiantado.</p>
+    <h3 style="margin:8px 0 6px">Empresas terceirizadas</h3><div class="choice-list">${rows}</div>
+    <h3 style="margin:14px 0 6px">Consultorias de treinamento</h3><p class="muted" style="margin:0 0 6px;font-size:13px">O preço é por pessoa do setor (equipe própria e terceirizada). Sobe a eficiência enquanto durar.</p><div class="choice-list">${trRows||'<p class="muted">Monte ou terceirize um setor para treinar a equipe.</p>'}</div>
+    <div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
+document.addEventListener('click',e=>{if(!S)return;
+  const o=e.target.closest('[data-out]');if(o){const id=o.dataset.out,pk=o.dataset.pk,f=FLOORS.find(x=>x.id===id);S.outs=S.outs||{};
+    if(!pk){delete S.outs[id];log(`Contrato da terceirizada do ${f.name} encerrado.`);save(true);renderAll();openOuts();return;}
+    if(S.outs[id]&&S.outs[id].pack===pk)return;const cost=outMonthly(id,pk);if(!spend(cost))return;
+    S.outs[id]={built:true,team:outTeam(id,pk),pack:pk,since:monthOf(S.day)};addXp(60);log(`Terceirizada ${OUT_PACKS.find(p=>p.id===pk).name.toLowerCase()} assumiu o ${f.name} (${brl0(cost)} adiantado).`);event(`Terceirizada no ${f.name}`);save(true);renderAll();openOuts();return;}
+  const t=e.target.closest('[data-train]');if(t){const id=t.dataset.train,tr=TRAININGS.find(x=>x.id===t.dataset.t),hc=headcount(id),cost=tr.per*hc;if(!hc||!spend(cost))return;S.train=S.train||{};
+    S.train[id]={id:tr.id,b:tr.bonus,until:monthOf(S.day)+tr.months};addXp(40);log(`Consultoria: ${tr.name} no ${FLOORS.find(x=>x.id===id).name} (${brl0(cost)}), +${Math.round(tr.bonus*100)}% de eficiência por ${tr.months} meses.`);save(true);renderAll();openOuts();}
+});
+/* ===== Planos corporativos com link dedicado (nível 200) ===== */
+const corpOf=c=>c.corp||(c.corp=[]);
+const corpPot=c=>Math.max(5,Math.round((c.pop||0)/45));
+const corpCount=()=>S.cities.reduce((t,c)=>t+(c.corp||[]).length,0);
+function corpMb(){let mb=0;for(const c of S.cities)for(const k of c.corp||[]){const p=CORP_PLANS.find(x=>x.id===k.p);mb+=p?p.mb:0;}return mb;}
+const corpPrice=p=>{const v=S.prices&&S.prices[p.id];return v!=null?v:p.price;};
+const corpReady=c=>!!(c.fiber&&c.fiber.on&&cityLicensed(c));
+function corpMonth(util,cityU){const out={rev:0,cost:(S.execs||0)*EXEC_SAL,novos:0,perdas:0};if(levelOf(S.xp)<CORP_LEVEL&&!corpCount()&&!S.execs)return out;
+  for(const c of S.cities){const L=corpOf(c);if(!L.length)continue;const u=Math.max(util,cityU&&cityU.get(c)||0),bad=u>1;
+    c.corp=L.filter(k=>{let churn=0.012+(S.rep<50?0.02:0)+(bad?0.10:0);if(Math.random()<churn){out.perdas++;return false;}out.rev+=k.price*(bad?0.8:1);return true;});
+    if(bad)log(`SLA violado em ${c.name}: link estourado, empresas receberam 20% de desconto.`);}
+  const visits=(S.execs||0)*EXEC_VISITS*effMul();
+  for(let i=0;i<visits;i++){const cs=S.cities.filter(c=>corpReady(c)&&corpOf(c).length<corpPot(c));if(!cs.length)break;
+    const c=cs[Math.floor(Math.random()*cs.length)],r=Math.random(),p=CORP_PLANS[r<.4?0:r<.75?1:r<.93?2:3],price=corpPrice(p);
+    const pr=clamp(0.22+(S.rep-50)/300-(price/p.price-1)*0.6+(util>1?-0.1:0),0.03,0.6);
+    if(Math.random()<pr){corpOf(c).push({p:p.id,price,since:S.day});out.novos++;addXp(30);}}
+  if(out.novos)log(`Corporativo: ${out.novos} empresa(s) fecharam link dedicado.`);if(out.perdas)log(`Corporativo: ${out.perdas} empresa(s) cancelaram o link dedicado.`);
+  return out;}
+const effMul=()=>clamp(0.8+(S.rep-50)/250,0.6,1.1);
+function corpHtml(){const lvl=levelOf(S.xp);if(lvl<CORP_LEVEL)return `<h3 style="margin:14px 0 6px">Corporativo</h3><div class="notice">Planos corporativos com link dedicado chegam no nível ${CORP_LEVEL}.</div>`;
+  const rows=CORP_PLANS.map(p=>{const cur=corpPrice(p),lo=Math.round(p.price*0.6),hi=Math.round(p.price*1.5),st=Math.round(p.price*0.05);
+    return `<div class="role-row"><div><b>${p.name}</b><small>Tabela ${brl0(p.price)} · ${p.mb} Mega garantidos (o pico usa 60% do contratado)</small></div><div class="role-ctl"><button class="btn small" data-cprice="${p.id}" data-d="-1" ${cur-st<lo?'disabled':''} aria-label="Baixar">−</button><b data-price style="min-width:86px;text-align:center">${brl0(cur)}</b><button class="btn small" data-cprice="${p.id}" data-d="1" ${cur+st>hi?'disabled':''} aria-label="Subir">+</button></div></div>`;}).join('');
+  const cities=S.cities.map(c=>`<div class="choice"><div><b>${esc(c.name)}</b><small>${corpOf(c).length}/${corpPot(c)} empresas · ${corpReady(c)?'pronta para vender':'precisa de fibra e outorga'}</small></div></div>`).join('');
+  const rev=S.cities.reduce((t,c)=>t+corpOf(c).reduce((a,k)=>a+k.price,0),0);
+  return `<h3 style="margin:14px 0 6px">Corporativo · links dedicados</h3>
+    <div class="notice"><b>${corpCount()} empresa(s)</b> · ${brl0(rev)}/mês · ${gb(corpMb()*0.6/1000)} no pico do link. Link estourado viola o SLA: 20% de desconto e mais cancelamentos.</div>
+    ${rows}
+    <div class="role-row"><div><b>Executivos de contas</b><small>Cada um visita ${EXEC_VISITS} empresas por mês · ${brl0(EXEC_SAL)}/mês · contratação ${brl0(EXEC_HIRE)}</small></div><div class="role-ctl"><button class="btn small" data-act="execDel" ${S.execs?'':'disabled'} aria-label="Demitir executivo">−</button><b data-price style="min-width:44px;text-align:center">${S.execs||0}</b><button class="btn small primary" data-act="execAdd" aria-label="Contratar executivo">+</button></div></div>
+    <div class="choice-list" style="margin-top:8px">${cities}</div>`;}
+document.addEventListener('click',e=>{if(!S)return;const b=e.target.closest('[data-cprice]');if(!b)return;const p=CORP_PLANS.find(x=>x.id===b.dataset.cprice);if(!p)return;
+  const st=Math.round(p.price*0.05),nv=corpPrice(p)+(+b.dataset.d)*st;if(nv<Math.round(p.price*0.6)||nv>Math.round(p.price*1.5))return;S.prices=S.prices||{};S.prices[p.id]=nv;save(false);refreshPanel();});
 function logisticsHtml(){if(!S.cities.length)return '';
   const main=galpaoOf(S.cities[(S.sede&&S.sede.ci)||0]||S.cities[0]);
   const rows=S.cities.map(c=>{const e=eqOf(c),n=famsOf(c).filter(l=>l.cpe).length,fl=galpaoOf(c),own=fl&&fl!==S.floors,ci=c.idx;
@@ -2575,12 +2646,13 @@ function logisticsHtml(){if(!S.cities.length)return '';
   return `<div class="notice" style="margin-top:12px"><b>Logística e estoque por cidade</b><p class="muted" style="margin:4px 0 0;font-size:12.5px">Rádios e ONUs ficam no estoque da cidade onde foram recolhidos. Filiais (loja ou filial de área) podem ter galpão próprio com motoristas.</p><div class="choice-list" style="margin-top:8px">${rows}</div></div>`;}
 function buildGalpao(ci){const c=S.cities[ci];if(!canGalpao(c))return;if(!spend(GALPAO_COST))return;c.galpao={logistica:{built:true,team:{}}};addXp(40);log(`Galpão de logística aberto na filial de ${c.name}.`);save(true);toast(`Galpão em ${c.name}! Contrate motoristas.`);openTeam('logistica',ci);}
 function buildingPanelHtml(){
-  const hqs=hqCities(),cand=S.cities.filter(canHQ);
+  const hqs=hqCities(),cand=S.cities.filter(canHQ),lv=levelOf(S.xp);
+  const outsBtn=`<div class="notice" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span><b>Terceirizadas e consultorias</b><br><small>${lv>=OUTS_LEVEL?`${Object.keys(S.outs||{}).length} setor(es) terceirizado(s)`:`Libera no nível ${OUTS_LEVEL}`}</small></span><button class="btn small ${lv>=OUTS_LEVEL?'primary':''}" data-act="outs" ${lv>=OUTS_LEVEL?'':'disabled'}>Abrir</button></div>`;
   if(PANEL_B!=null&&!(S.cities[PANEL_B]&&S.cities[PANEL_B].hq))PANEL_B=null;
   const tabs=hqs.length?`<div class="seg" style="margin-bottom:10px"><button data-pb="main" aria-pressed="${PANEL_B==null}">Sede · ${esc((S.cities[(S.sede&&S.sede.ci)||0]||{}).name||'principal')}</button>${hqs.map(c=>`<button data-pb="${c.idx}" aria-pressed="${PANEL_B===c.idx}">Regional · ${esc(c.name)}</button>`).join('')}</div>`:'';
   const conv=cand.length?`<div class="notice"><b>Filiais que podem virar sede regional</b><div class="choice-list" style="margin-top:8px">${cand.map(c=>`<div class="choice"><div><b>${esc(c.name)}</b><small>Prédio próprio com andares e equipes. ${brl0(HQ_COST)} na conversão + ${brl0(HQ_MAINT)}/mês.</small></div><button class="btn small primary" data-act="hqConvert" data-c="${c.idx}">Converter · ${brl0(HQ_COST)}</button></div>`).join('')}</div></div>`:'';
   const body=PANEL_B!=null?hqBuildingHtml(PANEL_B):`<div class="building">${$('#building').innerHTML}</div>`;
-  return alertsHtml()+tabs+`<div class="sede-modal"><div class="building">${body}</div></div>`+conv+logisticsHtml();
+  return alertsHtml()+outsBtn+tabs+`<div class="sede-modal"><div class="building">${body}</div></div>`+conv+logisticsHtml();
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-pb]');if(!b||!S)return;PANEL_B=b.dataset.pb==='main'?null:+b.dataset.pb;refreshPanel();});
 
@@ -2662,7 +2734,7 @@ function renderReport(){
   const r=hist[idx];
   $('#repTitle').textContent=`Mês ${r.m} · fechado`;
   $('#report').innerHTML=`<div class="kpis"><div class="kpi"><span>Novos</span><b>${r.novos}</b></div><div class="kpi"><span>Cancel.</span><b>${r.cancel}</b></div><div class="kpi"><span>Clientes</span><b>${r.clientes}</b></div></div>
-    <dl class="finance"><dt>Assinaturas</dt><dd>${brl0(r.rev)}</dd>${r.parc?`<dt>Acordos e cobranças</dt><dd>${brl0(r.parc)}</dd>`:''}${r.lateUnpaid?`<dt>Não pago (inadimplência)</dt><dd style="color:var(--danger)">${brl0(r.lateUnpaid)}</dd>`:''}<dt>Salários e sócios</dt><dd>−${brl0(r.staff)}</dd><dt>Link de internet</dt><dd>−${brl0(r.link)}</dd><dt>Manutenção de torres</dt><dd>−${brl0(r.maint)}</dd>${r.fiberMaint?`<dt>Rede de fibra</dt><dd>−${brl0(r.fiberMaint)}</dd>`:''}${r.serverCost?`<dt>Servidores de cache</dt><dd>−${brl0(r.serverCost)}</dd>`:''}${r.storeCost?`<dt>Lojas filiais</dt><dd>−${brl0(r.storeCost)}</dd>`:''}${r.promoCost?`<dt>Promoções</dt><dd>−${brl0(r.promoCost)}</dd>`:''}<dt>TV e telefone</dt><dd>−${brl0(r.content)}</dd><dt><b>Saldo operacional</b></dt><dd style="color:${r.saldo>=0?'var(--signal)':'var(--danger)'}">${brl0(r.saldo)}</dd><dt>Investimentos</dt><dd>${brl0(r.inv)}</dd>${r.bonus?`<dt>Bônus de nível</dt><dd style="color:var(--signal)">+${brl0(r.bonus)}</dd>`:''}${r.loanPay?`<dt>Parcelas do empréstimo</dt><dd>−${brl0(r.loanPay)}</dd>`:''}<dt>Pedidos de cancelamento · retidos</dt><dd>${r.pedidos||0} · ${r.retidos||0}</dd><dt>Selos ganhos</dt><dd>${r.coins||0}</dd><dt>Clientes na fibra · migrados</dt><dd>${r.fibra||0} · ${r.migrados||0}</dd><dt>Reclamações · demissões</dt><dd>${r.complaints||0} · ${r.quits||0}</dd><dt>Novos inadimplentes</dt><dd>${r.calotes||0}</dd><dt>Rádios recolhidos · perdidos</dt><dd>${r.recolhidos||0} · ${r.perdidos||0}</dd><dt>Torres novas</dt><dd>${r.torres}</dd><dt>Reputação · caixa</dt><dd>${r.rep} · ${brl0(r.caixa)}</dd></dl>
+    <dl class="finance"><dt>Assinaturas</dt><dd>${brl0(r.rev)}</dd>${r.corpRev?`<dt>Corporativo (${r.corpN||0} empresas)</dt><dd>${brl0(r.corpRev)}</dd>`:''}${r.parc?`<dt>Acordos e cobranças</dt><dd>${brl0(r.parc)}</dd>`:''}${r.lateUnpaid?`<dt>Não pago (inadimplência)</dt><dd style="color:var(--danger)">${brl0(r.lateUnpaid)}</dd>`:''}<dt>Salários e sócios</dt><dd>−${brl0(r.staff)}</dd><dt>Link de internet</dt><dd>−${brl0(r.link)}</dd><dt>Manutenção de torres</dt><dd>−${brl0(r.maint)}</dd>${r.fiberMaint?`<dt>Rede de fibra</dt><dd>−${brl0(r.fiberMaint)}</dd>`:''}${r.serverCost?`<dt>Servidores de cache</dt><dd>−${brl0(r.serverCost)}</dd>`:''}${r.storeCost?`<dt>Lojas filiais</dt><dd>−${brl0(r.storeCost)}</dd>`:''}${r.promoCost?`<dt>Promoções</dt><dd>−${brl0(r.promoCost)}</dd>`:''}${r.outsFee?`<dt>Terceirizadas (taxa)</dt><dd>−${brl0(r.outsFee)}</dd>`:''}${r.corpCost?`<dt>Executivos de contas</dt><dd>−${brl0(r.corpCost)}</dd>`:''}<dt>TV e telefone</dt><dd>−${brl0(r.content)}</dd><dt><b>Saldo operacional</b></dt><dd style="color:${r.saldo>=0?'var(--signal)':'var(--danger)'}">${brl0(r.saldo)}</dd><dt>Investimentos</dt><dd>${brl0(r.inv)}</dd>${r.bonus?`<dt>Bônus de nível</dt><dd style="color:var(--signal)">+${brl0(r.bonus)}</dd>`:''}${r.loanPay?`<dt>Parcelas do empréstimo</dt><dd>−${brl0(r.loanPay)}</dd>`:''}<dt>Pedidos de cancelamento · retidos</dt><dd>${r.pedidos||0} · ${r.retidos||0}</dd><dt>Selos ganhos</dt><dd>${r.coins||0}</dd><dt>Clientes na fibra · migrados</dt><dd>${r.fibra||0} · ${r.migrados||0}</dd><dt>Reclamações · demissões</dt><dd>${r.complaints||0} · ${r.quits||0}</dd><dt>Novos inadimplentes</dt><dd>${r.calotes||0}</dd><dt>Rádios recolhidos · perdidos</dt><dd>${r.recolhidos||0} · ${r.perdidos||0}</dd><dt>Torres novas</dt><dd>${r.torres}</dd><dt>Reputação · caixa</dt><dd>${r.rep} · ${brl0(r.caixa)}</dd></dl>
     ${evBlock(r)}`;
 }
 function renderLog(){$('#log').innerHTML=S.log.slice(0,16).map(e=>`<li><time>M${monthOf(e.d)}·${String(dayOf(e.d)).padStart(2,'0')}</time><span>${esc(e.m)}</span></li>`).join('');}
@@ -3669,6 +3741,9 @@ document.addEventListener('click',e=>{
   else if(act==='towerInfo'){LM&&LM.closePopup();const cc=S.cities[+a.dataset.c],t=cc&&cc.towers.find(x=>String(x.id)===a.dataset.t);if(t)towerInfo(cc,t);}
   else if(act==='fullscreen2')toggleFull();
   else if(act==='galpao')buildGalpao(+a.dataset.c);
+  else if(act==='outs')openOuts();
+  else if(act==='execAdd'){if(levelOf(S.xp)<CORP_LEVEL||!spend(EXEC_HIRE))return;S.execs=(S.execs||0)+1;log('Executivo de contas contratado.');save(true);refreshPanel();}
+  else if(act==='execDel'){if(!S.execs)return;S.execs--;log('Executivo de contas desligado.');save(true);refreshPanel();}
   else if(act==='team')openTeam(a.dataset.f,a.dataset.hq!=null?+a.dataset.hq:null);
   else if(act==='servers')openServers();
   else if(act==='marketing')openMarketing();
