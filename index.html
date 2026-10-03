@@ -895,6 +895,28 @@ body.booting .top,body.booting .hud-side,body.booting .layout,body.booting .tabs
   #rotateLock p{margin:0;max-width:300px;color:#d7ecff;font-size:16px}
   @keyframes rotl{0%,20%{transform:rotate(0)}55%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
 }
+/* Coluna da direita só com ícones (vale deitado e no computador) */
+:root{--hs:calc(var(--ph)*1.18)}
+html body .hud-side{align-items:flex-end;overflow:visible}
+html body #hudTime,html body #mapTools .real-tools{flex-direction:column!important;flex-wrap:nowrap!important;align-items:flex-end;gap:var(--gap);max-width:none}
+.hs-item{position:relative;display:flex}
+.hs-btn,html body #mapTools .btn{position:relative;width:var(--hs);height:var(--hs);min-width:0;min-height:0;padding:0;border-radius:50%;border:2.5px solid var(--navy);background:radial-gradient(circle at 40% 30%,#fff,#dfe8f3);box-shadow:0 2px 0 var(--navy);display:grid;place-items:center;cursor:pointer;color:var(--navy);font:400 calc(var(--fs)*.9)/1 var(--display)}
+.hs-btn svg{width:66%;height:66%;display:block}
+.hs-btn.warn{background:radial-gradient(circle at 40% 30%,#fff4cc,#ffd76a)}
+.hs-btn.bad{background:radial-gradient(circle at 40% 30%,#ffd6d6,#ff8787)}
+.hs-speed{background:radial-gradient(circle at 40% 30%,#ffe98a,var(--sun));font-size:calc(var(--fs)*.85)}
+.hs-tag{position:absolute;left:50%;transform:translateX(-50%);bottom:-9px;white-space:nowrap;min-width:18px;height:17px;padding:0 4px;border-radius:999px;background:var(--navy);color:#fff;border:2px solid #fff;font:400 10px/13px var(--display);font-style:normal;text-align:center}
+html body #mapTools .btn{flex-direction:column}
+html body #mapTools .btn.primary{background:radial-gradient(circle at 40% 30%,#a6f08f,var(--go))}
+html body #mapTools .btn .ti{font-size:calc(var(--hs)*.46);line-height:1}
+html body #mapTools .btn .tl{display:none}
+.hs-fly{display:none;position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);white-space:nowrap;z-index:2}
+.hs-item.open .hs-fly{display:flex}
+.hs-date{align-items:center;height:calc(var(--hs)*.85);padding:0 12px;border-radius:999px;background:linear-gradient(180deg,#fff,#e6eef8);border:2.5px solid var(--navy);box-shadow:0 2px 0 var(--navy);color:var(--navy)}
+.hs-date b{font-family:var(--display);font-weight:400;font-size:var(--fs)}
+html body .hs-fly.speed{height:auto;padding:2px;border:2.5px solid var(--navy);border-radius:12px;background:var(--navy);box-shadow:0 2px 0 rgba(10,20,40,.5)}
+html body .hs-fly.speed button{padding:calc(var(--ph)*.16) calc(var(--ph)*.3);font-size:calc(var(--fs)*.85);min-height:0}
+@media (orientation:landscape){html body .hud-side{top:calc(var(--ovTop) + var(--fabH) + var(--gap) + 4px)}}
 </style>
 </head>
 <body class="booting">
@@ -2086,6 +2108,11 @@ function renderAll0(){fixNet();renderTop();renderTut();renderMap();renderReal();
 /* As colunas escondidas (fonte dos painéis) só são montadas quando o painel correspondente está aberto. */
 function renderPanelSrc(k){if(k==='building')renderBuilding();else if(k==='plans')renderProducts();else if(k==='missions')renderMissions();else if(k==='report')renderReport();else if(k==='log')renderLog();}
 function renderSaveDot(){const d=$('#saveDot');if(d)d.className='save-dot '+(cloud.status==='cloud'?'cloud':cloud.status==='erro'?'err':'');}
+/* Coluna da direita: só ícones. Data e velocidade abrem um balão ao lado; tocar fora ou de novo fecha. */
+let HUD_OPEN=null,HUD_T=null;
+document.addEventListener('click',e=>{if(!S)return;const b=e.target.closest('[data-hs]');
+  if(b){HUD_OPEN=HUD_OPEN===b.dataset.hs?null:b.dataset.hs;clearTimeout(HUD_T);if(HUD_OPEN==='date')HUD_T=setTimeout(()=>{HUD_OPEN=null;renderTop();},5000);renderTop();return;}
+  if(HUD_OPEN&&!e.target.closest('.hs-item')){HUD_OPEN=null;renderTop();}});
 function renderTop(){
   const c=city();
   $('#companyName').textContent=`${S.company} · ${c.name}${c.uf?'/'+c.uf:''}`;
@@ -2104,10 +2131,10 @@ function renderTop(){
     ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
     ${isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Instalar o app ou tela cheia" title="Instalar o app / tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
-  const ht=$('#hudTime');if(ht)ht.innerHTML=`
-    <div class="pill date" title="Data"><span class="pill-ico">${HUD_ICO.cal}</span><b>${dt}</b></div>
-    <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
-    <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b><span class="lk-w">Link </span>${Math.round(lu*100)}%</b></button>`;
+  const ht=$('#hudTime'),lkp=Math.round(lu*100);if(ht)ht.innerHTML=`
+    <div class="hs-item ${HUD_OPEN==='date'?'open':''}"><button class="hs-btn" data-hs="date" aria-label="Data: ${dt}" title="${dt}">${HUD_ICO.cal}${S.phase==='play'?`<i class="hs-tag">${dayOf(S.day)}</i>`:''}</button><div class="hs-fly hs-date"><b>${dt}</b></div></div>
+    <div class="hs-item ${HUD_OPEN==='speed'?'open':''}"><button class="hs-btn hs-speed" data-hs="speed" aria-label="Velocidade: ${S.speed?S.speed+'×':'pausado'}" title="Velocidade">${S.speed?S.speed+'×':'❚❚'}</button><div class="hs-fly speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div></div>
+    <button class="hs-btn ${lu>1?'bad':lu>0.85?'warn':''}" data-act="link" aria-label="Link de internet: ${lkp}%" title="Link ${lkp}%">${HUD_ICO.signal}${lu>0.85?`<i class="hs-tag">${lkp}%</i>`:''}</button>`;
   const al=staffAlerts(),tb=document.querySelector('.tabs [data-panel="building"]');if(tb)tb.dataset.badge=al.length||'';notifyAlerts(al);
   renderSaveDot();
 }
@@ -3613,7 +3640,7 @@ document.addEventListener('click',e=>{
   const vw=e.target.closest('[data-view]');if(vw){setView(vw.dataset.view);return;}
   const bz=e.target.closest('[data-bairro]');if(bz){selBairro=+bz.dataset.bairro;renderMap();return;}
   const lotB=e.target.closest('[data-lot]');if(lotB){onLot(+lotB.dataset.lot);return;}
-  const sp=e.target.closest('[data-speed]');if(sp){S.speed=+sp.dataset.speed;save(false);renderTop();loop();return;}
+  const sp=e.target.closest('[data-speed]');if(sp){S.speed=+sp.dataset.speed;HUD_OPEN=null;save(false);renderTop();loop();return;}
   const rp=e.target.closest('[data-rep]');if(rp){const len=S.history.length;let i=repView===null?len:repView;i=clamp(i+(+rp.dataset.rep),0,len);repView=i>=len?null:i;renderReport();return;}
   const pb=e.target.closest('[data-panel]');if(pb){openPanel(pb.dataset.panel);return;}
   const a=e.target.closest('[data-act]');if(!a)return;
@@ -3963,7 +3990,7 @@ function renderReal(){
     if(first||wait<=0){clearTimeout(LDrawT);LDrawT=null;LSig=sig;LDrawAt=Date.now();drawReal(c,first);}else if(!LDrawT||!TICKR){clearTimeout(LDrawT);LDrawT=setTimeout(()=>{LDrawT=null;renderReal();},wait);}}
   if(!$('#draftPanel')||tools.dataset.phase!==S.phase){
     tools.dataset.phase=S.phase;
-    tools.innerHTML=`<div class="real-tools"><div class="grp">${S.phase==='sede'?'':`<button class="btn small primary" data-act="newTower"><span class="ti" aria-hidden="true">📡</span>Nova torre</button>`}<button class="btn small ghost" data-act="gpsMe"><span class="ti" aria-hidden="true">📍</span>Onde estou</button></div><div class="grp"><button class="btn small ghost" data-act="geoLoad"><span class="ti" aria-hidden="true">🔄</span>Atualizar</button></div></div><div id="draftPanel"></div><p class="geo-note" id="geoNote"></p>`;
+    tools.innerHTML=`<div class="real-tools"><div class="grp">${S.phase==='sede'?'':`<button class="btn small primary" data-act="newTower" title="Nova torre" aria-label="Nova torre"><span class="ti" aria-hidden="true">📡</span><span class="tl">Nova torre</span></button>`}<button class="btn small ghost" data-act="gpsMe" title="Onde estou" aria-label="Onde estou"><span class="ti" aria-hidden="true">📍</span><span class="tl">Onde estou</span></button></div><div class="grp"><button class="btn small ghost" data-act="geoLoad" title="Atualizar mapa" aria-label="Atualizar mapa"><span class="ti" aria-hidden="true">🔄</span><span class="tl">Atualizar</span></button></div></div><div id="draftPanel"></div><p class="geo-note" id="geoNote"></p>`;
     const rt=tools.querySelector('.real-tools'),mt=$('#mapTools');if(rt&&mt){mt.innerHTML='';mt.appendChild(rt);}
   }
   const nb=document.querySelector('#mapTools [data-act="newTower"]');if(nb)nb.hidden=!!draft;
