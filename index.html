@@ -1674,14 +1674,14 @@ function monthEnd(){
   S.parcelas=S.parcelas.filter(pc=>{parc+=pc.amount;pc.left--;return pc.left>0;});
   // setor de recuperação
   let capR=capOf('recuperacao',3);
-  while(capR>0){
-    const all=[];for(const c of S.cities)for(const l of famsOf(c))if((l.st==='late'||l.st==='suspended')&&l.debt>0&&!l.recTried)all.push([c,l]);
-    if(!all.length)break;capR--;
-    const [c,l]=all[Math.floor(Math.random()*all.length)];l.recTried=true;
+  // a lista de inadimplentes é montada uma vez; cada negociação sorteia e tira um da lista (antes varria a base inteira a cada cobrança)
+  const allR=[];let recN=0,recV=0;if(capR>0)for(const c of S.cities)for(const l of famsOf(c))if((l.st==='late'||l.st==='suspended')&&l.debt>0)allR.push([c,l]);
+  while(capR>0&&allR.length){capR--;
+    const j=Math.floor(Math.random()*allR.length),[c,l]=allR[j];allR[j]=allR[allR.length-1];allR.pop();
     const pr=clamp(0.5+(S.rep-50)/250-(effect('crise')?0.1:0),0.15,0.85);
-    if(Math.random()<pr){const got=Math.round(l.debt*0.85);parc+=got;S.cur.recuperado+=got;l.st='client';delete l.debt;delete l.lateSince;S.recovered++;addXp(15);log(`Recuperação negociou com ${l.fam.name}: ${brl0(got)} e assinante reativado.`);}
+    if(Math.random()<pr){const got=Math.round(l.debt*0.85);parc+=got;S.cur.recuperado+=got;l.st='client';delete l.debt;delete l.lateSince;S.recovered++;addXp(15);recN++;recV+=got;if(recN<=5)log(`Recuperação negociou com ${l.fam.name}: ${brl0(got)} e assinante reativado.`);}
   }
-  for(const c of S.cities)for(const l of famsOf(c))delete l.recTried;
+  if(recN>5)log(`Recuperação: ${recN} dívidas negociadas no mês (${brl0(recV)}), assinantes reativados.`);
   // logística
   // cada galpão recolhe na sua cidade; o da sede também atende cidades sem galpão, gastando 2 viagens por equipamento
   const capMain={n:(galpaoBuilt(S.floors)?inB(S.floors,()=>capOf('logistica',6)):0)+(S.outs&&S.outs.logistica?inB(S.outs,()=>capOf('logistica',6)):0)};
@@ -2046,10 +2046,11 @@ function attemptSale(c,who,sure,pre){
   }
   lot.st='refused';lot.until=S.day+45;return false;
 }
-/* V guarda as quadras vendáveis da rodada de visitas; só é refeito quando uma venda fecha (a rede pode lotar). */
+/* V guarda as quadras vendáveis da rodada de visitas (montado uma vez por rodada). */
 function vendorAttempt(V){V=V||{};
-  if(V.n!==S.signed){V.n=S.signed;V.cs=[];for(const c of S.cities){if(saleBlock(c))continue;const qs=[],fr=[];for(const l of quadras(c)){const f=quadraFree(l);if(f>0&&regionOk(c,l)&&sellable(c,l)){qs.push(l);fr.push(f);}}if(qs.length)V.cs.push({qs,fr,c,tot:fr.reduce((a,b)=>a+b,0)});}}
-  const cs=V.cs.filter(x=>x.tot>0);if(cs.length){const x=cs[Math.floor(Math.random()*cs.length)];attemptSale(x.c,'vendedor',false,x);}}
+  if(!V.cs){V.cs=[];for(const c of S.cities){if(saleBlock(c))continue;const qs=[],fr=[];for(const l of quadras(c)){const f=quadraFree(l);if(f>0&&regionOk(c,l)&&sellable(c,l)){qs.push(l);fr.push(f);}}if(qs.length)V.cs.push({qs,fr,c,tot:fr.reduce((a,b)=>a+b,0),used:netUsed(c),cap:netCap(c)});}}
+  // a rede da cidade é contada uma vez por rodada; cada venda soma 1 (antes recontava a base inteira a cada venda)
+  const cs=V.cs.filter(x=>x.tot>0);if(cs.length){const x=cs[Math.floor(Math.random()*cs.length)];if(attemptSale(x.c,'vendedor',false,x)){x.used++;if(x.used>=x.cap)x.tot=0;}}}
 function planLabel(planId,combo){const pl=planById(planId);return pl.name+(combo.length?' + '+combo.map(k=>COMBOS[k].short).join(' + '):'');}
 
 /* ===================== Missões ===================== */
