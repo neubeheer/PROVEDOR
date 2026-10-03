@@ -2784,6 +2784,7 @@ function openMenu(){
     <div class="choice-list">
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
       ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
+      <div class="choice"><div><b>Relatório de desempenho</b><small>Mostra onde o jogo demora e quando a tela travou, para mandar ao suporte.</small></div><button class="btn small" data-act="perf">Abrir</button></div>
       <div class="choice"><div><b>Testar conexões</b><small>Confere o Supabase (login) e o banco de quadras no Drive.</small></div><button class="btn small" data-act="connTest">Testar</button></div>
       ${document.fullscreenEnabled?`<div class="choice"><div><b>Tela cheia na horizontal</b><small>Esconde a barra do navegador e deita a tela (Android).</small></div><button class="btn small" data-act="fullscreen">Tela cheia</button></div>`:''}
       <div class="choice"><div><b>Níveis e XP</b><small>O que cada nível libera.</small></div><button class="btn small" data-act="levels">Ver níveis</button></div>
@@ -3753,6 +3754,7 @@ document.addEventListener('click',e=>{
   else if(act==='fullscreen'){closeModal();(async()=>{try{await document.documentElement.requestFullscreen();if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock('landscape');}catch(e){}})();}
   else if(act==='login')openLogin(false);
   else if(act==='connTest')connTest();
+  else if(act==='perf')openPerf();
   else if(act==='diamonds')openDiamonds();
   else if(act==='ouvidoria')openOuvidoria();
   else if(act==='sede')openSede();
@@ -4203,6 +4205,44 @@ window.addEventListener('online',()=>{setOnline();if(S)autoGeo();if(cloud.ref&&S
 window.addEventListener('offline',()=>{setOnline();toast('Sem internet: o jogo continua e salva no aparelho.');});
 window.addEventListener('pagehide',()=>{if(S)save(false);});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&S)save(false);});
+/* ===================== Relatório de desempenho =====================
+   Cronometra as funções que podem travar (PERF.stats) e registra as travadas da tela: o relógio de 250 ms que atrasa
+   mais de 0,5 s com a aba visível (PERF.ev). Fica só neste aparelho (localStorage pt-perf); Menu → Relatório de desempenho
+   mostra, copia ou baixa o texto para mandar ao suporte. */
+const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
+try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}catch(e){}
+function perfCtx(){if(!S)return {};const c=city();return {d:S.day,sp:S.speed,ci:S.ci,q:c&&c.blocks?c.blocks.length:0,cl:allClients(),p:PANEL||(modalOpen?'janela':''),z:LM&&LM._loaded?LM.getZoom():null};}
+function perfWrap(name,fn){return function(){const t0=performance.now();PERF.stack.push(name);try{return fn.apply(this,arguments);}finally{PERF.stack.pop();const ms=performance.now()-t0;
+  const st=PERF.stats[name]||(PERF.stats[name]={n:0,sum:0,max:0,slow:0});st.n++;st.sum+=ms;if(ms>st.max)st.max=ms;if(ms>100)st.slow++;
+  if(ms>50){PERF.calls.push({n:name,ms:Math.round(ms),end:performance.now(),in:PERF.stack.slice(-1)[0]||''});if(PERF.calls.length>60)PERF.calls.shift();}}};}
+for(const k of ['tick','monthEnd','renderAll','renderTop','renderMap','renderReal','drawReal','drawQuadras','qnRefresh','checkMissions','saveJson','openPanel','refreshPanel','renderBuilding','openModal'])
+  try{const f=eval(k);if(typeof f==='function')eval(k+'=perfWrap(k,f)');}catch(e){}
+setInterval(()=>{const now=performance.now(),gap=now-PERF.last-250;PERF.last=now;if(document.visibilityState!=='visible'||gap<500)return;
+  const from=now-gap-250,during=PERF.calls.filter(x=>x.end>=from&&!x.in).map(x=>x.n+' '+x.ms+' ms');
+  PERF.ev.push({t:Date.now(),ms:Math.round(gap),f:during.join(', ')||'navegador (desenho da página, memória ou mapa)',...perfCtx()});if(PERF.ev.length>200)PERF.ev.shift();},250);
+document.addEventListener('visibilitychange',()=>{PERF.last=performance.now();});
+function perfSave(){try{localStorage.setItem('pt-perf',JSON.stringify({stats:PERF.stats,ev:PERF.ev.slice(-200),since:PERF.since}));}catch(e){}}
+setInterval(perfSave,20000);window.addEventListener('pagehide',perfSave);
+function perfText(){const n=navigator,sc=screen,c=S&&city(),h=x=>new Date(x).toLocaleString('pt-BR');
+  const ua=(n.userAgent.match(/(iPhone|iPad|Android[^;)]*|Windows NT [\d.]+|Mac OS X [\d_]+)/)||[''])[0]+' · '+((n.userAgent.match(/(CriOS|Chrome|Firefox|Version)\/[\d.]+/)||[''])[0]);
+  const big=PERF.ev.filter(e=>e.ms>=1000).length,worst=PERF.ev.reduce((m,e)=>Math.max(m,e.ms),0);
+  const fn=Object.entries(PERF.stats).sort((a,b)=>b[1].sum-a[1].sum).map(([k,v])=>`  ${k}: ${v.n}× · média ${(v.sum/v.n).toFixed(1)} ms · máx ${Math.round(v.max)} ms · >100 ms ${v.slow}× · total ${(v.sum/1000).toFixed(1)} s`).join('\n');
+  const ev=PERF.ev.slice(-40).reverse().map(e=>`  ${new Date(e.t).toLocaleTimeString('pt-BR')} · ${(e.ms/1000).toFixed(1).replace('.',',')} s · ${e.f} · dia ${e.d??'-'} · ${e.sp??'-'}× · ${e.p||'mapa'}${e.z!=null?' · zoom '+e.z:''} · ${e.q||0} quadras · ${e.cl||0} clientes`).join('\n');
+  return `Provedor Tycoon · relatório de desempenho
+Gerado em ${h(Date.now())} · medindo desde ${h(PERF.since)}
+Aparelho: ${ua} · tela ${sc.width}×${sc.height} (janela ${innerWidth}×${innerHeight}, dpr ${devicePixelRatio}) · núcleos ${n.hardwareConcurrency||'?'} · memória ${n.deviceMemory?n.deviceMemory+' GB':'?'}${performance.memory?' · heap '+Math.round(performance.memory.usedJSHeapSize/1048576)+' MB':''}
+Empresa: ${S?S.cities.length:0} cidade(s) · atual ${c?c.name+' ('+(c.blocks?c.blocks.length:0)+' quadras, '+(c.towers||[]).length+' torres)':'-'} · ${S?allClients():0} clientes · ${S?corpCount():0} empresas · velocidade ${S?S.speed:'-'}×
+Travadas: ${PERF.ev.length} acima de 0,5 s · ${big} acima de 1 s · maior ${(worst/1000).toFixed(1).replace('.',',')} s
+Funções (vezes · média · máximo · acima de 100 ms · tempo total):
+${fn||'  (ainda sem medidas)'}
+Últimas travadas (mais recente primeiro):
+${ev||'  nenhuma'}`;}
+function openPerf(){const txt=perfText();openModal(head('Suporte','Relatório de desempenho')+`<p class="muted" style="margin-top:0">O jogo anota onde demora e quando a tela trava. Toque em <b>Copiar</b> e cole na conversa com o suporte.</p>
+  <textarea class="input" readonly style="width:100%;height:46vh;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre">${esc(txt)}</textarea>
+  <div class="foot"><button class="btn ghost" id="pfClear">Zerar</button><span style="display:flex;gap:8px"><button class="btn" id="pfDown">Baixar</button><button class="btn primary" id="pfCopy">Copiar</button></span></div>`,m=>{
+  m.querySelector('#pfCopy').onclick=async()=>{try{await navigator.clipboard.writeText(txt);toast('Relatório copiado. Cole na conversa com o suporte.');}catch(e){const ta=m.querySelector('textarea');ta.focus();ta.select();try{document.execCommand('copy');toast('Relatório copiado.');}catch(e2){toast('Selecione o texto e copie.');}}};
+  m.querySelector('#pfDown').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download='provedor-desempenho.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);};
+  m.querySelector('#pfClear').onclick=()=>{PERF.stats={};PERF.ev=[];PERF.calls=[];PERF.since=Date.now();perfSave();openPerf();};});}
 function showUpdateBar(reg){
   if(document.querySelector('.update-bar'))return;
   const bar=document.createElement('div');bar.className='update-bar';bar.setAttribute('role','status');
