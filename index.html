@@ -857,7 +857,14 @@ html body .ov-left>*{max-width:100%}
 html body .hud-full+.hud-gear{margin-left:var(--gap)}
 @media (orientation:portrait){html body .stats .hud-full{order:1}}
 /* mapa até o fim da tela (no iPhone a área da barra de início ficava vazia) */
-html body #realWrap:not([hidden]){inset:0 0 auto 0;height:100vh;height:100lvh;min-height:100%}
+/* O mapa passa 80 px além de cada borda: em qualquer celular (barra de início, entalhe, barras do navegador) não sobra faixa vazia.
+   Os controles do Leaflet voltam para dentro da tela na mesma medida. */
+html body #realWrap:not([hidden]){--ext:80px;top:calc(-1*var(--ext) - var(--sT));bottom:calc(-1*var(--ext) - var(--sB));left:calc(-1*var(--ext) - var(--sL));right:calc(-1*var(--ext) - var(--sR));height:auto;min-height:0}
+html body #realWrap .leaflet-bottom{bottom:calc(80px + var(--sB))}
+html body #realWrap .leaflet-right{right:calc(80px + var(--sR))}
+html body #realWrap .leaflet-left{left:calc(80px + var(--sL))}
+html body #realWrap .leaflet-top.leaflet-left{top:calc(80px + var(--ovTop) + 70px)}
+html:has(body:not(.booting)),body:not(.booting){background:#f2efe9}
 html,body{min-height:100%}
 body.booting .top,body.booting .hud-side,body.booting .layout,body.booting .tabs.dock,body.booting .fab-expand,body.booting #toast{visibility:hidden}
 .pw-wrap{position:relative}
