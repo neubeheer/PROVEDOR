@@ -779,7 +779,22 @@ html body .leaflet-control-attribution{font-size:9px}
 html body .leaflet-top.leaflet-left{top:calc(var(--ovTop) + 70px)}
 /* janelas e avisos */
 html body .modal-wrap{place-items:center;padding:calc(8px + var(--sT)) calc(8px + var(--sR)) calc(8px + var(--sB)) calc(8px + var(--sL))}
-html body .modal{width:min(760px,100%);max-height:100%;border-radius:18px;padding:clamp(10px,2.4vmin,18px)}
+html body .modal{--mp:clamp(12px,3vmin,18px);width:min(760px,100%);max-height:100%;border-radius:18px;padding:0 var(--mp) var(--mp);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+html body .modal>.mhead{position:sticky;top:0;z-index:6;margin:0 calc(var(--mp)*-1) 10px;padding:var(--mp) var(--mp) 8px;background:var(--cream);border-bottom:2px solid var(--line);align-items:center}
+html body .modal>.mhead h2{font-size:clamp(17px,5vmin,24px);line-height:1.1;margin:0}
+html body .modal>.mhead .eyebrow{font-size:10.5px}
+html body .modal .x{flex:none}
+html body .modal *{max-width:100%}
+html body .modal img,html body .modal svg{height:auto}
+html body .modal .building,html body #panelBody .building{width:100%;max-width:460px;margin:0 auto;min-width:0}
+html body .modal .sede-modal{margin:0;padding:0}
+html body .modal .floor-actions{flex-wrap:wrap}
+html body .modal .windows{flex-wrap:wrap}
+html body .modal .choice{min-width:0}
+html body .modal .choice>div{min-width:0}
+html body .modal select,html body .modal input{max-width:100%}
+.hud-full svg{width:60%;height:60%;display:block;margin:auto}
+.hud-full{width:calc(var(--ph)*.95);height:calc(var(--ph)*.95);border-radius:50%;border:2.5px solid var(--navy);background:radial-gradient(circle at 40% 30%,#fff,#dfe8f3);box-shadow:0 2px 0 var(--navy);font-size:calc(var(--fs)*1.05);line-height:1;padding:0;cursor:pointer;color:var(--navy)}
 html body .toast{left:50%;right:auto;transform:translateX(-50%);bottom:calc(var(--dockH) + 30px + var(--sB))}
 html body.modal-open .toast{top:calc(10px + var(--sT));bottom:auto}
 /* celular deitado e baixo: um pouco mais compacto */
@@ -1899,32 +1914,32 @@ function missionList(){
     {id:'comercial',t:'Montar o Comercial',d:`Nível ${lvOf('comercial')}. Setor de vendas no 2º andar.`,done:built('comercial'),need:lvOf('comercial'),act:'goBuilding',btn:'Ir para o prédio'},
     {id:'tecnico',t:'Montar o Técnico',d:`Nível ${lvOf('tecnico')}. Instalação sem terceirizado.`,done:built('tecnico'),need:lvOf('tecnico'),act:'goBuilding',btn:'Ir para o prédio'},
     {id:'logistica',t:'Montar a Logística',d:`Nível ${lvOf('logistica')}. Recolhe os rádios em comodato de quem cancela.`,done:built('logistica'),need:lvOf('logistica'),act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'negociar',t:'Recuperar um inadimplente',d:'Toque numa quadra com $ e negocie a dívida.',done:S.recovered>=1},
+    {id:'negociar',t:'Recuperar um inadimplente',d:'Toque numa quadra com $ e negocie a dívida.',done:S.recovered>=1,act:'focusMap',btn:'Ir para o mapa'},
     {id:'retencao',t:'Montar a Retenção',d:`Nível ${lvOf('retencao')}. Setor que tenta segurar quem quer cancelar.`,done:built('retencao'),need:lvOf('retencao'),act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'reter',t:'Reter um cliente',d:'Toque numa quadra com ! e ofereça uma proposta.',done:S.retained>=1},
-    {id:'c10',t:'10 clientes ativos',d:'Cresça a base na sua cidade.',done:S.peak>=10},
+    {id:'reter',t:'Reter um cliente',d:'Toque numa quadra com ! e ofereça uma proposta.',done:S.retained>=1,act:'focusMap',btn:'Ir para o mapa'},
+    {id:'c10',t:'10 clientes ativos',d:'Cresça a base na sua cidade.',done:S.peak>=10,act:'focusMap',btn:'Vender no mapa'},
     {id:'tv',t:'Lançar combo com TV',d:`Nível ${COMBOS.tv.level}. Internet + TV vende mais para famílias.`,done:S.combos.tv,need:COMBOS.tv.level,act:'combo-tv',btn:'Lançar combo'},
     {id:'cidade',t:'Expandir para outra cidade',d:`Nível ${EXPAND_LEVEL}. Cidades de verdade até ${EXPAND_KM} km.`,done:S.cities.length>1,need:EXPAND_LEVEL,act:'city',btn:'Escolher cidade'},
     {id:'noc',t:'Montar o NOC',d:`Nível ${lvOf('noc')}. Monitoramento da rede 24h.`,done:built('noc'),need:lvOf('noc'),act:'goBuilding',btn:'Ir para o prédio'},
     {id:'rh',t:'Montar o RH',d:`Nível ${lvOf('rh')}. Mais vagas por setor e menos demissões.`,done:built('rh'),need:lvOf('rh'),act:'goBuilding',btn:'Ir para o prédio'},
     {id:'marketing',t:'Primeira campanha de marketing',d:`Nível ${lvOf('marketing')}. Monte o Marketing e faça uma ação na cidade.`,done:!!S.mdone.marketing||S.cities.some(c=>(c.campaigns||[]).length),need:lvOf('marketing'),act:'marketing',btn:'Campanhas'},
     {id:'recuperacao',t:'Montar a Recuperação',d:`Nível ${lvOf('recuperacao')}. Cobradores reativam inadimplentes.`,done:built('recuperacao'),need:lvOf('recuperacao'),act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'filial',t:'Abrir uma loja filial',d:`Nível ${STORE_LEVEL}. No Mapa real, toque num ponto e escolha Loja aqui.`,done:S.cities.some(c=>c.store),need:STORE_LEVEL},
+    {id:'filial',t:'Abrir uma loja filial',d:`Nível ${STORE_LEVEL}. No Mapa real, toque num ponto e escolha Loja aqui.`,done:S.cities.some(c=>c.store),need:STORE_LEVEL,act:'focusMap',btn:'Ir para o mapa'},
     {id:'servidor',t:'Primeiro servidor de cache',d:`Nível ${lvOf('noc')}. No NOC, contra reclamações de lentidão.`,done:Object.keys(S.servers).length>0,need:lvOf('noc'),act:'servers',btn:'Servidores'},
-    {id:'c50',t:'50 clientes ativos',d:'Um provedor de verdade na região.',done:S.peak>=50},
+    {id:'c50',t:'50 clientes ativos',d:'Um provedor de verdade na região.',done:S.peak>=50,act:'focusMap',btn:'Vender no mapa'},
     {id:'backbone',t:'Backbone de fibra',d:`Nível ${FIBRA_LEVEL}. Investimento de ${brl0(BACKBONE_COST)} na cidade.`,done:S.cities.some(c=>c.fiber&&c.fiber.on),need:FIBRA_LEVEL,act:'fiber',btn:'Rede de fibra'},
     {id:'cto',t:'Primeira caixa CTO',d:'Leve a fibra até um bairro.',done:S.cities.some(c=>c.fiber&&c.fiber.ctos.length),need:FIBRA_LEVEL,act:'fiber',btn:'Rede de fibra'},
-    {id:'mig10',t:'10 clientes migrados para fibra',d:'Abra uma quadra com fibra e ofereça a migração aos clientes de rádio.',done:(S.migrated||0)>=10,need:FIBRA_LEVEL},
+    {id:'mig10',t:'10 clientes migrados para fibra',d:'Abra uma quadra com fibra e ofereça a migração aos clientes de rádio.',done:(S.migrated||0)>=10,need:FIBRA_LEVEL,act:'focusMap',btn:'Ir para o mapa'},
     {id:'rede',t:'Ampliar a rede',d:'O bloco /24 aguenta pouco mais de 240 assinantes. Toque no chip Rede e compre a próxima caixa.',done:S.cities.some(c=>(c.net||0)>0),act:'net',btn:'Ver a rede'},
     {id:'link',t:'Link de 1 Giga',d:'O consumo cresce todo mês. Acompanhe o tráfego no botão Link.',done:(S.link||0)>=2,act:'link',btn:'Ver link'},
-    {id:'c1000',t:'1.000 assinantes',d:'Libera a 3ª expansão para outra cidade.',done:S.peak>=1000},
+    {id:'c1000',t:'1.000 assinantes',d:'Libera a 3ª expansão para outra cidade.',done:S.peak>=1000,act:'focusMap',btn:'Vender no mapa'},
     {id:'migsetor',t:'Montar Migração e Upgrade',d:`Nível ${lvOf('migracao')}. Ligações para migrar a base para fibra e subir o ticket médio.`,done:built('migracao'),need:lvOf('migracao'),act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'carreira',t:'Plano de carreira',d:'No RH, implante o plano de carreira e promova alguém a pleno.',done:!!(S.career&&S.career.on)&&FLOORS.some(f=>careerOf(f.id).pl+careerOf(f.id).sr>0),need:lvOf('rh')},
-    {id:'link10',t:'Link de 10 Gigas',d:'Rede grande pede link grande.',done:(S.link||0)>=5},
+    {id:'carreira',t:'Plano de carreira',d:'No RH, implante o plano de carreira e promova alguém a pleno.',done:!!(S.career&&S.career.on)&&FLOORS.some(f=>careerOf(f.id).pl+careerOf(f.id).sr>0),need:lvOf('rh'),act:'goBuilding',btn:'Ir para o prédio'},
+    {id:'link10',t:'Link de 10 Gigas',d:'Rede grande pede link grande.',done:(S.link||0)>=5,act:'link',btn:'Ver links'},
     {id:'ouv',t:'Montar a Ouvidoria',d:`Nível ${OUV_LEVEL}. Trate as reclamações antes que virem multa da Anatel.`,done:built('ouvidoria'),need:OUV_LEVEL,act:'goBuilding',btn:'Ir para o prédio'},
-    {id:'c5000',t:'5.000 assinantes',d:'Libera as metas de vendas, atendimento, instalação, marketing e mais.',done:S.peak>=5000},
-    {id:'redefull',t:'Rede da cidade inteira',d:'Compre a última caixa de expansão de uma cidade.',done:S.cities.some(c=>(c.net||0)>=netSteps(c).length-1)},
-    {id:'kit',t:'Levar uma torre para outra cidade',d:'Desmonte uma torre sem clientes de rádio e reinstale em outra cidade.',done:!!S.kitUsed,need:FIBRA_LEVEL},
+    {id:'c5000',t:'5.000 assinantes',d:'Libera as metas de vendas, atendimento, instalação, marketing e mais.',done:S.peak>=5000,act:'focusMap',btn:'Vender no mapa'},
+    {id:'redefull',t:'Rede da cidade inteira',d:'Compre a última caixa de expansão de uma cidade.',done:S.cities.some(c=>(c.net||0)>=netSteps(c).length-1),act:'net',btn:'Rede da cidade'},
+    {id:'kit',t:'Levar uma torre para outra cidade',d:'Desmonte uma torre sem clientes de rádio e reinstale em outra cidade.',done:!!S.kitUsed,need:FIBRA_LEVEL,act:'towers',btn:'Ver torres'},
   ];
 }
 function checkMissions(){for(const m of missionList()){if(m.done&&!S.mdone[m.id]){S.mdone[m.id]=monthOf(S.day);S.diamonds=(S.diamonds||0)+1;(S.cur.missoes=S.cur.missoes||[]).push(m.t);log(`Missão concluída: ${m.t}.`);}}}
@@ -1982,7 +1997,7 @@ function renderTop(){
     <div class="pill dia" title="Diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${S.diamonds||0}</b>${plus('diamonds','Diamantes')}</div>
     ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
-  const ht=$('#hudTime');if(ht)ht.innerHTML=`
+  const ht=$('#hudTime');if(ht)ht.innerHTML=(isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`)+`
     <div class="pill date" title="Data"><span class="pill-ico">${HUD_ICO.cal}</span><b>${dt}</b></div>
     <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
     <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b>Link ${Math.round(lu*100)}%</b></button>`;
@@ -1990,6 +2005,14 @@ function renderTop(){
   renderSaveDot();
 }
 let CITY_CHIPS='',CITY_LINE='';
+/* Tela cheia: no Android usa a API do navegador; no iPhone o Safari não deixa, então explica como instalar na tela de início. */
+const isStandalone=()=>!!((window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone);
+async function toggleFull(){const el=document.documentElement,rq=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(document.fullscreenElement||document.webkitFullscreenElement){try{await (document.exitFullscreen||document.webkitExitFullscreen).call(document);}catch(e){}renderTop();return;}
+  if(rq&&(document.fullscreenEnabled||document.webkitFullscreenEnabled)){try{await rq.call(el);}catch(e){}renderTop();return;}
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  openModal(head('Tela cheia','Jogar sem a barra do navegador')+(ios?'<p>No iPhone, o Safari não libera a tela cheia para sites. Instale o jogo na tela de início: ele abre como app, sem a barra do navegador.</p><ol><li>Toque em <b>Compartilhar</b> (o quadrado com a seta) na barra do Safari.</li><li>Escolha <b>Adicionar à Tela de Início</b>.</li><li>Abra o Provedor Tycoon pelo ícone novo.</li></ol>':'<p>Este navegador não libera a tela cheia. Use o menu do navegador e escolha <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</p>')+'<div class="foot"><span></span><button class="btn primary" data-close>Ok</button></div>');}
+document.addEventListener('fullscreenchange',()=>{if(S)renderTop();});
 function openCityInfo(){const c=city();openModal(head('Cidade',esc(c.name)+(c.uf?' '+esc(c.uf):''))+`<p class="muted" style="margin-top:0">${CITY_LINE} · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><div class="map-meta city-chips">${CITY_CHIPS}</div><p class="muted" style="font-size:12.5px">${esc(($('#geoNote')||{}).textContent||'')}</p><div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
 function renderMap(){
   const c=city(),sedeMode=S.phase==='sede'&&S.ci===0;
@@ -2459,9 +2482,9 @@ function renderMissions(){
     if(m.done&&!showDone)return '';
     const locked=m.need&&lvl<m.need;
     const st=m.done?'done':locked?'locked':i===cur?'current':'';
-    const showBtn=!m.done&&!locked&&m.act&&i===cur;
+    const showBtn=!m.done&&!locked&&m.act;
     const when=m.done&&S.mdone[m.id]?`<span class="when">Concluída no mês ${S.mdone[m.id]}</span>`:'';
-    return `<li class="mission ${st}"><span class="tick">${m.done?'✓':locked?'🔒':''}</span><div><b>${esc(m.t)}</b><p>${esc(m.d)}</p>${when}${showBtn?`<button class="btn small primary" data-act="${m.act}">${m.btn}</button>`:''}</div></li>`;
+    return `<li class="mission ${st}"><span class="tick">${m.done?'✓':locked?'🔒':''}</span><div><b>${esc(m.t)}</b><p>${esc(m.d)}</p>${when}${showBtn?`<button class="btn small ${i===cur?'primary':''}" data-act="${m.act}" style="margin-top:6px">${m.btn}</button>`:''}</div></li>`;
   }).join('');
   $('#missions').innerHTML=rows+(doneCount?`<li><button class="btn small ghost toggle-done" data-act="toggleDone">${showDone?'Esconder':'Mostrar'} concluídas (${doneCount})</button></li>`:'');
 }
@@ -3131,6 +3154,13 @@ function openMigrate(c,l){
     };
   });
 }
+function openTowers(){
+  const rows=S.cities.map(c=>c.towers.map(t=>{const rad=famsOf(c).filter(l=>isSub(l)&&l.tid===t.id&&l.tech!=='fiber').length;
+    return `<div class="choice"><div><b>${esc(t.ssid)} · ${esc(c.name)}</b><small>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes${rad?` · ${rad} de rádio`:''}</small></div><button class="btn small" data-act="towerInfo" data-c="${c.idx}" data-t="${esc(String(t.id))}">Abrir</button></div>`;}).join('')).join('');
+  openModal(head('Rede','Torres')+`${S.kits?`<div class="notice ok">${S.kits} torre(s) desmontada(s) no galpão. Para reinstalar, troque de cidade e use <b>Nova torre</b>: o equipamento sai por ${brl0(KIT_COST)}.</div>`:''}<p class="muted" style="margin-top:0">Abra uma torre para desligar, religar ou desmontar e levar para outra cidade.</p><div class="choice-list">${rows||'<p class="muted">Nenhuma torre ainda.</p>'}</div><div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
+/* Ao desmontar, cada cliente de rádio passa para outra torre no ar que cubra a casa; quem fica sem cobertura cancela (o rádio fica para recolher). */
+function towerMoves(c,t){const alt=c.towers.filter(x=>x!==t&&!x.off),fams=famsOf(c).filter(l=>isSub(l)&&l.tid===t.id&&l.tech!=='fiber');
+  return fams.map(f=>{let best=null,bd=99;for(const x of alt){if(!inSector(x,f.x+.5,f.y+.5))continue;const p=tpos(x),d=Math.hypot(f.x+.5-p.x,f.y+.5-p.y);if(d<bd){bd=d;best=x;}}return [f,best];});}
 function towerInfo(c,t){
   const load=towerLoad(c,t),subs=famsOf(c).filter(l=>isSub(l)&&l.tid===t.id).length;
   const maint=120*(effect('chuva')?2:1);
@@ -3138,14 +3168,14 @@ function towerInfo(c,t){
     <dt>Status</dt><dd>${t.off?'Desligada':'No ar'}</dd><dt>IP</dt><dd>${ipStr(c,t.ip)}</dd><dt>Modo</dt><dd>Access Point</dd>${t.channel?`<dt>Canal</dt><dd>${t.channel} (${t.width} MHz)</dd>`:''}${t.power?`<dt>Potência</dt><dd>${t.power} dBm + 16 dBi</dd>`:''}${t.key?`<dt>Senha WPA2</dt><dd>${esc(t.key)}</dd>`:''}<dt>Clientes</dt><dd>${subs} de ${cap()}</dd><dt>Manutenção</dt><dd>${t.off?'R$ 0 (desligada)':brl0(maint)+'/mês'}</dd></dl></div></div>
     ${!t.off&&load>cap()?'<div class="notice bad" style="margin-top:12px">Torre lotada: clientes reclamam e cancelam. Suba outra torre perto ou monte o NOC.</div>':''}
     <div id="twBox" style="margin-top:12px"></div>
-    ${levelOf(S.xp)>=FIBRA_LEVEL?(subs?`<p class="muted" style="font-size:12.5px">Para desmontar e levar a outra cidade, migre antes os ${subs} cliente(s) de rádio desta torre para a fibra.</p>`:`<div class="choice" style="margin-bottom:8px"><div><b>Desmontar torre</b><small>${brl0(DISMANTLE_COST)}. Vai para o galpão e pode ser reinstalada em qualquer cidade por ${brl0(KIT_COST)}.</small></div><button class="btn small" id="twKit">Desmontar</button></div>`):''}
+    ${levelOf(S.xp)>=FIBRA_LEVEL?(()=>{const mv=towerMoves(c,t),ok=mv.filter(x=>x[1]).length,lost=mv.length-ok;return `<div class="choice" style="margin-bottom:8px"><div><b>Desmontar torre</b><small>${brl0(DISMANTLE_COST)}. Vai para o galpão e pode ser reinstalada em qualquer cidade por ${brl0(KIT_COST)}.${mv.length?`<br>${mv.length} cliente(s) de rádio: ${ok} passam para outra torre${lost?`, <b style="color:#a61e2d">${lost} ficam sem sinal e cancelam</b> (migre para a fibra antes, se puder)`:''}.`:''}</small></div><button class="btn small" id="twKit">Desmontar</button></div>`;})():''}
     <div class="foot">${t.off?`<span class="muted">Religar custa ${brl0(300)} (visita técnica).</span><button class="btn primary" id="twOn">Religar torre</button>`:`<span class="muted">Desligar corta a manutenção.</span><button class="btn" id="twOff">Desligar torre</button>`}</div>`,m=>{
     const off=m.querySelector('#twOff'),on=m.querySelector('#twOn');
     if(off)off.onclick=()=>{
       m.querySelector('#twBox').innerHTML=`<div class="notice ${subs?'bad':'warn'}">${subs?`<b>${subs} cliente(s) ficam sem internet.</b> Eles não pagam enquanto a torre estiver desligada, a reputação cai e cerca de 1 em cada 3 cancela por mês.`:'Nenhum cliente usa esta torre. Desligar só economiza a manutenção.'}<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn small primary" id="twYes">Desligar mesmo</button><button class="btn small" data-close>Cancelar</button></div></div>`;
       m.querySelector('#twYes').onclick=()=>{t.off=true;log(`Torre ${t.ssid} desligada${subs?` (${subs} cliente(s) sem sinal)`:''}.`);event(`Torre ${t.ssid} desligada`);save(true);closeModal();toast('Torre desligada. A manutenção dela não será cobrada.');};
     };
-    const kit=m.querySelector('#twKit');if(kit)kit.onclick=()=>{if(!spend(DISMANTLE_COST))return;c.towers=c.towers.filter(x=>x!==t);c.used=c.used.filter(o=>o!==t.ip);const lot=c.lots.find(l=>l.x===t.x&&l.y===t.y);if(lot&&lot.t==='tower')lot.t='empty';S.kits=(S.kits||0)+1;log(`Torre ${t.ssid} desmontada e guardada no galpão.`);event(`Torre ${t.ssid} desmontada`);save(true);closeModal();toast('Torre no galpão. Reinstale em outra cidade num terreno vazio.');};
+    const kit=m.querySelector('#twKit');if(kit)kit.onclick=()=>{if(!spend(DISMANTLE_COST))return;let moved=0,lost=0;for(const [f,nt] of towerMoves(c,t)){if(nt){f.tid=nt.id;moved++;}else{cancelClient(c,f,'torre desmontada');lost++;}}if(moved||lost)log(`Torre ${t.ssid}: ${moved} cliente(s) passaram para outra torre${lost?`, ${lost} cancelaram sem sinal`:''}.`);c.towers=c.towers.filter(x=>x!==t);c.used=c.used.filter(o=>o!==t.ip);const lot=c.lots.find(l=>l.x===t.x&&l.y===t.y);if(lot&&lot.t==='tower')lot.t='empty';S.kits=(S.kits||0)+1;log(`Torre ${t.ssid} desmontada e guardada no galpão.`);event(`Torre ${t.ssid} desmontada`);save(true);closeModal();toast('Torre no galpão. Reinstale em outra cidade num terreno vazio.');};
     if(on)on.onclick=()=>{if(!spend(300))return;t.off=false;log(`Torre ${t.ssid} religada.`);event(`Torre ${t.ssid} religada`);save(true);closeModal();toast('Torre no ar de novo!');};
   });
 }
@@ -3481,6 +3511,9 @@ document.addEventListener('click',e=>{
   else if(act==='rivals'){if(LM)LM.closePopup();openRivals();}
   else if(act==='hqConvert')convertHQ(+a.dataset.c);
   else if(act==='cityInfo')openCityInfo();
+  else if(act==='towers')openTowers();
+  else if(act==='towerInfo'){LM&&LM.closePopup();const cc=S.cities[+a.dataset.c],t=cc&&cc.towers.find(x=>String(x.id)===a.dataset.t);if(t)towerInfo(cc,t);}
+  else if(act==='fullscreen2')toggleFull();
   else if(act==='galpao')buildGalpao(+a.dataset.c);
   else if(act==='team')openTeam(a.dataset.f,a.dataset.hq!=null?+a.dataset.hq:null);
   else if(act==='servers')openServers();
@@ -3875,7 +3908,7 @@ function drawReal(c,fit){
     const g=towerGeo(c,t),over=towerLoad(c,t)>cap(),m=tRange(t)*lm,col=t.off?'#888':over?'#cf3b3b':'#0f9a8d';
     if(t.beam&&t.beam<360)L.polygon(sectorLatLngs(g.lat,g.lon,t.az,t.beam,m),{color:col,weight:2,fillOpacity:t.off?0.03:0.1,dashArray:t.off?'6 6':null,interactive:false}).addTo(LLayers);
     else L.circle([g.lat,g.lon],{radius:m,color:col,weight:2,fillOpacity:t.off?0.03:0.08,dashArray:t.off?'6 6':null,interactive:false}).addTo(LLayers);
-    L.marker([g.lat,g.lon],{icon:mkIcon(towerSvg,34),title:t.ssid}).bindPopup(`<b>Torre ${esc(t.ssid)}</b>${t.place?` · ${esc(t.place)}`:''}<br>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes<br>${t.beam&&t.beam<360?`Setorial ${t.beam}° apontada para ${t.az}° ${compass(t.az)}`:'Omni (360°)'} · alcance ≈ ${(m/1000).toFixed(1).replace('.',',')} km${t.h?`<br>Torre de ${t.h} m em terreno de ${t.m2} m²`:''}`).addTo(LLayers);
+    L.marker([g.lat,g.lon],{icon:mkIcon(towerSvg,34),title:t.ssid}).bindPopup(`<b>Torre ${esc(t.ssid)}</b>${t.place?` · ${esc(t.place)}`:''}<br>${t.off?'Desligada':'No ar'} · ${towerLoad(c,t)}/${cap()} clientes<br>${t.beam&&t.beam<360?`Setorial ${t.beam}° apontada para ${t.az}° ${compass(t.az)}`:'Omni (360°)'} · alcance ≈ ${(m/1000).toFixed(1).replace('.',',')} km${t.h?`<br>Torre de ${t.h} m em terreno de ${t.m2} m²`:''}<br><button class="btn small" data-act="towerInfo" data-c="${c.idx}" data-t="${esc(String(t.id))}" style="margin-top:6px">Configurar · desligar · desmontar</button>`).addTo(LLayers);
   }
   if(S.sede&&S.sede.ci===c.idx){const g=S.sede.lat!=null?{lat:S.sede.lat,lon:S.sede.lon}:lotGeo(c,{x:S.sede.x,y:S.sede.y});L.marker([g.lat,g.lon],{icon:mkIcon(sedeSvg(false),36),title:'Sede: toque para ver o prédio'}).on('click',ev=>{L.DomEvent.stopPropagation(ev);openSede();}).addTo(LLayers);}
   for(const a of c.areas||[]){L.circle([a.lat,a.lon],{radius:a.r,color:'#e5a21e',weight:2,dashArray:'8 6',fillOpacity:0.03,interactive:false}).addTo(LLayers);
