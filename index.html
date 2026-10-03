@@ -886,6 +886,15 @@ body.booting .top,body.booting .hud-side,body.booting .layout,body.booting .tabs
   html body .stats .hud-lvl,html body .stats .hud-gear,html body .stats .hud-full,html body .stats .hud-cta{flex-shrink:0}
   .ov-left{top:calc(var(--ovTop) + var(--ph)*.82 + 10px)}
 }
+/* Só deitado: em celular e tablet em pé, uma tela cheia pede para girar e o relógio fica parado (portraitLock). */
+#rotateLock{display:none}
+@media (orientation:portrait) and (pointer:coarse){
+  #rotateLock{display:flex;position:fixed;inset:-100px;z-index:200;padding:100px 24px;background:linear-gradient(180deg,#1f6cc0,#123f80);color:#fff;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+  #rotateLock svg{width:96px;height:96px;animation:rotl 2.2s ease-in-out infinite}
+  #rotateLock b{font-family:var(--display);font-weight:400;font-size:28px}
+  #rotateLock p{margin:0;max-width:300px;color:#d7ecff;font-size:16px}
+  @keyframes rotl{0%,20%{transform:rotate(0)}55%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+}
 </style>
 </head>
 <body class="booting">
@@ -939,6 +948,7 @@ body.booting .top,body.booting .hud-side,body.booting .layout,body.booting .tabs
   <button type="button" data-panel="log"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Registro</button>
 </nav>
 
+<div id="rotateLock" role="alertdialog" aria-label="Gire o celular"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="20" y="6" width="24" height="44" rx="5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="32" cy="44" r="2" fill="#fff"/><path d="M50 34a18 18 0 0 1-12 16" fill="none" stroke="#ffc72c" stroke-width="3" stroke-linecap="round"/><path d="M36 46l2 4 4-2" fill="none" stroke="#ffc72c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Gire o celular</b><p>O Provedor Tycoon só funciona com o celular deitado. Vire a tela para continuar jogando.</p></div>
 <div class="modal-wrap" id="modalWrap" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" hidden></div>
 <div id="netBlock" class="net-block" hidden role="alert"><b>Sem internet</b><p>O jogo fica pausado e salvo na sua conta até a conexão voltar.</p></div>
@@ -4083,7 +4093,8 @@ setOnline();
 /* Um erro dentro de um dia de jogo não pode parar o relógio: o laço sempre agenda o próximo dia e o erro aparece na tela para ser reportado. */
 let lastErr='';
 function reportErr(e,where){const msg=(e&&e.message)||String(e);console.error(where,e);if(msg===lastErr)return;lastErr=msg;try{log('Erro no jogo ('+where+'): '+msg);}catch(x){}toast('⚠️ Erro no jogo: '+msg+'. Mande um print para o suporte.');}
-function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL)&&navigator.onLine&&cloud.ref&&!cloud.ser)tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?1000/sp:500);}
+const portraitLock=()=>!!(window.matchMedia&&matchMedia("(orientation:portrait) and (pointer:coarse)").matches);
+function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL)&&navigator.onLine&&cloud.ref&&!cloud.ser&&!portraitLock())tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?1000/sp:500);}
 window.addEventListener('error',e=>{if(e&&e.error)reportErr(e.error,'tela');});
 function autoGeo(){if(!S)return;const c=city();if(c.geo&&hasBlocks(c))for(const a of c.areas||[])if(!a.n&&!AREA_BUSY.has(a))loadArea(c,a);if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
