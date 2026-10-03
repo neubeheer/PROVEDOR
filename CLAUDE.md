@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v38`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v39`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Só deitado: em celular e tablet em pé (`(orientation:portrait) and (pointer:coarse)`) aparece `#rotateLock` e o relógio para (`portraitLock()` no `loop`); o manifest abre deitado. O layout em pé continua no CSS, mas não é usado.
 - Coluna da direita só com ícones (`.hs-btn`): data (dia no selo) e velocidade abrem um balão ao lado (`HUD_OPEN`, `data-hs`); link muda de cor e mostra a % quando passa de 85%; Nova torre, Onde estou e Atualizar só com o ícone (nome no `title`). Deitado, o Expandir também é só o ícone 🌎, no topo da coluna.
@@ -26,7 +26,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - Seletor de cidade (`#citySel`): com ele aberto, o `renderMap` não redesenha o `#mapHead`. Carregamento: `body.booting` esconde HUD, mapa e barra até o primeiro `renderAll` com jogo. Login com olho para ver a senha (`#lgEye`).
 - Mapa sem faixas vazias: `#realWrap` passa 80 px além de cada borda (mais as áreas seguras) e os cantos do Leaflet voltam 80 px para dentro; o fundo da página é a cor do mapa (#f2efe9) fora do carregamento. Não depender de `100vh`/`lvh`, que no iPhone não inclui a barra de início.
 - Quadras do mapa real persistentes (`QP`, `drawQuadras`): os polígonos são criados uma vez por cidade (chave `idx:blocksAt:n`) e depois só trocam de estilo; os números de assinantes (`LQN`, `qnRefresh` no `moveend`) só existem para as quadras na tela, a partir do zoom 15 (máx. 500). `renderGoals` só roda com o painel de missões aberto; `trafficGbps` é lembrado por desenho (`RC`). Em Bauru com 15 mil clientes e CPU 6× mais lenta, o redesenho do mapa caiu de ~1,1 s para ~0,25 s.
-- Filial de área sem buracos: uma quadra nova só é descartada se o centro estiver a menos de 30 m de outra (antes bloqueava 80 m em volta, inclusive das novas). Áreas desenhadas na versão antiga (`a.v` != 2) completam as quadras uma vez ao abrir o jogo.
+- Filial de área sem buracos: uma quadra nova só é descartada se o centro estiver a menos de 30 m de outra (antes bloqueava 80 m em volta, inclusive das novas). Áreas desenhadas na versão antiga (`a.v` != 2) completam as quadras uma vez ao abrir o jogo (`autoGeo` roda depois do `bootCloud`). O balão da filial tem o botão "Redesenhar quadras" (`areaRetry`), que busca as ruas de novo e só acrescenta as que faltam.
 - `LINKS` acima de 100 Gigas têm `build` (construção única, `S.linkOwned` guarda a maior rota construída). `CITY_LINKS` ganhou DWDM 100/400 e independente 400 no fim da lista (para não mudar os índices de saves).
 - Sedes regionais: `c.hq.floors` (filial convertida por `convertHQ`). `built/team/opsOf/headcount` somam todos os prédios (`allFloors`), exceto dentro de `inB(prédio, fn)` (tela do prédio, `openTeam(id, ci)`, demissões no `monthEnd`), onde valem só os dados daquele prédio. Botões de um prédio regional levam `data-hq`.
 - Nova operação: `openIndep`/`indepConfirm`, liberada com `indepReq()` (5 mil × (1 + operações abertas)). A cidade tem `c.indep` e `c.costMul` (5): multiplica estudo, outorga (inclusive regiões e `cityPopulation`/`geoLoad`) e `netSteps`; só aceita o link `CITY_LINKS` com `indep:true` (R$ 10 mi).
@@ -51,7 +51,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - [x] `supabase/schema.sql` rodado: as tabelas `saves` e `presenca` existem (conferido em 2026-10-02).
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
 - [ ] Rodar no SQL Editor do Supabase: `alter table public.saves add column if not exists sess text;` (liga o "um aparelho por vez").
-- [ ] Publicar a v38 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v39 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda). Em 2026-10-02 o link ainda respondia a versão antiga (`?regioes=1` dava erro).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 
