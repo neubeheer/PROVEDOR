@@ -1788,7 +1788,8 @@ function openNet(ci){
 const TRAFFIC_MIX=[['YouTube','yt'],['Netflix','nf'],['Facebook, Instagram e WhatsApp','meta'],['TikTok','tt'],['Jogos online','game']];
 function cacheRed(){if(!built('noc'))return 0;return SERVERS.reduce((s,sv)=>s+(S.servers[sv.id]?sv.share*0.8:0),0);}
 function trafficRaw(){let mb=0;for(const c of S.cities)for(const l of famsOf(c))if(pays(l)||l.st==='late')mb+=planById(l.plan).mb||10;return mb*0.025*(1+monthOf(S.day)*0.004)/1000;}
-function trafficGbps(){return trafficRaw()*(1-cacheRed());}
+/* Durante um desenho (RC) o tráfego é calculado uma vez só. */
+function trafficGbps(){if(RC&&RC.has("tg"))return RC.get("tg");const v=trafficRaw()*(1-cacheRed());if(RC)RC.set("tg",v);return v;}
 const linkNow=()=>LINKS[clamp(S.link||0,0,LINKS.length-1)];
 const gb=v=>v>=1?v.toFixed(1).replace('.',',')+' Gbps':Math.round(v*1000)+' Mbps';
 function openLink(){
@@ -2114,9 +2115,9 @@ function fixNet(){for(const c of S.cities)if(c.idx>0&&c.ilink==null){const t=cit
 let RS_T=null,RS_AT=0,TICKR=false;
 function renderSoon(){if(RS_T)return;const wait=Math.max(0,800-(Date.now()-RS_AT));RS_T=setTimeout(()=>requestAnimationFrame(()=>{RS_T=null;RS_AT=Date.now();TICKR=true;try{renderAll();}finally{TICKR=false;}}),wait);}
 function renderAll(){if(!S)return;document.body.classList.remove('booting');RC=new Map();try{renderAll0();}finally{RC=null;}}
-function renderAll0(){fixNet();renderTop();renderTut();renderMap();renderReal();renderGoals();if(modalOpen&&PANEL){renderPanelSrc(PANEL);refreshPanel();}}
+function renderAll0(){fixNet();renderTop();renderTut();renderMap();renderReal();if(modalOpen&&PANEL){renderPanelSrc(PANEL);refreshPanel();}}
 /* As colunas escondidas (fonte dos painéis) só são montadas quando o painel correspondente está aberto. */
-function renderPanelSrc(k){if(k==='building')renderBuilding();else if(k==='plans')renderProducts();else if(k==='missions')renderMissions();else if(k==='report')renderReport();else if(k==='log')renderLog();}
+function renderPanelSrc(k){if(k==='building')renderBuilding();else if(k==='plans')renderProducts();else if(k==='missions'){renderGoals();renderMissions();}else if(k==='report')renderReport();else if(k==='log')renderLog();}
 function renderSaveDot(){const d=$('#saveDot');if(d)d.className='save-dot '+(cloud.status==='cloud'?'cloud':cloud.status==='erro'?'err':'');}
 /* Coluna da direita: só ícones. Data e velocidade abrem um balão ao lado; tocar fora ou de novo fecha. */
 let HUD_OPEN=null,HUD_T=null;
@@ -2386,20 +2387,22 @@ async function loadArea(c,a){
     const ar=`(around:${a.r},${a.lat.toFixed(6)},${a.lon.toFixed(6)})`;
     const r=await overpass(`[out:json][timeout:60];(way${ar}[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|pedestrian|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$"];way${ar}[railway=rail];);out geom;`,60000);
     if(r.remark&&/error|timed out|timeout/i.test(r.remark))throw new Error(r.remark);
-    const kx=mPerLon(a.lat),kx0=mPerLon(c.geo.lat),cell=80;
+    const kx=mPerLon(a.lat),kx0=mPerLon(c.geo.lat);
     const faces=streetFaces(r.elements||[],a.lat,a.lon)
       .filter(f=>f.area>=500&&f.area<=60000&&f.area/(f.per*f.per)>0.018&&Math.hypot(f.cx,f.cy)<=a.r)
-      .sort((p,q)=>Math.hypot(p.cx,p.cy)-Math.hypot(q.cx,q.cy)).slice(0,900);
-    // não repete quadras que já existem (células de 80 m)
-    const cxy=(la,lo)=>[Math.round((lo-c.geo.lon)*kx0/cell),Math.round((la-c.geo.lat)*mPerLat/cell)];
-    const used=new Set();for(const q of c.blocks){const [x,y]=cxy(...qCenter(q));used.add(x+','+y);}
-    const near=(x,y)=>{for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++)if(used.has((x+i)+','+(y+j)))return true;return false;};
+      .sort((p,q)=>Math.hypot(p.cx,p.cy)-Math.hypot(q.cx,q.cy)).slice(0,1500);
+    // não repete uma quadra que já existe: centro a menos de 30 m de outro centro (grade de 60 m para procurar rápido)
+    const cellOf=(la,lo)=>[Math.floor((lo-c.geo.lon)*kx0/60),Math.floor((la-c.geo.lat)*mPerLat/60)],grid=new Map();
+    const put=(la,lo)=>{const [x,y]=cellOf(la,lo),k=x+','+y;if(!grid.has(k))grid.set(k,[]);grid.get(k).push([la,lo]);};
+    const dup=(la,lo)=>{const [x,y]=cellOf(la,lo);for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){const g2=grid.get((x+i)+','+(y+j));if(g2)for(const [a2,o2] of g2)if(Math.hypot((lo-o2)*kx0,(la-a2)*mPerLat)<30)return true;}return false;};
+    for(const q of c.blocks){const ce=qCenter(q);put(ce[0],ce[1]);}
     let id=c.blocks.reduce((m,q)=>Math.max(m,q.id),-1)+1;const add=[];
-    for(const f of faces){const p=simplifyRing(f.pts,1.5).map(([x,y])=>[+(a.lat+y/mPerLat).toFixed(6),+(a.lon+x/kx).toFixed(6)]);const ce=polyCentroid(p),[x,y]=cxy(ce[0],ce[1]);if(near(x,y))continue;used.add(x+','+y);
+    for(const f of faces){const p=simplifyRing(f.pts,1.5).map(([x,y])=>[+(a.lat+y/mPerLat).toFixed(6),+(a.lon+x/kx).toFixed(6)]);const ce=polyCentroid(p);if(dup(ce[0],ce[1]))continue;put(ce[0],ce[1]);
       const g=geoToGrid(c.geo,ce[0],ce[1]);add.push({id:id++,t:'house',x:+(g.x-.5).toFixed(4),y:+(g.y-.5).toFixed(4),area:Math.round(f.area),poly:p,dom:0,fams:[],ar:a.id});}
-    if(!add.length){a.n=-1;log(`${c.name}: o OpenStreetMap não tem quadras novas em volta da filial de área.`);toast('Não há quadras novas em volta desse ponto.');save(true);return;}
+    if(!add.length&&a.n>0){a.v=2;save(true);return;}
+    if(!add.length){a.n=-1;a.v=2;log(`${c.name}: o OpenStreetMap não tem quadras novas em volta da filial de área.`);toast('Não há quadras novas em volta desse ponto.');save(true);return;}
     c.blocks.push(...add);blockHomes(c,c.blocks);for(const q of add)q.b=blockBairro(c,q);for(const q of c.blocks)delete q.ib;
-    a.n=add.length;c.blocksAt=Date.now();QV=null;QSig='';
+    a.n=(a.n>0?a.n:0)+add.length;a.v=2;c.blocksAt=Date.now();QV=null;QSig='';
     log(`${c.name}: filial de área com ${add.length} quadras novas. Os ${cityHomes(c).toLocaleString('pt-BR')} moradores foram redistribuídos.`);toast(`${add.length} quadras novas em ${c.name}.`);save(true);
   }catch(e){toast('Não deu para desenhar as quadras agora. Tento de novo em 1 minuto.');setTimeout(()=>{if(S&&!a.n)loadArea(c,a);},60000);}
   finally{AREA_BUSY.delete(a);c.geoStep='';LSig='';renderAll();}
@@ -3897,7 +3900,30 @@ function mkIcon(svg,size){return L.divIcon({className:'mk',html:svg,iconSize:[si
 /* Número de assinantes em cada quadra do mapa real: aparece a partir do zoom 15, para não poluir a visão da cidade inteira. */
 let LQN=null;const QCEN=new WeakMap();
 function qCenter(q){let c=QCEN.get(q);if(!c){c=polyCentroid(q.poly);QCEN.set(q,c);}return c;}
-function qnZoom(){if(!LM||!LQN)return;if(LM.getZoom()>=15){if(!LM.hasLayer(LQN))LQN.addTo(LM);}else if(LM.hasLayer(LQN))LM.removeLayer(LQN);}
+/* Quadras do mapa real: os polígonos são criados uma vez por cidade (QP) e depois só trocam de estilo quando a cor muda.
+   Os números de assinantes (LQN) existem só para as quadras na tela, a partir do zoom 15 (no máximo 500). */
+const QP={key:'',layer:null,polys:[],sty:[],looks:[]},QN=new Map();
+function qpClear(){if(QP.layer)QP.layer.clearLayers();QP.key='';QP.polys=[];QP.sty=[];QP.looks=[];if(LQN)LQN.clearLayers();QN.clear();}
+function drawQuadras(c,overT){
+  if(!QP.layer)QP.layer=L.layerGroup().addTo(LM);
+  const key=c.idx+':'+(c.blocksAt||0)+':'+c.blocks.length;
+  if(QP.key!==key){qpClear();QP.key=key;
+    c.blocks.forEach((q,i)=>{QP.polys[i]=L.polygon(q.poly,{renderer:QREND,color:'#ffffff',weight:1,fillColor:'#a3cf78',fillOpacity:.55})
+      .on('click',ev=>{L.DomEvent.stopPropagation(ev);if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev,i);return;}LM.closePopup();const ql=quadras(c)[i];if(ql)openQuadra(c,ql);}).addTo(QP.layer);});}
+  c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT),n=lk.subs.length,st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
+    QP.looks[i]={n,fib:n&&lk.subs.some(f=>f.tech==='fiber'),dom:q.dom||0};
+    const k=st+lk.fill+(n?1:0);if(QP.sty[i]!==k&&QP.polys[i]){QP.sty[i]=k;QP.polys[i].setStyle({color:st,weight:st==='#ffffff'?1:2.5,fillColor:lk.fill,fillOpacity:n?.85:.55});}});
+  qnRefresh();
+}
+function qnRefresh(){if(!LM||!S)return;
+  if(!LQN){LQN=L.layerGroup().addTo(LM);LM.on('moveend',qnRefresh);}
+  const c=city();if(LM.getZoom()<15||!hasBlocks(c)||!QP.looks.length){if(QN.size){LQN.clearLayers();QN.clear();}return;}
+  const b=LM.getBounds().pad(0.15),want=new Map();
+  for(let i=0;i<c.blocks.length&&want.size<500;i++){const lk=QP.looks[i];if(!lk||!lk.n)continue;const ce=qCenter(c.blocks[i]);if(!b.contains(ce))continue;
+    want.set(i,`<span class="qn-tag${lk.fib?' fib':''}" title="${lk.n} de ${lk.dom} moradores">${lk.n}</span>`);}
+  for(const [i,mk] of QN)if(want.get(i)!==mk._h){LQN.removeLayer(mk);QN.delete(i);}
+  for(const [i,h] of want){if(QN.has(i))continue;const mk=L.marker(qCenter(c.blocks[i]),{interactive:false,keyboard:false,icon:L.divIcon({className:'qn-wrap',iconSize:[0,0],html:h})});mk._h=h;mk.addTo(LQN);QN.set(i,mk);}
+}
 function initLeaflet(){
   if(LM||!window.L)return;
   LM=L.map('realMap',{zoomControl:true,attributionControl:true,zoomSnap:0.25,zoomDelta:0.5});
@@ -4033,11 +4059,8 @@ function drawReal(c,fit){
   if(hasBlocks(c)){
     const overT=new Set(c.towers.filter(t=>towerLoad(c,t)>cap()).map(t=>t.id));
     if(!QREND)QREND=L.canvas({padding:.3});
-    if(!LQN){LQN=L.layerGroup();LM.on('zoomend',qnZoom);}LQN.clearLayers();
-    c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT);if(lk.subs.length){const ce=qCenter(q),fib=lk.subs.some(f=>f.tech==='fiber');L.marker(ce,{interactive:false,keyboard:false,icon:L.divIcon({className:'qn-wrap',iconSize:[0,0],html:`<span class="qn-tag${fib?' fib':''}" title="${lk.subs.length} de ${q.dom||0} moradores">${lk.subs.length}</span>`})}).addTo(LQN);}const st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
-      L.polygon(q.poly,{renderer:QREND,color:st,weight:st==='#ffffff'?1:2.5,fillColor:lk.fill,fillOpacity:lk.subs.length?.85:.55})
-      .on('click',ev=>{L.DomEvent.stopPropagation(ev);if(S.phase==='sede'||(draft&&draft.picking)){onMapClick(ev,i);return;}LM.closePopup();const ql=quadras(c)[i];if(ql)openQuadra(c,ql);}).addTo(LLayers);});
-  }
+    drawQuadras(c,overT);
+  }else qpClear();
   // quadras do jogo (sem malha de ruas): tamanho e cor pela participação
   if(!hasBlocks(c)&&c.blocksNone)for(const l of c.lots){
     if(l.t!=='house')continue;const hr=rng(hash(c.name+':'+l.x+':'+l.y)),g=gridToGeo(c.geo,l.x+0.5+(hr()-.5)*.6,l.y+0.5+(hr()-.5)*.6);
@@ -4067,8 +4090,6 @@ function drawReal(c,fit){
   if(c.store){const g=c.store.lat!=null?{lat:c.store.lat,lon:c.store.lon}:lotGeo(c,c.store);L.marker([g.lat,g.lon],{icon:mkIcon(storeSvg,30),title:c.hq?'Sede regional':'Loja filial'}).bindPopup(c.hq?'<b>Sede regional</b><br><button class="btn small" data-panel="building" style="margin-top:6px">Ver prédio</button>':`<b>Loja filial</b>${canHQ(c)?`<br><button class="btn small primary" data-act="hqConvert" data-c="${c.idx}" style="margin-top:6px">Virar sede regional · ${brl0(HQ_COST)}</button>`:''}`).addTo(LLayers);}
   drawSedePick();
   if(fit){const h=c.geo.side/2,dLat=h/mPerLat,dLon=h/mPerLon(c.geo.lat);LM.fitBounds([[c.geo.lat-dLat,c.geo.lon-dLon],[c.geo.lat+dLat,c.geo.lon+dLon]],{padding:[4,4]});}
-  if(!hasBlocks(c)&&LQN)LQN.clearLayers();
-  qnZoom();
   if(draft)drawDraft(c);
 }
 document.addEventListener('click',e=>{
@@ -4133,7 +4154,7 @@ function reportErr(e,where){const msg=(e&&e.message)||String(e);console.error(wh
 const portraitLock=()=>!!(window.matchMedia&&matchMedia("(orientation:portrait) and (pointer:coarse)").matches);
 function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL)&&navigator.onLine&&cloud.ref&&!cloud.ser&&!portraitLock())tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?1000/sp:500);}
 window.addEventListener('error',e=>{if(e&&e.error)reportErr(e.error,'tela');});
-function autoGeo(){if(!S)return;const c=city();if(c.geo&&hasBlocks(c))for(const a of c.areas||[])if(!a.n&&!AREA_BUSY.has(a))loadArea(c,a);if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
+function autoGeo(){if(!S)return;const c=city();if(c.geo&&hasBlocks(c))for(const a of c.areas||[])if((!a.n||(a.n>0&&a.v!==2))&&!AREA_BUSY.has(a)&&!(a.tryAt>Date.now()-60000)){a.tryAt=Date.now();loadArea(c,a);}if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
   document.body.classList.add('booting');setTab('map');sbInit();S=null;
   if(!sbOn()){openModal(head('Configuração','Salvamento online desligado',false)+'<p>O jogo salva só na conta. Preencha <code>supabaseUrl</code> e <code>supabaseAnonKey</code> no <code>config.js</code>.</p>');return;}
