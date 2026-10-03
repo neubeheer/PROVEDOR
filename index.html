@@ -827,6 +827,35 @@ html body.modal-open .toast{top:calc(10px + var(--sT));bottom:auto}
   html body #draftPanel:not(:empty){width:calc(100vw - 16px - var(--sL) - var(--sR));bottom:calc(var(--dockH) + 26px + var(--sB))}
 }
 </style>
+<style>
+/* Ajustes: cartão da cidade compacto; deitado, Expandir sobe para perto do menu e a coluna da direita fica curta */
+html{background:#ece7df}
+html body .city-card{display:inline-flex;width:auto;max-width:100%;padding:3px 7px;gap:1px;border-radius:11px;border-width:2px;box-shadow:0 2px 0 rgba(15,35,80,.45)}
+html body .city-card h2{font-size:calc(var(--fs)*.92)}
+html body .city-card .eyebrow{font-size:calc(var(--fs)*.56);letter-spacing:.02em}
+html body .city-card select.input{font-size:calc(var(--fs)*.66)!important;padding:1px 2px!important;max-width:9em;border-radius:7px}
+html body .cc-info{width:calc(var(--ph)*.66);height:calc(var(--ph)*.66);font-size:calc(var(--fs)*.8);border-width:2px;margin-left:4px}
+html body .cc-info em{top:-6px;right:-7px;min-width:14px;height:14px;font-size:9px;line-height:11px;padding:0 3px}
+.ov-left{align-items:flex-start}
+html body .ov-left>*{max-width:100%}
+@media (orientation:landscape){
+  :root{--fabH:calc(var(--ph)*1.05)}
+  html body .fab-expand{top:var(--ovTop);bottom:auto;right:calc(8px + var(--sR));height:var(--fabH);min-width:0;flex-direction:row;gap:5px;padding:0 10px;border-radius:12px;border-width:2.5px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),0 3px 0 var(--navy)}
+  html body .fab-expand span{font-size:calc(var(--fs)*1.1)}
+  html body .fab-expand b{font-size:calc(var(--fs)*.85)}
+  html body .fab-expand small{display:none}
+  html body .hud-side{top:calc(var(--ovTop) + var(--fabH) + var(--gap) + 4px);max-height:calc(100dvh - var(--ovTop) - var(--fabH) - 16px - var(--sB))}
+  html body #hudTime{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:min(400px,48vw)}
+  html body #hudTime .pill.link{order:5}
+  html body #mapTools .real-tools{flex-direction:row;flex-wrap:wrap;justify-content:flex-end}
+  html body #mapTools .btn{width:auto;min-width:calc(var(--ph)*1.6);flex-direction:row;gap:4px;padding:4px 8px;font-size:calc(var(--fs)*.7);border-radius:11px}
+  html body #mapTools .btn .ti{font-size:calc(var(--fs)*.95)}
+  .ov-left{width:min(340px,38vw)}
+}
+@media (orientation:landscape) and (max-height:430px){
+  html body #mapTools .btn{padding:3px 6px}
+}
+</style>
 </head>
 <body>
 
@@ -1997,7 +2026,7 @@ function renderTop(){
     <div class="pill dia" title="Diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${S.diamonds||0}</b>${plus('diamonds','Diamantes')}</div>
     ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
-  const ht=$('#hudTime');if(ht)ht.innerHTML=(isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`)+`
+  const ht=$('#hudTime');if(ht)ht.innerHTML=(isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Instalar o app ou tela cheia" title="Instalar o app / tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`)+`
     <div class="pill date" title="Data"><span class="pill-ico">${HUD_ICO.cal}</span><b>${dt}</b></div>
     <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
     <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b>Link ${Math.round(lu*100)}%</b></button>`;
@@ -2007,11 +2036,18 @@ function renderTop(){
 let CITY_CHIPS='',CITY_LINE='';
 /* Tela cheia: no Android usa a API do navegador; no iPhone o Safari não deixa, então explica como instalar na tela de início. */
 const isStandalone=()=>!!((window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone);
-async function toggleFull(){const el=document.documentElement,rq=el.requestFullscreen||el.webkitRequestFullscreen;
-  if(document.fullscreenElement||document.webkitFullscreenElement){try{await (document.exitFullscreen||document.webkitExitFullscreen).call(document);}catch(e){}renderTop();return;}
-  if(rq&&(document.fullscreenEnabled||document.webkitFullscreenEnabled)){try{await rq.call(el);}catch(e){}renderTop();return;}
-  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
-  openModal(head('Tela cheia','Jogar sem a barra do navegador')+(ios?'<p>No iPhone, o Safari não libera a tela cheia para sites. Instale o jogo na tela de início: ele abre como app, sem a barra do navegador.</p><ol><li>Toque em <b>Compartilhar</b> (o quadrado com a seta) na barra do Safari.</li><li>Escolha <b>Adicionar à Tela de Início</b>.</li><li>Abra o Provedor Tycoon pelo ícone novo.</li></ol>':'<p>Este navegador não libera a tela cheia. Use o menu do navegador e escolha <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</p>')+'<div class="foot"><span></span><button class="btn primary" data-close>Ok</button></div>');}
+/* Instalado na tela de início, o jogo abre como app, em tela cheia e sem a barra do navegador. */
+function toggleFull(){
+  const el=document.documentElement,rq=el.requestFullscreen||el.webkitRequestFullscreen,inFull=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  if(inFull){(document.exitFullscreen||document.webkitExitFullscreen).call(document).catch(()=>{});return;}
+  const ua=navigator.userAgent,ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1),android=/Android/.test(ua),canFull=!!(rq&&(document.fullscreenEnabled||document.webkitFullscreenEnabled));
+  const and=`<div class="choice"><div><b>Android</b><p class="muted" style="margin:3px 0 0;font-size:13px">${deferredInstall?'Toque em <strong>Instalar agora</strong>.':'No Chrome, toque no menu <strong>⋮</strong> e escolha <strong>Instalar app</strong> (ou <strong>Adicionar à tela inicial</strong>).'}</p></div>${deferredInstall?'<button class="btn small primary" id="insNow">Instalar agora</button>':''}</div>`;
+  const iph=`<div class="choice"><div><b>iPhone e iPad</b><p class="muted" style="margin:3px 0 0;font-size:13px">No <strong>Safari</strong>: toque em <strong>Compartilhar</strong> (quadrado com seta) e escolha <strong>Adicionar à Tela de Início</strong>. No <strong>Chrome</strong>: toque em <strong>Compartilhar</strong> ao lado do endereço e depois em <strong>Adicionar à Tela de Início</strong>.</p></div></div>`;
+  openModal(head('App','Instalar o Provedor Tycoon')+`<p style="margin-top:0">Instalado, o jogo abre pelo ícone na tela do celular, em tela cheia e sem a barra do navegador. O progresso continua na sua conta.</p>
+    <div class="choice-list">${ios?iph+and:and+iph}</div>
+    <div class="foot">${canFull?'<button class="btn" id="insFull">Só tela cheia agora</button>':'<span></span>'}<button class="btn primary" data-close>Ok</button></div>`,m=>{
+    const n=m.querySelector('#insNow');if(n)n.onclick=async()=>{const ev=deferredInstall;deferredInstall=null;closeModal();if(ev){ev.prompt();try{await ev.userChoice;}catch(e){}}};
+    const f=m.querySelector('#insFull');if(f)f.onclick=async()=>{closeModal();try{await rq.call(el);}catch(e){}};});}
 document.addEventListener('fullscreenchange',()=>{if(S)renderTop();});
 function openCityInfo(){const c=city();openModal(head('Cidade',esc(c.name)+(c.uf?' '+esc(c.uf):''))+`<p class="muted" style="margin-top:0">${CITY_LINE} · rede 10.${c.idx+1}.0.0/${netPrefix(c)}</p><div class="map-meta city-chips">${CITY_CHIPS}</div><p class="muted" style="font-size:12.5px">${esc(($('#geoNote')||{}).textContent||'')}</p><div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
 function renderMap(){
