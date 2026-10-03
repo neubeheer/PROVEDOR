@@ -912,11 +912,21 @@ html body #mapTools .btn .ti{font-size:calc(var(--hs)*.46);line-height:1}
 html body #mapTools .btn .tl{display:none}
 .hs-fly{display:none;position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);white-space:nowrap;z-index:2}
 .hs-item.open .hs-fly{display:flex}
+html body #hudTime .hs-item:not(.open) .hs-fly{display:none}
+html body #hudTime .hs-item.open .hs-fly{display:flex}
+html body #hudTime,html body #mapTools .real-tools{gap:calc(var(--gap) + 7px)}
+html body .hud-side{gap:calc(var(--gap) + 7px)}
 .hs-date{align-items:center;height:calc(var(--hs)*.85);padding:0 12px;border-radius:999px;background:linear-gradient(180deg,#fff,#e6eef8);border:2.5px solid var(--navy);box-shadow:0 2px 0 var(--navy);color:var(--navy)}
 .hs-date b{font-family:var(--display);font-weight:400;font-size:var(--fs)}
 html body .hs-fly.speed{height:auto;padding:2px;border:2.5px solid var(--navy);border-radius:12px;background:var(--navy);box-shadow:0 2px 0 rgba(10,20,40,.5)}
 html body .hs-fly.speed button{padding:calc(var(--ph)*.16) calc(var(--ph)*.3);font-size:calc(var(--fs)*.85);min-height:0}
-@media (orientation:landscape){html body .hud-side{top:calc(var(--ovTop) + var(--fabH) + var(--gap) + 4px)}}
+@media (orientation:landscape){
+  :root{--fabH:var(--hs)}
+  html body .fab-expand{width:var(--hs);height:var(--hs);min-width:0;padding:0;border-radius:50%;justify-content:center;align-items:center}
+  html body .fab-expand span{font-size:calc(var(--hs)*.55)}
+  html body .fab-expand b,html body .fab-expand small{display:none}
+  html body .hud-side{top:calc(var(--ovTop) + var(--fabH) + var(--gap) + 4px)}
+}
 </style>
 </head>
 <body class="booting">
@@ -2167,7 +2177,7 @@ function renderMap(){
   CITY_CHIPS=`<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${(()=>{const rp=rivalPressure(c);return rp.rs.length?`<button class="chip ${rp.edge>0.03?'bad':rp.edge<-0.03?'ok':'warn'}" data-act="rivals" style="cursor:pointer">Concorrentes ${rp.rs.length} · ${Math.round(rp.occ*100)}% da cidade</button>`:(rivalsOn()&&sbOn()&&SB.session&&SB.session.user&&!sedeMode?'<button class="chip" data-act="rivals" style="cursor:pointer">Sem concorrentes</button>':'');})()}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}`;
   const nBad=(CITY_CHIPS.match(/class="chip bad/g)||[]).length;
   CITY_LINE=`${c.pop.toLocaleString('pt-BR')} habitantes · ${cl.toLocaleString('pt-BR')} clientes (${homesAll?Math.round(cl/homesAll*100):0}%)`;
-  const cs0=$('#citySel');if(!(cs0&&document.activeElement===cs0))$('#mapHead').innerHTML=`<div class="city-card"><div class="cc-row"><h2>${esc(c.name)}${c.uf?` <small>${esc(c.uf)}</small>`:''}</h2>${sel}<button class="cc-info" data-act="cityInfo" aria-label="Detalhes da cidade">i${nBad?`<em>${nBad}</em>`:''}</button></div><p class="eyebrow">${CITY_LINE}</p></div>${!sedeMode&&levelOf(S.xp)>=EXPAND_LEVEL?`<button class="fab-expand" data-act="city"><span aria-hidden="true">🌎</span><b>Expandir</b>${allClients()>=indepReq()?'<small>nova operação</small>':''}</button>`:''}`;
+  const cs0=$('#citySel');if(!(cs0&&document.activeElement===cs0))$('#mapHead').innerHTML=`<div class="city-card"><div class="cc-row"><h2>${esc(c.name)}${c.uf?` <small>${esc(c.uf)}</small>`:''}</h2>${sel}<button class="cc-info" data-act="cityInfo" aria-label="Detalhes da cidade">i${nBad?`<em>${nBad}</em>`:''}</button></div><p class="eyebrow">${CITY_LINE}</p></div>${!sedeMode&&levelOf(S.xp)>=EXPAND_LEVEL?`<button class="fab-expand" data-act="city" title="Expandir" aria-label="Expandir"><span aria-hidden="true">🌎</span><b>Expandir</b>${allClients()>=indepReq()?'<small>nova operação</small>':''}</button>`:''}`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
   $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
