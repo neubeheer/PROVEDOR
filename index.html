@@ -3917,6 +3917,7 @@ function drawQuadras(c,overT){
 }
 function qnRefresh(){if(!LM||!S)return;
   if(!LQN){LQN=L.layerGroup().addTo(LM);LM.on('moveend',qnRefresh);}
+  if(!LM._loaded)return; // antes do mapa ter centro e zoom não há área visível (o moveend chama de novo)
   const c=city();if(LM.getZoom()<15||!hasBlocks(c)||!QP.looks.length){if(QN.size){LQN.clearLayers();QN.clear();}return;}
   const b=LM.getBounds().pad(0.15),want=new Map();
   for(let i=0;i<c.blocks.length&&want.size<500;i++){const lk=QP.looks[i];if(!lk||!lk.n)continue;const ce=qCenter(c.blocks[i]);if(!b.contains(ce))continue;
