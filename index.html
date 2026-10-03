@@ -2023,15 +2023,18 @@ function activate(c,lot,deal,ip){
   applyEntryPromo(lot);
   S.signed++;S.cur.novos++;addXp(20);
 }
+/* Quadras vendáveis da cidade no dia (SCACHE): montadas uma vez e reaproveitadas por todas as vendas do dia
+   (indicação, promoção, loja, carreata, concorrência). Refeitas quando muda o dia, a rede, as torres, a fibra, a outorga,
+   o que o Comercial vende ou quando houve venda fora daqui. Antes cada tentativa varria a base inteira. */
+const SCACHE=new WeakMap();
+function saleCache(c){const key=[S.day,c.blocksAt||0,c.net||0,c.towers.length,c.towers.filter(t=>t.off).length,c.fiber&&c.fiber.on?c.fiber.ctos.length:-1,c.outorgaPaid?1:0,(c.regionsPaid||[]).length,salesTech(),c.ilink].join(':');
+  let sc=SCACHE.get(c);if(sc&&sc.key===key&&sc.signed===S.signed)return sc;
+  sc={key,signed:S.signed,qs:[],fr:[],tot:0,used:0,cap:0};SCACHE.set(c,sc);if(saleBlock(c))return sc;
+  for(const l of quadras(c)){const f=quadraFree(l);if(f>0&&regionOk(c,l)&&sellable(c,l)){sc.qs.push(l);sc.fr.push(f);sc.tot+=f;}}
+  sc.used=netUsed(c);sc.cap=netCap(c);if(sc.used>=sc.cap)sc.tot=0;return sc;}
 function attemptSale(c,who,sure,pre){
-  let q;
-  if(pre){let rr=Math.random()*pre.tot,k=0;for(;k<pre.qs.length-1;k++){rr-=pre.fr[k];if(rr<=0&&pre.fr[k]>0)break;}if(!(pre.fr[k]>0))k=pre.fr.findIndex(x=>x>0);if(k<0)return false;q=pre.qs[k];pre.fr[k]--;pre.tot--;}
-  else{
-  if(saleBlock(c))return false;
-  const qs=quadras(c).filter(l=>quadraFree(l)>0&&regionOk(c,l)&&sellable(c,l));
-  if(!qs.length)return false;
-  let tot=qs.reduce((s,l)=>s+quadraFree(l),0),rr=Math.random()*tot;q=qs[0];for(const l of qs){rr-=quadraFree(l);if(rr<=0){q=l;break;}}
-  }
+  let q;const P=pre||saleCache(c);if(!P||!(P.tot>0))return false;
+  {let rr=Math.random()*P.tot,k=0;for(;k<P.qs.length-1;k++){rr-=P.fr[k];if(rr<=0&&P.fr[k]>0)break;}if(!(P.fr[k]>0))k=P.fr.findIndex(x=>x>0);if(k<0)return false;q=P.qs[k];P.fr[k]--;P.tot--;}
   const lot=knock(c,q);if(!lot)return false;
   const o=bestOffer(c,lot,salesTech());if(!o)return false;
   if(sure||Math.random()<o.p){
@@ -2042,6 +2045,7 @@ function attemptSale(c,who,sure,pre){
     if(!opsOf('tecnico'))spend(THIRD_COST);
     activate(c,lot,{plan:o.plan,combo:o.combo,price:o.price,tid:fib?null:coverOf(c,lot).t.id},nextIp(c));
     if(who!=='promo')log(`${who==='loja'?'Loja':who==='carreata'?'Carreata':who==='conc'?'Portabilidade: veio da concorrência':who==='indica'?'Indicação de cliente':'Vendedor'} fechou com ${lot.fam.name} (${c.name}): ${planLabel(o.plan,o.combo)}.`);save(true);
+    if(!pre){P.used++;P.signed=S.signed;if(P.used>=P.cap)P.tot=0;}
     return true;
   }
   lot.st='refused';lot.until=S.day+45;return false;
@@ -3298,7 +3302,7 @@ function clientCampaignsMonth(){
   const o=entryOffer(),lead=(o.plan?o.p*0.6:o.p)+((S.promo&&S.promo.inst)?0.06:0);
   if(lead>0)for(const c of S.cities){if(saleBlock(c))continue;
     const free=quadras(c).filter(l=>regionOk(c,l)&&sellable(c,l)).reduce((t,l)=>t+quadraFree(l),0),n=Math.min(600,Math.round(free*lead*0.1));
-    let got=0;for(let i=0;i<n;i++){if(attemptSale(c,'promo',true))got++;else if(saleBlock(c)||S.money<0)break;}
+    let got=0;for(let i=0;i<n;i++){if(attemptSale(c,'promo',true))got++;else if(!(saleCache(c).tot>0)||S.money<0)break;}
     if(got){S.cur.promoLeads=(S.cur.promoLeads||0)+got;log(`Promoção "${o.name}"${S.promo&&S.promo.inst?' + instalação grátis':''} trouxe ${got} assinante(s) em ${c.name}.`);event(`Promoção: +${got} assinantes em ${c.name}`);}}
   S.cur.promoCost=(S.cur.promoCost||0)+cost;return cost;
 }
