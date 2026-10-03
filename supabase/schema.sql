@@ -10,6 +10,8 @@ create table if not exists public.saves (
   saved_at   timestamptz,
   updated_at timestamptz not null default now()
 );
+-- sessão do aparelho que está jogando (um aparelho por vez)
+alter table public.saves add column if not exists sess text;
 alter table public.saves enable row level security;
 drop policy if exists saves_select_own on public.saves;
 drop policy if exists saves_insert_own on public.saves;

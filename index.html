@@ -785,7 +785,6 @@ html body .modal>.mhead h2{font-size:clamp(17px,5vmin,24px);line-height:1.1;marg
 html body .modal>.mhead .eyebrow{font-size:10.5px}
 html body .modal .x{flex:none}
 html body .modal *{max-width:100%}
-html body .modal img,html body .modal svg{height:auto}
 html body .modal .building,html body #panelBody .building{width:100%;max-width:460px;margin:0 auto;min-width:0}
 html body .modal .sede-modal{margin:0;padding:0}
 html body .modal .floor-actions{flex-wrap:wrap}
@@ -794,7 +793,7 @@ html body .modal .choice{min-width:0}
 html body .modal .choice>div{min-width:0}
 html body .modal select,html body .modal input{max-width:100%}
 .hud-full svg{width:60%;height:60%;display:block;margin:auto}
-.hud-full{width:calc(var(--ph)*.95);height:calc(var(--ph)*.95);border-radius:50%;border:2.5px solid var(--navy);background:radial-gradient(circle at 40% 30%,#fff,#dfe8f3);box-shadow:0 2px 0 var(--navy);font-size:calc(var(--fs)*1.05);line-height:1;padding:0;cursor:pointer;color:var(--navy)}
+.hud-full{margin-left:auto;flex:none;width:calc(var(--ph)*.95);height:calc(var(--ph)*.95);border-radius:50%;border:2.5px solid var(--navy);background:radial-gradient(circle at 40% 30%,#fff,#dfe8f3);box-shadow:0 2px 0 var(--navy);font-size:calc(var(--fs)*1.05);line-height:1;padding:0;cursor:pointer;color:var(--navy)}
 html body .toast{left:50%;right:auto;transform:translateX(-50%);bottom:calc(var(--dockH) + 30px + var(--sB))}
 html body.modal-open .toast{top:calc(10px + var(--sT));bottom:auto}
 /* celular deitado e baixo: um pouco mais compacto */
@@ -855,6 +854,8 @@ html body .ov-left>*{max-width:100%}
 @media (orientation:landscape) and (max-height:430px){
   html body #mapTools .btn{padding:3px 6px}
 }
+html body .hud-full+.hud-gear{margin-left:var(--gap)}
+@media (orientation:portrait){html body .stats .hud-full{order:1}}
 </style>
 </head>
 <body>
@@ -1059,7 +1060,19 @@ function hydrateFams(st){
   }
 }
 /* JSON enviado para a nuvem: sem os perfis que a semente refaz e sem a lista de cidades vizinhas (recalculada). */
-function saveJson(){return JSON.stringify(S,function(k,v){if(k==='fam'&&v&&v.need&&this.fk)return undefined;if(k==='near')return undefined;return v;});}
+function saveRep(k,v){if(k==='fam'&&v&&v.need&&this.fk)return undefined;if(k==='near')return undefined;return v;}
+function saveJson(){return JSON.stringify(S,saveRep);}
+/* Mesmo resultado do saveJson, mas montado em pedaços (as quadras de 200 em 200), devolvendo a vez para a tela entre eles.
+   Enquanto monta, o relógio do jogo espera (cloud.ser), para o save sair consistente. */
+async function saveJsonAsync(){
+  const y=()=>new Promise(r=>setTimeout(r,0)),obj=async o=>{const out=[];for(const k of Object.keys(o)){const v=o[k];if(k==='near')continue;let js;
+      if(k==='cities'&&o===S){const cs=[];for(const c of v){cs.push(await obj(c));await y();}js='['+cs.join(',')+']';}
+      else if((k==='blocks'||k==='lots')&&Array.isArray(v)&&v.length>200){const parts=[];for(let i=0;i<v.length;i+=200){parts.push(v.slice(i,i+200).map(x=>JSON.stringify(x,saveRep)).join(','));await y();}js='['+parts.join(',')+']';}
+      else js=JSON.stringify(v,saveRep);
+      if(js!==undefined)out.push(JSON.stringify(k)+':'+js);}
+    return '{'+out.join(',')+'}';};
+  return obj(S);
+}
 function makeFam(r){
   const need=pick(r,Object.keys(NEED));
   const ranges={work:[95,135],game:[90,130],tv:[110,165],budget:[55,72],basic:[62,92]};
@@ -1112,9 +1125,11 @@ function newGame(company,cityName,uf){
 
 /* ===================== Supabase: conta, salvamento online e cache das quadras ===================== */
 const SB={url:'',key:'',session:null};
-function sbInit(){const c=window.PT_CONFIG||{};SB.url=String(c.supabaseUrl||'').trim().replace(/\/+$/,'');SB.key=String(c.supabaseAnonKey||'').trim();try{SB.session=JSON.parse(localStorage.getItem('pt-sb')||'null');}catch(e){SB.session=null;}}
+function sbInit(){const c=window.PT_CONFIG||{};SB.url=String(c.supabaseUrl||'').trim().replace(/\/+$/,'');SB.key=String(c.supabaseAnonKey||'').trim();try{SB.session=JSON.parse(localStorage.getItem('pt-sb')||sessionStorage.getItem('pt-sb')||'null');}catch(e){SB.session=null;}}
 const sbOn=()=>!!(SB.url&&SB.key);
-function sbStore(sess){SB.session=sess;try{sess?localStorage.setItem('pt-sb',JSON.stringify(sess)):localStorage.removeItem('pt-sb');}catch(e){}}
+/* Com "Lembrar meus dados" a sessão fica no aparelho; sem, some ao fechar o navegador. */
+const remembers=()=>{try{return localStorage.getItem('pt-remember')!=='0';}catch(e){return true;}};
+function sbStore(sess){SB.session=sess;try{localStorage.removeItem('pt-sb');sessionStorage.removeItem('pt-sb');if(sess)(remembers()?localStorage:sessionStorage).setItem('pt-sb',JSON.stringify(sess));}catch(e){}}
 function sbSess(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),user:{id:j.user&&j.user.id,email:j.user&&j.user.email}};}
 async function sbRefresh(){
   if(!SB.session||!SB.session.refresh_token)return false;
@@ -1140,8 +1155,15 @@ function sbSaveRef(){
   const uid=SB.session.user.id;
   return {
     async get(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=data,saved_at`);if(!r.ok)throw new Error('http '+r.status);const rows=await r.json();return {exists:rows.length>0,data:()=>({json:JSON.stringify(rows[0].data)})};},
-    async set(o){const body=`{"user_id":${JSON.stringify(uid)},"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${o.json}}`;
-      const r=await sbFetch('/rest/v1/saves',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body},true,30000);if(!r.ok)throw new Error('http '+r.status);},
+    async set(o){const meta=`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${o.json}`;
+      // com a trava ligada e a linha criada, só grava se a sessão ainda for deste aparelho (senão outro aparelho assumiu)
+      if(cloud.lock==='on'&&cloud.hasRow){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&sess=eq.${MYSESS}&select=user_id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:'{'+meta+'}'},true,30000);
+        if(!r.ok)throw new Error('http '+r.status);const rows=await r.json().catch(()=>null);if(Array.isArray(rows)&&!rows.length){const e=new Error('outro aparelho');e.takeover=true;throw e;}return;}
+      const body=`{"user_id":${JSON.stringify(uid)},${cloud.lock==='on'?`"sess":${JSON.stringify(MYSESS)},`:''}${meta}}`;
+      const r=await sbFetch('/rest/v1/saves',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body},true,30000);if(!r.ok)throw new Error('http '+r.status);cloud.hasRow=true;},
+    patch:true,
+    async claim(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({sess:MYSESS})});cloud.lock=r.ok?'on':'off';},
+    async owner(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=sess`);if(!r.ok)return null;const rows=await r.json();return rows.length?rows[0].sess:null;},
   };
 }
 function cityKeys(c){const nk=`${normName(c.name)}|${(c.uf||'').toUpperCase()}`;return {code:c.ibgeCode||null,nk};}
@@ -1196,17 +1218,22 @@ function openLogin(fromStart){
   if(logged){openModal(head('Conta','Salvamento online')+`<div class="notice ok">Conectado como <b>${esc(SB.session.user.email||'')}</b>. O jogo salva neste aparelho e na sua conta: dá para continuar em outro celular ou computador.</div>
     <div class="foot"><button class="btn" data-close>Fechar</button><button class="btn" id="lgOut">Sair da conta</button></div>`,m=>{m.querySelector('#lgOut').onclick=async()=>{if(S&&cloud.ref){cloud.dirty=true;await flushCloud();}await sbLogout();location.reload();};});return;}
   openModal(head('Conta','Entrar no Provedor Tycoon',!fromStart)+`<p>O Provedor Tycoon salva o progresso na sua conta: entre para jogar de qualquer aparelho. O jogo precisa de internet.</p>
-    <div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" type="email" autocomplete="email" maxlength="120"></div>
-    <div class="field"><label for="lgPass">Senha</label><input class="input" id="lgPass" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"></div>
+    <form id="lgForm" autocomplete="on" onsubmit="return false"><div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" name="username" type="email" autocomplete="username" maxlength="120"></div>
+    <div class="field"><label for="lgPass">Senha</label><input class="input" id="lgPass" name="password" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:700;margin:4px 0 2px;cursor:pointer"><input type="checkbox" id="lgRem" style="width:20px;height:20px"> Lembrar meus dados neste aparelho</label><button type="submit" hidden></button></form>
     <p class="geo-note" id="lgNote" aria-live="polite"></p>
     <div class="foot" style="flex-wrap:wrap;gap:8px"><span></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
-    const note=m.querySelector('#lgNote');
+    const note=m.querySelector('#lgNote'),rem=m.querySelector('#lgRem');
+    try{rem.checked=remembers();const e0=localStorage.getItem('pt-email');if(e0)m.querySelector('#lgEmail').value=e0;}catch(e){rem.checked=true;}
+    m.querySelector('#lgForm').onsubmit=e=>{e.preventDefault();run(false);return false;};
     const run=async signup=>{const em=m.querySelector('#lgEmail').value.trim(),pw=m.querySelector('#lgPass').value;
+      try{localStorage.setItem('pt-remember',rem.checked?'1':'0');rem.checked?localStorage.setItem('pt-email',em):localStorage.removeItem('pt-email');}catch(e){}
       if(!/^\S+@\S+\.\S+$/.test(em)){note.textContent='Digite um e-mail válido.';return;}if(pw.length<6){note.textContent='A senha precisa de pelo menos 6 caracteres.';return;}
       if(!navigator.onLine){note.textContent='Sem internet agora. O jogo precisa de conexão.';return;}
       m.querySelectorAll('button').forEach(b=>b.disabled=true);note.textContent=signup?'Criando a conta…':'Entrando…';
       try{const r=await sbLogin(em,pw,signup);
         if(r.confirm){note.innerHTML='Conta criada! Abra o e-mail de confirmação que enviamos e depois toque em <b>Entrar</b>.';m.querySelectorAll('button').forEach(b=>b.disabled=false);return;}
+        if(rem.checked&&window.PasswordCredential&&navigator.credentials){try{await navigator.credentials.store(new PasswordCredential({id:em,password:pw,name:em}));}catch(e){}}
         toast('Conectado!');bootCloud();
       }catch(e){note.textContent=e.message;m.querySelectorAll('button').forEach(b=>b.disabled=false);}};
     m.querySelector('#lgGo').onclick=()=>run(false);m.querySelector('#lgNew').onclick=()=>run(true);
@@ -1214,6 +1241,13 @@ function openLogin(fromStart){
   });
 }
 const cloud={ref:null,status:'local',last:null,dirty:false,busy:false,t:null};
+/* Um aparelho por vez: cada abertura do jogo tem uma sessão (MYSESS) gravada na linha do save. Quem entra depois assume;
+   o aparelho anterior percebe (ao salvar ou na conferência a cada 20 s) e para de jogar e de salvar. */
+const MYSESS=Math.random().toString(36).slice(2)+Date.now().toString(36);
+function takeover(){if(cloud.lock==='lost')return;cloud.lock='lost';cloud.ref=null;cloud.dirty=false;clearTimeout(cloud.t);cloud.t=null;
+  openModal(head('Conta','Sua conta foi aberta em outro aparelho',false)+'<p>Para não duplicar o progresso, o jogo fica aberto em um aparelho por vez. Este aparelho foi desconectado e não salva mais nada.</p><div class="foot"><span></span><button class="btn primary" id="toHere">Jogar neste aparelho</button></div>',m=>{m.querySelector('#toHere').onclick=()=>location.reload();});}
+async function checkSession(){if(!cloud.ref||cloud.lock!=='on'||!cloud.ref.owner||!navigator.onLine)return;try{const o=await cloud.ref.owner();if(o&&o!==MYSESS)takeover();}catch(e){}}
+setInterval(checkSession,20000);
 /* O progresso fica só na conta (Supabase). Cada mudança marca o save como sujo; o envio acontece no máximo a cada
    CLOUD_MIN, em até CLOUD_EVERY depois de uma mudança comum, em poucos segundos depois de uma importante, e ao sair da aba. */
 const CLOUD_EVERY=30000,CLOUD_MIN=12000;
@@ -1228,8 +1262,9 @@ async function flushCloud(){
   if(!cloud.ref||!cloud.dirty||!S)return;
   if(cloud.busy){scheduleCloud(2000);return;}
   cloud.busy=true;cloud.dirty=false;cloud.lastTry=Date.now();
-  try{await cloud.ref.set({json:saveJson(),savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';try{localStorage.removeItem(SAVE_KEY);}catch(e){}driveRegions();syncRivals();}
-  catch(e){cloud.dirty=true;cloud.status='erro';scheduleCloud(CLOUD_EVERY);}
+  try{let json;if(cloud.sync||!cloud.ref.patch)json=saveJson();else{cloud.ser=true;try{json=await saveJsonAsync();}finally{cloud.ser=false;}}cloud.sync=false;
+    await cloud.ref.set({json,savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';try{localStorage.removeItem(SAVE_KEY);}catch(e){}driveRegions();syncRivals();}
+  catch(e){if(e&&e.takeover){cloud.busy=false;takeover();return;}cloud.dirty=true;cloud.status='erro';scheduleCloud(CLOUD_EVERY);}
   cloud.busy=false;renderSaveDot();
 }
 function validSave(d){return !!(d&&d.v===2&&Array.isArray(d.cities)&&d.cities.length>0&&typeof d.money==='number');}
@@ -1245,7 +1280,8 @@ async function initCloud(){
       cloud.ref=db.doc(`data/users/${uid}/save`);
     }
     const snap=await cloud.ref.get();
-    cloud.status='cloud';
+    cloud.status='cloud';cloud.hasRow=!!snap.exists;
+    if(cloud.ref.claim){try{await cloud.ref.claim();}catch(e){cloud.lock='off';}}
     let st=null;
     if(snap.exists){try{st=JSON.parse(snap.data().json);}catch(e){}}
     if(validSave(st)&&(!S||(st.savedAt||0)>(S.savedAt||0))){
@@ -1256,7 +1292,7 @@ async function initCloud(){
     renderSaveDot();return true;
   }catch(e){cloud.status='erro';renderSaveDot();return false;}
 }
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&S&&cloud.ref){cloud.dirty=true;flushCloud();}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&S&&cloud.ref){cloud.dirty=true;cloud.sync=true;flushCloud();}else if(document.visibilityState==='visible')checkSession();});
 
 /* ===================== Concorrência entre jogadores (tabela presenca no Supabase) =====================
    Cada jogador logado publica um resumo por cidade (assinantes, preço médio, tecnologia, reputação, atendimento, marketing)
@@ -2025,8 +2061,9 @@ function renderTop(){
     <div class="pill coin" title="Selos de fidelidade"><span class="pill-ico">${HUD_ICO.coin}</span><b>${S.coins}</b>${plus('coins','Selos de fidelidade')}</div>
     <div class="pill dia" title="Diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${S.diamonds||0}</b>${plus('diamonds','Diamantes')}</div>
     ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
+    ${isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Instalar o app ou tela cheia" title="Instalar o app / tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
-  const ht=$('#hudTime');if(ht)ht.innerHTML=(isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Instalar o app ou tela cheia" title="Instalar o app / tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`)+`
+  const ht=$('#hudTime');if(ht)ht.innerHTML=`
     <div class="pill date" title="Data"><span class="pill-ico">${HUD_ICO.cal}</span><b>${dt}</b></div>
     <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
     <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b>Link ${Math.round(lu*100)}%</b></button>`;
@@ -4015,7 +4052,7 @@ setOnline();
 /* Um erro dentro de um dia de jogo não pode parar o relógio: o laço sempre agenda o próximo dia e o erro aparece na tela para ser reportado. */
 let lastErr='';
 function reportErr(e,where){const msg=(e&&e.message)||String(e);console.error(where,e);if(msg===lastErr)return;lastErr=msg;try{log('Erro no jogo ('+where+'): '+msg);}catch(x){}toast('⚠️ Erro no jogo: '+msg+'. Mande um print para o suporte.');}
-function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL)&&navigator.onLine&&cloud.ref)tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?1000/sp:500);}
+function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL)&&navigator.onLine&&cloud.ref&&!cloud.ser)tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?1000/sp:500);}
 window.addEventListener('error',e=>{if(e&&e.error)reportErr(e.error,'tela');});
 function autoGeo(){if(!S)return;const c=city();if(c.geo&&hasBlocks(c))for(const a of c.areas||[])if(!a.n&&!AREA_BUSY.has(a))loadArea(c,a);if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
