@@ -856,9 +856,32 @@ html body .ov-left>*{max-width:100%}
 }
 html body .hud-full+.hud-gear{margin-left:var(--gap)}
 @media (orientation:portrait){html body .stats .hud-full{order:1}}
+/* mapa até o fim da tela (no iPhone a área da barra de início ficava vazia) */
+html body #realWrap:not([hidden]){inset:0 0 auto 0;height:100vh;height:100lvh;min-height:100%}
+html,body{min-height:100%}
+body.booting .top,body.booting .hud-side,body.booting .layout,body.booting .tabs.dock,body.booting .fab-expand,body.booting #toast{visibility:hidden}
+.pw-wrap{position:relative}
+.pw-wrap .input{padding-right:48px}
+.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:transparent;color:var(--navy);cursor:pointer;padding:6px;border-radius:10px}
+.pw-eye svg{width:100%;height:100%;display:block}
+.pw-eye[aria-pressed="true"] .pw-slash{display:none}
+/* em pé: data, velocidade e link numa linha só, e o cartão da cidade logo abaixo */
+@media (orientation:portrait){
+  html body #hudTime{flex-wrap:nowrap;gap:4px;max-width:calc(100vw - 16px - var(--sL) - var(--sR))}
+  html body #hudTime .pill{height:calc(var(--ph)*.82);margin-left:calc(var(--ph)*.34);padding:0 3px 0 calc(var(--ph)*.62)}
+  html body #hudTime .pill b{font-size:calc(var(--fs)*.74);padding-right:3px}
+  html body #hudTime .pill-ico{width:calc(var(--ph)*.9);height:calc(var(--ph)*.9);left:calc(var(--ph)*-.34)}
+  html body #hudTime .speed button{padding:calc(var(--ph)*.08) calc(var(--ph)*.15);font-size:calc(var(--fs)*.7)}
+  html body .lk-w{display:none}
+  html body .stats .pill.money{flex:1 1 0;min-width:0}
+  html body .stats .pill.money b{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  html body .stats .hud-cta{padding:0 8px;font-size:calc(var(--fs)*.85)}
+  html body .stats .hud-lvl,html body .stats .hud-gear,html body .stats .hud-full,html body .stats .hud-cta{flex-shrink:0}
+  .ov-left{top:calc(var(--ovTop) + var(--ph)*.82 + 10px)}
+}
 </style>
 </head>
-<body>
+<body class="booting">
 
 <header class="top">
   <div class="brand">
@@ -1219,12 +1242,13 @@ function openLogin(fromStart){
     <div class="foot"><button class="btn" data-close>Fechar</button><button class="btn" id="lgOut">Sair da conta</button></div>`,m=>{m.querySelector('#lgOut').onclick=async()=>{if(S&&cloud.ref){cloud.dirty=true;await flushCloud();}await sbLogout();location.reload();};});return;}
   openModal(head('Conta','Entrar no Provedor Tycoon',!fromStart)+`<p>O Provedor Tycoon salva o progresso na sua conta: entre para jogar de qualquer aparelho. O jogo precisa de internet.</p>
     <form id="lgForm" autocomplete="on" onsubmit="return false"><div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" name="username" type="email" autocomplete="username" maxlength="120"></div>
-    <div class="field"><label for="lgPass">Senha</label><input class="input" id="lgPass" name="password" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"></div>
+    <div class="field"><label for="lgPass">Senha</label><div class="pw-wrap"><input class="input" id="lgPass" name="password" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"><button type="button" class="pw-eye" id="lgEye" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path class="pw-slash" d="M4 20L20 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:700;margin:4px 0 2px;cursor:pointer"><input type="checkbox" id="lgRem" style="width:20px;height:20px"> Lembrar meus dados neste aparelho</label><button type="submit" hidden></button></form>
     <p class="geo-note" id="lgNote" aria-live="polite"></p>
     <div class="foot" style="flex-wrap:wrap;gap:8px"><span></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
     const note=m.querySelector('#lgNote'),rem=m.querySelector('#lgRem');
     try{rem.checked=remembers();const e0=localStorage.getItem('pt-email');if(e0)m.querySelector('#lgEmail').value=e0;}catch(e){rem.checked=true;}
+    const eye=m.querySelector('#lgEye'),pwI=m.querySelector('#lgPass');eye.onclick=()=>{const show=pwI.type==='password';pwI.type=show?'text':'password';eye.setAttribute('aria-pressed',String(show));eye.setAttribute('aria-label',show?'Esconder senha':'Mostrar senha');pwI.focus();};
     m.querySelector('#lgForm').onsubmit=e=>{e.preventDefault();run(false);return false;};
     const run=async signup=>{const em=m.querySelector('#lgEmail').value.trim(),pw=m.querySelector('#lgPass').value;
       try{localStorage.setItem('pt-remember',rem.checked?'1':'0');rem.checked?localStorage.setItem('pt-email',em):localStorage.removeItem('pt-email');}catch(e){}
@@ -2040,7 +2064,7 @@ function fixNet(){for(const c of S.cities)if(c.idx>0&&c.ilink==null){const t=cit
    Ações do jogador continuam chamando renderAll na hora. TICKR marca o desenho pedido pelo relógio. */
 let RS_T=null,RS_AT=0,TICKR=false;
 function renderSoon(){if(RS_T)return;const wait=Math.max(0,800-(Date.now()-RS_AT));RS_T=setTimeout(()=>requestAnimationFrame(()=>{RS_T=null;RS_AT=Date.now();TICKR=true;try{renderAll();}finally{TICKR=false;}}),wait);}
-function renderAll(){if(!S)return;RC=new Map();try{renderAll0();}finally{RC=null;}}
+function renderAll(){if(!S)return;document.body.classList.remove('booting');RC=new Map();try{renderAll0();}finally{RC=null;}}
 function renderAll0(){fixNet();renderTop();renderTut();renderMap();renderReal();renderGoals();if(modalOpen&&PANEL){renderPanelSrc(PANEL);refreshPanel();}}
 /* As colunas escondidas (fonte dos painéis) só são montadas quando o painel correspondente está aberto. */
 function renderPanelSrc(k){if(k==='building')renderBuilding();else if(k==='plans')renderProducts();else if(k==='missions')renderMissions();else if(k==='report')renderReport();else if(k==='log')renderLog();}
@@ -2066,7 +2090,7 @@ function renderTop(){
   const ht=$('#hudTime');if(ht)ht.innerHTML=`
     <div class="pill date" title="Data"><span class="pill-ico">${HUD_ICO.cal}</span><b>${dt}</b></div>
     <div class="speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div>
-    <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b>Link ${Math.round(lu*100)}%</b></button>`;
+    <button class="pill link ${lu>1?'link-bad':lu>0.85?'link-warn':''}" data-act="link" aria-label="Link de internet"><span class="pill-ico">${HUD_ICO.signal}</span><b><span class="lk-w">Link </span>${Math.round(lu*100)}%</b></button>`;
   const al=staffAlerts(),tb=document.querySelector('.tabs [data-panel="building"]');if(tb)tb.dataset.badge=al.length||'';notifyAlerts(al);
   renderSaveDot();
 }
@@ -2099,7 +2123,7 @@ function renderMap(){
   CITY_CHIPS=`<span class="chip">Cobertura ${homesAll?Math.round(covHomes/homesAll*100):0}%</span><span class="chip">Clientes ${cl.toLocaleString('pt-BR')}/${homesAll.toLocaleString('pt-BR')}</span><span class="chip" title="Clientes por tecnologia">Rádio ${rf.r.toLocaleString('pt-BR')} · Fibra ${rf.f.toLocaleString('pt-BR')}</span><button class="chip ${netFull(c)?'bad':netUsed(c)>=netCap(c)*0.9?'warn':''}" data-act="net" style="border:0;cursor:pointer">Rede /${netPrefix(c)} · ${netUsed(c).toLocaleString('pt-BR')}/${netCap(c).toLocaleString('pt-BR')}</button>${c.fiber&&c.fiber.on?`<span class="chip warn">Fibra · ${c.fiber.ctos.length} CTO</span>`:''}${cityBoost(c)>0?`<span class="chip ok">Marketing +${Math.round(cityBoost(c)*100)}%</span>`:''}<span class="chip">Torres ${c.towers.filter(t=>!t.off).length}${c.towers.some(t=>t.off)?` (+${c.towers.filter(t=>t.off).length} desligada)`:''}</span>${lateCount()?`<span class="chip bad">Inadimplentes ${lateCount()}</span>`:''}${og}${il}${(()=>{const rp=rivalPressure(c);return rp.rs.length?`<button class="chip ${rp.edge>0.03?'bad':rp.edge<-0.03?'ok':'warn'}" data-act="rivals" style="cursor:pointer">Concorrentes ${rp.rs.length} · ${Math.round(rp.occ*100)}% da cidade</button>`:(rivalsOn()&&sbOn()&&SB.session&&SB.session.user&&!sedeMode?'<button class="chip" data-act="rivals" style="cursor:pointer">Sem concorrentes</button>':'');})()}${sedeMode?'':'<button class="btn small ghost" data-act="bairros">Bairros</button>'}`;
   const nBad=(CITY_CHIPS.match(/class="chip bad/g)||[]).length;
   CITY_LINE=`${c.pop.toLocaleString('pt-BR')} habitantes · ${cl.toLocaleString('pt-BR')} clientes (${homesAll?Math.round(cl/homesAll*100):0}%)`;
-  $('#mapHead').innerHTML=`<div class="city-card"><div class="cc-row"><h2>${esc(c.name)}${c.uf?` <small>${esc(c.uf)}</small>`:''}</h2>${sel}<button class="cc-info" data-act="cityInfo" aria-label="Detalhes da cidade">i${nBad?`<em>${nBad}</em>`:''}</button></div><p class="eyebrow">${CITY_LINE}</p></div>${!sedeMode&&levelOf(S.xp)>=EXPAND_LEVEL?`<button class="fab-expand" data-act="city"><span aria-hidden="true">🌎</span><b>Expandir</b>${allClients()>=indepReq()?'<small>nova operação</small>':''}</button>`:''}`;
+  const cs0=$('#citySel');if(!(cs0&&document.activeElement===cs0))$('#mapHead').innerHTML=`<div class="city-card"><div class="cc-row"><h2>${esc(c.name)}${c.uf?` <small>${esc(c.uf)}</small>`:''}</h2>${sel}<button class="cc-info" data-act="cityInfo" aria-label="Detalhes da cidade">i${nBad?`<em>${nBad}</em>`:''}</button></div><p class="eyebrow">${CITY_LINE}</p></div>${!sedeMode&&levelOf(S.xp)>=EXPAND_LEVEL?`<button class="fab-expand" data-act="city"><span aria-hidden="true">🌎</span><b>Expandir</b>${allClients()>=indepReq()?'<small>nova operação</small>':''}</button>`:''}`;
   const cr=S.crisis&&monthOf(S.day)<=S.crisis.until?CRISES.find(x=>x.id===S.crisis.id):null;
   const blocked=cr&&crisisBlocked(cr.id);
   $('#crisisBar').innerHTML=cr?(blocked?`<div class="crisis good"><div><b>${cr.name} · sua empresa está protegida</b>${SHIELDS[cr.kind].name} ativa até o mês ${S.shield[cr.kind]}.</div></div>`:`<div class="crisis ${cr.bad?'bad':'good'}"><div><b>${cr.name} · até o fim do mês ${S.crisis.until}</b>${cr.desc}${cr.bad?' Dá para desligar torres com poucos clientes para cortar custos.':''}${cr.kind?` <button class="btn small" data-act="coins" style="margin-left:6px">Comprar proteção</button>`:''}</div></div>`):'';
@@ -3616,7 +3640,7 @@ document.addEventListener('click',e=>{
   else if(act==='goBuilding'){openPanel('building');}
   else if(act==='build'){const f=FLOORS.find(x=>x.id===a.dataset.f),hq=a.dataset.hq!=null?S.cities[+a.dataset.hq]:null,FLx=hq&&hq.hq?hq.hq.floors:S.floors;if(FLx[f.id]&&FLx[f.id].built)return;if(!spend(f.cost))return;FLx[f.id]={built:true,team:{}};addXp(30);log(`Andar ${f.name} comprado.`);event(`${f.name} montado`);checkMissions();save(true);renderAll();toast(`${f.name} pronto! Toque em Equipe para contratar.`);}
 });
-document.addEventListener('change',e=>{if(e.target.id==='citySel'&&S){S.ci=+e.target.value;clearDraft&&clearDraft();LSig='';QSig='';QV=null;save(false);renderAll();autoGeo();}});
+document.addEventListener('change',e=>{if(e.target.id==='citySel'&&S){e.target.blur();S.ci=+e.target.value;clearDraft&&clearDraft();LSig='';QSig='';QV=null;save(false);renderAll();autoGeo();}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modalOpen&&$('#modal').querySelector('.x'))closeModal();});
 
 
@@ -4056,7 +4080,7 @@ function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{t
 window.addEventListener('error',e=>{if(e&&e.error)reportErr(e.error,'tela');});
 function autoGeo(){if(!S)return;const c=city();if(c.geo&&hasBlocks(c))for(const a of c.areas||[])if(!a.n&&!AREA_BUSY.has(a))loadArea(c,a);if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
-  setTab('map');sbInit();S=null;
+  document.body.classList.add('booting');setTab('map');sbInit();S=null;
   if(!sbOn()){openModal(head('Configuração','Salvamento online desligado',false)+'<p>O jogo salva só na conta. Preencha <code>supabaseUrl</code> e <code>supabaseAnonKey</code> no <code>config.js</code>.</p>');return;}
   loop();setTimeout(autoGeo,600);setOnline();
   if(!SB.session||!SB.session.user){openLogin(true);return;}
