@@ -957,6 +957,7 @@ html body #map.lockmode{padding-bottom:calc(16px + var(--sB))}
 .ql-tip p{margin:4px 0 0;color:#5c4326;font-size:14px;min-height:2.8em}
 @keyframes qlpulse{50%{transform:scale(1.12)}}
 @media (prefers-reduced-motion:reduce){.ql-step.now .ql-dot{animation:none}}
+.ani-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:450}
 </style>
 </head>
 <body class="booting">
@@ -1665,7 +1666,7 @@ function requestCancel(c,l,reason){
 }
 function cancelClient(c,l,why){delete l.reason;delete l.reqUntil;delete l.disc;
   c.used=c.used.filter(o=>o!==l.ip);l.st='refused';l.until=S.day+60;l.tid=null;delete l.debt;delete l.lateSince;delete l.negUntil;
-  l.cpe=true;l.cpeSince=S.day;l.cpeK=l.tech==='fiber'?'o':'r';S.cur.cancel++;
+  l.cpe=true;l.cpeSince=S.day;l.cpeK=l.tech==='fiber'?'o':'r';S.cur.cancel++;sfx('cancel');
   log(`${l.fam.name} cancelou (${why}). ${l.cpeK==='o'?'A ONU':'O rádio'} em comodato ficou na casa.`);
 }
 function allClients(){return S.cities.reduce((s,c)=>s+cityClients(c),0);}
@@ -1674,6 +1675,7 @@ function log(msg){S.log.unshift({d:S.day,m:msg});S.log=S.log.slice(0,60);}
 function event(msg){S.cur.eventos.push(msg);if(S.cur.eventos.length>20)S.cur.eventos.shift();}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200);}
 function addXp(n){const b=levelOf(S.xp);S.xp+=n;const a=levelOf(S.xp);
+  if(a>b)sfx('level');
   for(let L=b+1;L<=a;L++){const bonus=bonusFor(L);S.money+=bonus;S.cur.bonus+=bonus;S.diamonds=(S.diamonds||0)+5;log(`Subiu para o nível ${L}! Bônus de ${brl0(bonus)} no caixa.`);event(`Nível ${L}: bônus de ${brl0(bonus)}`);
     const lv=LEVELS.find(x=>x.l===L);toast(`Nível ${L}! +${brl0(bonus)} de bônus.${lv&&lv.items[0]!=='Bônus de caixa'?' Liberado: '+lv.items.join(', ')+'.':''}`);}}
 function spend(v){if(S.money<v){toast(`Falta caixa: precisa de ${brl0(v)}.`);return false;}S.money-=v;S.cur.inv+=v;return true;}
@@ -1686,6 +1688,7 @@ function tick(){
   for(const d of DOCS){const st=S.docs[d.id];if(st&&!st.done&&st.until<=S.day){st.done=true;addXp(15);log(`${d.name}: pronto.`);event(`${d.name} pronto`);toast(`${d.name} pronto!`);save(true);}}
   for(const c of S.cities)for(const l of famsOf(c)){if(l.st==='refused'&&l.until<=S.day)l.st='none';if(l.st==='cancelReq'&&l.reqUntil<=S.day)cancelClient(c,l,REASONS[l.reason]||'pedido não atendido');}
   if(S.day%4===0)for(const b of bldgs()){if(!bHas(b,'comercial'))continue;const v=bCap(b,'comercial');if(!(v>0))continue;const V={only:servesOf(b,'comercial'),flow:flowOn('comercial')};for(let i=0;i<v;i++)vendorAttempt(V);}
+  if(S.day%4===0&&FXS.anim){const c=city(),qs=hasBlocks(c)?c.blocks.filter((q,i)=>QP.looks[i]&&sellable(c,q)):[];for(let i=0;i<Math.min(3,qs.length);i++){const q=qs[Math.floor(Math.random()*qs.length)];aniTrip('pap',c,qCenter(q));}}
   if(S.day%5===0)syncRivals();
   if(S.day%30===0)monthEnd();
   S.peak=Math.max(S.peak,allClients());
@@ -1752,7 +1755,7 @@ function monthEnd(){
     for(const l of famsOf(c)){
       if(!l.cpe)continue;
       let go=false;if(cap.n>0){cap.n--;go=true;}else if(!fl&&capMain.n>=2){capMain.n-=2;go=true;}
-      if(go){if(Math.random()<0.88){l.cpe=false;eqOf(c)[l.cpeK||'r']++;S.cur.recolhidos++;}continue;}
+      if(go){if(Math.random()<0.88){l.cpe=false;eqOf(c)[l.cpeK||'r']++;S.cur.recolhidos++;if(c===city()&&ANI.ents.length<6){aniTrip('log',c,famGeo(c,l));sfx('collect');}}continue;}
       if(S.day-l.cpeSince>=90){l.cpe=false;S.cur.perdidos++;log(`${eqName(l)} da casa de ${l.fam.name} (${c.name}) foi dado como perdido.`);}
     }}
   // setor de migração e upgrade: ligações para a base
@@ -2082,7 +2085,7 @@ function bestOffer(c,lot,tech){
   return best;
 }
 function nextIp(c){const u=new Set(c.used),h=hostsOf(netPrefix(c));for(let i=10;i<h;i++)if(!u.has(i))return i;return null;}
-function activate(c,lot,deal,ip){
+function activate(c,lot,deal,ip){sfx('sale');if(c===city()&&FXS.anim)aniTrip('tec',c,famGeo(c,lot));
   lot.since=S.day;
   lot.tech=isFiberPlan(deal.plan)?'fiber':'radio';
   lot.st='client';lot.plan=deal.plan;lot.combo=deal.combo;lot.price=deal.price;lot.tid=deal.tid;lot.ip=ip;delete lot.deal;
@@ -2939,6 +2942,7 @@ function openMenu(){
     <div class="choice-list">
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
       ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
+      <div class="choice"><div><b>Som e animações</b><small>Música, efeitos sonoros e carros e pessoas no mapa.</small></div><button class="btn small" data-act="fx">Ajustar</button></div>
       <div class="choice"><div><b>Relatório de desempenho</b><small>Mostra onde o jogo demora e quando a tela travou, para mandar ao suporte.</small></div><button class="btn small" data-act="perf">Abrir</button></div>
       <div class="choice"><div><b>Testar conexões</b><small>Confere o Supabase (login) e o banco de quadras no Drive.</small></div><button class="btn small" data-act="connTest">Testar</button></div>
       ${document.fullscreenEnabled?`<div class="choice"><div><b>Tela cheia na horizontal</b><small>Esconde a barra do navegador e deita a tela (Android).</small></div><button class="btn small" data-act="fullscreen">Tela cheia</button></div>`:''}
@@ -3898,6 +3902,7 @@ document.addEventListener('click',e=>{
   else if(act==='fullscreen2')toggleFull();
   else if(act==='galpao')buildGalpao(+a.dataset.c);
   else if(act==='rules')openRules();
+  else if(act==='fx')openFx();
   else if(act==='outs')openOuts();
   else if(act==='execAdd'){if(levelOf(S.xp)<CORP_LEVEL||!spend(EXEC_HIRE))return;S.execs=(S.execs||0)+1;log('Executivo de contas contratado.');save(true);refreshPanel();}
   else if(act==='execDel'){if(!S.execs)return;S.execs--;log('Executivo de contas desligado.');save(true);refreshPanel();}
@@ -4159,7 +4164,7 @@ function drawQuadras(c,overT){
   c.blocks.forEach((q,i)=>{const lk=quadraLook(c,q,overT),n=lk.subs.length,st=lk.cls.includes('late')?'#cf3b3b':lk.cls.includes('cancelReq')?'#8a3ffc':lk.cls.includes('cpe')?'#e5a21e':'#ffffff';
     QP.looks[i]={n,fib:n&&lk.subs.some(f=>f.tech==='fiber'),dom:q.dom||0};
     const k=st+lk.fill+(n?1:0);if(QP.sty[i]!==k&&QP.polys[i]){QP.sty[i]=k;QP.polys[i].setStyle({color:st,weight:st==='#ffffff'?1:2.5,fillColor:lk.fill,fillOpacity:n?.85:.55});}});
-  qnRefresh();
+  qnRefresh();aniPeople();
 }
 function qnRefresh(){if(!LM||!S)return;
   if(!LQN){LQN=L.layerGroup().addTo(LM);LM.on('moveend',qnRefresh);}
@@ -4412,6 +4417,93 @@ function openPerf(){const txt=perfText();openModal(head('Suporte','Relatório de
   m.querySelector('#pfCopy').onclick=async()=>{try{await navigator.clipboard.writeText(txt);toast('Relatório copiado. Cole na conversa com o suporte.');}catch(e){const ta=m.querySelector('textarea');ta.focus();ta.select();try{document.execCommand('copy');toast('Relatório copiado.');}catch(e2){toast('Selecione o texto e copie.');}}};
   m.querySelector('#pfDown').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download='provedor-desempenho.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);};
   m.querySelector('#pfClear').onclick=()=>{PERF.stats={};PERF.ev=[];PERF.calls=[];PERF.since=Date.now();perfSave();openPerf();};});}
+/* ===================== Som e animações =====================
+   Preferências do aparelho em localStorage (pt-fx). Música: faixas CC0 do OpenGameArt em /audio, tocadas em sequência.
+   Efeitos: sintetizados (Web Audio), com intervalo mínimo por tipo. O navegador só libera som depois do primeiro toque.
+   Animações: uma camada <canvas> sobre o mapa real com carros (saem do prédio da cidade e seguem as ruas do OpenStreetMap)
+   e pessoas andando em volta das quadras com clientes. Desenha a até 30 quadros/s e para quando não há nada para mostrar. */
+const FXS=(()=>{const d={music:true,sfx:true,anim:true,vol:0.6};try{return Object.assign(d,JSON.parse(localStorage.getItem('pt-fx')||'{}'));}catch(e){return d;}})();
+function fxSave(){try{localStorage.setItem('pt-fx',JSON.stringify(FXS));}catch(e){}}
+const MUSIC=['audio/happy-adventure.mp3','audio/summer-park.mp3'];
+let musicEl=null,musicI=0,audioOn=false,actx=null;
+function musicSync(){const want=FXS.music&&audioOn&&!!S&&document.visibilityState==='visible';
+  if(want){if(!musicEl){musicEl=new Audio();musicEl.preload='auto';musicEl.addEventListener('ended',()=>{musicI=(musicI+1)%MUSIC.length;musicEl.src=MUSIC[musicI];musicEl.play().catch(()=>{});});musicEl.src=MUSIC[musicI];}
+    musicEl.volume=Math.min(1,FXS.vol*0.4);if(musicEl.paused)musicEl.play().catch(()=>{});}
+  else if(musicEl&&!musicEl.paused)musicEl.pause();}
+document.addEventListener('pointerdown',()=>{if(!audioOn){audioOn=true;musicSync();}if(actx&&actx.state==='suspended')actx.resume().catch(()=>{});},true);
+document.addEventListener('visibilitychange',musicSync);
+const SFX={sale:[[988,0,.07,'square'],[1319,.07,.16,'square']],install:[[660,0,.09,'triangle'],[990,.09,.16,'triangle']],cancel:[[392,0,.14,'sawtooth'],[262,.12,.22,'sawtooth']],
+  level:[[523,0,.11,'square'],[659,.11,.11,'square'],[784,.22,.11,'square'],[1047,.33,.32,'square']],click:[[1500,0,.025,'triangle']],collect:[[523,0,.08,'triangle'],[784,.08,.12,'triangle']]};
+const SFX_GAP={sale:450,install:450,cancel:900,click:60,collect:600,level:300},sfxLast={};
+function sfx(kind){if(!FXS.sfx||!audioOn||document.visibilityState!=='visible'||!SFX[kind])return;const now=performance.now();if(now-(sfxLast[kind]||0)<(SFX_GAP[kind]||300))return;sfxLast[kind]=now;
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  const t0=actx.currentTime+0.01,g=actx.createGain();g.gain.value=FXS.vol*(kind==='click'?0.12:0.22);g.connect(actx.destination);
+  for(const [f,st,du,type] of SFX[kind]){const o=actx.createOscillator(),e=actx.createGain();o.type=type;o.frequency.value=f;e.gain.setValueAtTime(0.0001,t0+st);e.gain.exponentialRampToValueAtTime(1,t0+st+0.01);e.gain.exponentialRampToValueAtTime(0.0001,t0+st+du);o.connect(e);e.connect(g);o.start(t0+st);o.stop(t0+st+du+0.03);}}
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.btn,.tabs button,.hs-btn,.pill-plus,.hud-gear,.fab-expand,.chip'))sfx('click');},true);
+function openFx(){const row=(k,t,d)=>`<div class="choice"><div><b>${t}</b><small>${d}</small></div><div class="seg"><button data-fx="${k}" data-v="1" aria-pressed="${!!FXS[k]}">Ligado</button><button data-fx="${k}" data-v="0" aria-pressed="${!FXS[k]}">Desligado</button></div></div>`;
+  openModal(head('Configuração','Som e animações')+`<div class="choice-list">${row('music','Música','Trilha de fundo (faixas livres, CC0).')}${row('sfx','Efeitos sonoros','Venda, instalação, cancelamento, nível e cliques.')}${row('anim','Carros e pessoas no mapa','Técnicos, vendedores e logística saindo da sede ou filial. Desligue em celulares mais fracos.')}
+    <div class="choice"><div><b>Volume</b><small>Música e efeitos.</small></div><input type="range" id="fxVol" min="0" max="1" step="0.05" value="${FXS.vol}" style="width:160px"></div></div>
+    <p class="muted" style="font-size:12px">Músicas: "Happy Adventure Loop" (tinyworlds) e "Summer Park 8bit Tune Loop" (scribe), OpenGameArt.org, domínio público (CC0). O som começa depois do primeiro toque na tela.</p>
+    <div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`,m=>{m.querySelector('#fxVol').oninput=e=>{FXS.vol=+e.target.value;fxSave();musicSync();};m.querySelector('#fxVol').onchange=()=>sfx('sale');});}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-fx]');if(!b)return;FXS[b.dataset.fx]=b.dataset.v==='1';fxSave();musicSync();if(b.dataset.fx==='anim')aniReset();openFx();});
+
+const ANI={cv:null,ctx:null,ents:[],people:[],raf:0,last:0,ci:-1,roads:new Map(),zoom:false};
+const ANI_ICON={tec:'🚐',pap:'🛵',log:'🚚'},ANI_DONE={tec:'✅',pap:'🤝',log:'📦'},ANI_MAX=14;
+function aniReset(){ANI.ents=[];ANI.people=[];if(ANI.ctx&&ANI.cv)ANI.ctx.clearRect(0,0,ANI.cv.width,ANI.cv.height);}
+function aniCanvas(){if(ANI.cv||!LM)return ANI.cv;const cv=document.createElement('canvas');cv.className='ani-layer';LM.getContainer().appendChild(cv);ANI.cv=cv;ANI.ctx=cv.getContext('2d');
+  LM.on('zoomstart',()=>{ANI.zoom=true;});LM.on('zoomend',()=>{ANI.zoom=false;aniPeople();});LM.on('moveend',aniPeople);return cv;}
+const mDist=(a,b)=>Math.hypot((b[1]-a[1])*mPerLon(a[0]),(b[0]-a[0])*mPerLat);
+/* Ruas da cidade (só para as animações, guardadas na memória): grafo de nós do OpenStreetMap. */
+function aniRoads(c){const k=c.idx,hit=ANI.roads.get(k);if(hit)return hit.g;if(!c.geo||!navigator.onLine)return null;ANI.roads.set(k,{g:null});
+  const R=Math.round(clamp(c.geo.side*0.6,1500,c.pop>200000?2500:3500));
+  overpass(`[out:json][timeout:25];way(around:${R},${c.geo.lat.toFixed(6)},${c.geo.lon.toFixed(6)})[highway~"^(primary|secondary|tertiary|residential|unclassified|living_street|primary_link|secondary_link|tertiary_link)$"];out geom;`,30000).then(r=>{
+    const id=new Map(),P=[],A=[];const nd=(nid,g)=>{let i=id.get(nid);if(i==null){i=P.length;id.set(nid,i);P.push([g.lat,g.lon]);A.push([]);}return i;};
+    for(const w of r.elements||[]){if(!w.nodes||!w.geometry||w.nodes.length!==w.geometry.length)continue;let prev=-1;for(let j=0;j<w.nodes.length;j++){const g=w.geometry[j];if(!g)continue;const i=nd(w.nodes[j],g);if(prev>=0){const d=mDist(P[prev],P[i]);A[prev].push([i,d]);A[i].push([prev,d]);}prev=i;}}
+    ANI.roads.set(k,{g:P.length>10?{P,A}:null});}).catch(()=>{setTimeout(()=>ANI.roads.delete(k),120000);});return null;}
+function aniNear(g,p){let b=-1,bd=1e18;for(let i=0;i<g.P.length;i++){if(!g.A[i].length)continue;const q=g.P[i],d=(q[0]-p[0])**2+((q[1]-p[1])*0.92)**2;if(d<bd){bd=d;b=i;}}return b;}
+function aniPath(g,a,b){if(a===b)return [a];const n=g.P.length,dist=new Float64Array(n).fill(Infinity),prev=new Int32Array(n).fill(-1),H=[[0,a]];dist[a]=0;
+  const push=x=>{H.push(x);let i=H.length-1;while(i>0){const p=(i-1)>>1;if(H[p][0]<=H[i][0])break;[H[p],H[i]]=[H[i],H[p]];i=p;}};
+  const pop=()=>{const t=H[0],l=H.pop();if(H.length){H[0]=l;let i=0;for(;;){const L=2*i+1,R=L+1;let m=i;if(L<H.length&&H[L][0]<H[m][0])m=L;if(R<H.length&&H[R][0]<H[m][0])m=R;if(m===i)break;[H[m],H[i]]=[H[i],H[m]];i=m;}}return t;};
+  let steps=0;while(H.length&&steps++<60000){const [d,u]=pop();if(u===b)break;if(d>dist[u])continue;for(const [v,w] of g.A[u]){const nd=d+w;if(nd<dist[v]){dist[v]=nd;prev[v]=u;push([nd,v]);}}}
+  if(!isFinite(dist[b]))return null;const out=[];for(let u=b;u!==-1;u=prev[u])out.push(u);return out.reverse();}
+/* Ponto de saída: o prédio da empresa na cidade (sede, regional, loja ou filial de área); sem prédio, a rua da cidade
+   mais distante do centro na direção da sede (o carro "chega de fora"). */
+function aniOrigin(c,g){const sc=(S.sede&&S.sede.ci)||0;
+  if(sc===c.idx&&S.sede&&S.sede.lat!=null)return [S.sede.lat,S.sede.lon];
+  if(c.store&&c.store.lat!=null)return [c.store.lat,c.store.lon];
+  if((c.areas||[]).length)return [c.areas[0].lat,c.areas[0].lon];
+  const sg=(S.cities[sc]||{}).geo,ctr=[c.geo.lat,c.geo.lon];if(!g)return ctr;
+  const dir=sg?[sg.lat-ctr[0],sg.lon-ctr[1]]:[0,1],dl=Math.hypot(dir[0],dir[1])||1;let best=null,bv=-1e18;
+  for(let i=0;i<g.P.length;i+=3){if(!g.A[i].length)continue;const q=g.P[i],v=((q[0]-ctr[0])*dir[0]+(q[1]-ctr[1])*dir[1])/dl;if(v>bv){bv=v;best=q;}}return best||ctr;}
+function aniTrip(kind,c,to){if(!FXS.anim||!LM||!c||!c.geo||c!==city()||ANI.ents.length>=ANI_MAX||!to||mapView!=='real')return;
+  const g=aniRoads(c);if(!g)return;const o=aniOrigin(c,g),a=aniNear(g,o),b=aniNear(g,to);if(a<0||b<0)return;const p=aniPath(g,a,b);if(!p)return;
+  const go=[o,...p.map(i=>g.P[i]),to],pts=[...go,...go.slice(0,-1).reverse()],cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+mDist(pts[i-1],pts[i]));
+  ANI.ents.push({kind,pts,cum,len:cum[cum.length-1],half:cum[go.length-1],d:0,wait:0,badge:0});aniKick();}
+function famGeo(c,f){return c&&c.geo&&f?(()=>{const g=gridToGeo(c.geo,f.x+.5,f.y+.5);return [g.lat,g.lon];})():null;}
+function aniPeople(){ANI.people=[];if(!FXS.anim||!LM||!LM._loaded||LM.getZoom()<15||!S)return;const c=city();if(!hasBlocks(c)||!QP.looks.length)return;
+  const bd=LM.getBounds(),cand=[];for(let i=0;i<c.blocks.length;i++){const lk=QP.looks[i];if(lk&&lk.n&&bd.contains(qCenter(c.blocks[i])))cand.push(i);}
+  for(let k=0;k<Math.min(28,cand.length*2);k++){const q=c.blocks[cand[Math.floor(Math.random()*cand.length)]],ring=q.poly;if(!ring||ring.length<3)continue;
+    const cum=[0];for(let i=1;i<=ring.length;i++)cum.push(cum[i-1]+mDist(ring[i-1],ring[i%ring.length]));ANI.people.push({ring,cum,len:cum[cum.length-1],d:Math.random()*cum[cum.length-1],v:(0.7+Math.random()*0.6)*(Math.random()<.5?1:-1)});}
+  aniKick();}
+function aniAt(pts,cum,d){let i=1;while(i<cum.length-1&&cum[i]<d)i++;const t=(d-cum[i-1])/Math.max(1e-6,cum[i]-cum[i-1]),a=pts[i-1],b=pts[i]||pts[0];return [[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t],b[1]-a[1]];}
+function aniKick(){if(!ANI.raf)ANI.raf=requestAnimationFrame(aniFrame);}
+function aniFrame(ts){ANI.raf=0;const cv=aniCanvas();if(!cv||!S)return;const c=city();if(ANI.ci!==c.idx){ANI.ci=c.idx;aniReset();}
+  if(!FXS.anim||mapView!=='real'||document.visibilityState!=='visible'){aniReset();return;}
+  if(!ANI.ents.length&&!ANI.people.length){ANI.ctx.clearRect(0,0,cv.width,cv.height);return;}
+  if(ts-ANI.last<33){ANI.raf=requestAnimationFrame(aniFrame);return;}const dt=Math.min(0.1,(ts-(ANI.last||ts))/1000);ANI.last=ts;
+  const sz=LM.getSize(),dpr=Math.min(2,devicePixelRatio||1);if(cv.width!==Math.round(sz.x*dpr)||cv.height!==Math.round(sz.y*dpr)){cv.width=Math.round(sz.x*dpr);cv.height=Math.round(sz.y*dpr);}
+  const ctx=ANI.ctx;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,sz.x,sz.y);
+  const run=S.speed>0&&!(modalOpen&&!PANEL),spd=60*Math.sqrt(Math.max(1,S.speed||1));
+  if(!ANI.zoom&&!modalOpen){ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='15px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif';
+    for(const p of ANI.people){if(run)p.d=(p.d+p.v*6*dt+p.len)%p.len;const [ll,dx]=aniAt(p.ring.concat([p.ring[0]]),p.cum,p.d),pt=LM.latLngToContainerPoint(ll);if(pt.x<-20||pt.y<-20||pt.x>sz.x+20||pt.y>sz.y+20)continue;ctx.fillText('🚶',pt.x,pt.y);}
+    ctx.font='24px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif';
+    for(const e of ANI.ents){if(run){if(e.wait>0)e.wait-=dt;else{const nd=e.d+spd*dt;if(e.d<e.half&&nd>=e.half){e.d=e.half;e.wait=1.6;e.badge=1.6;}else e.d=nd;}}if(e.badge>0&&run)e.badge-=dt;
+      const [ll,dx]=aniAt(e.pts,e.cum,Math.min(e.d,e.len)),pt=LM.latLngToContainerPoint(ll);
+      ctx.save();ctx.translate(pt.x,pt.y);if(dx>0)ctx.scale(-1,1);ctx.fillText(ANI_ICON[e.kind],0,0);ctx.restore();
+      if(e.badge>0){ctx.font='18px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif';ctx.fillText(ANI_DONE[e.kind],pt.x,pt.y-24);ctx.font='24px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif';}}}
+  ANI.ents=ANI.ents.filter(e=>e.d<e.len);
+  ANI.raf=requestAnimationFrame(aniFrame);}
 function showUpdateBar(reg){
   if(document.querySelector('.update-bar'))return;
   const bar=document.createElement('div');bar.className='update-bar';bar.setAttribute('role','status');

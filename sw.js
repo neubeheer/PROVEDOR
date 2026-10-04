@@ -1,6 +1,6 @@
 /* Service worker do Provedor Tycoon: deixa o jogo abrir sem internet.
    Ao publicar uma versão nova, aumente o número em VERSION para os jogadores receberem a atualização. */
-const VERSION = 'v53';
+const VERSION = 'v54';
 const APP_CACHE = `provedor-app-${VERSION}`;
 const FONT_CACHE = 'provedor-fonts';
 const APP_FILES = [
@@ -58,6 +58,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin !== self.location.origin) return;
+  // músicas: direto da rede (o navegador pede pedaços do arquivo, que o cache não entrega)
+  if (url.pathname.includes("/audio/")) return;
 
   // config.js: sempre tenta a versão nova (é onde fica a configuração do Supabase)
   if (url.pathname.endsWith('/config.js')) {
