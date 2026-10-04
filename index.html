@@ -1709,7 +1709,7 @@ function requestCancel(c,l,reason){
   log(`${l.fam.name} pediu cancelamento: ${REASONS[reason]}. Você tem 10 dias para tentar reter.`);
 }
 function cancelClient(c,l,why){delete l.reason;delete l.reqUntil;delete l.disc;
-  c.used=c.used.filter(o=>o!==l.ip);l.st='refused';l.until=S.day+60;l.tid=null;delete l.debt;delete l.lateSince;delete l.negUntil;
+  ipFree(c,l.ip);l.st='refused';l.until=S.day+60;l.tid=null;delete l.debt;delete l.lateSince;delete l.negUntil;
   l.cpe=true;l.cpeSince=S.day;l.cpeK=l.tech==='fiber'?'o':'r';S.cur.cancel++;sfx('cancel');
   log(`${l.fam.name} cancelou (${why}). ${l.cpeK==='o'?'A ONU':'O rádio'} em comodato ficou na casa.`);
 }
@@ -1844,7 +1844,7 @@ function monthEnd(){
   if(clients>0){if(ccCap<=0)dRep-=clients>8?5:1;else if(ccSla>=0.999)dRep+=2;else dRep-=3;}
   dRep-=over*3+compl*2;
   if(util>1){dRep-=Math.min(8,Math.ceil((util-1)*20));log(`Link estourado: o pico de ${gb(peakT)} passou do link de ${linkNow().name}. Internet lenta à noite e clientes reclamando.`);event('Link estourado no pico');}
-  const offWithClients=S.cities.reduce((s,c)=>s+c.towers.filter(t=>t.off&&famsOf(c).some(l=>isSub(l)&&l.tid===t.id)).length,0);
+  const offWithClients=S.cities.reduce((s,c)=>{const off=c.towers.filter(t=>t.off);if(!off.length)return s;const used=new Set();for(const l of famsOf(c))if(l.tid&&isSub(l))used.add(l.tid);return s+off.filter(t=>used.has(t.id)).length;},0);
   dRep-=offWithClients*2;
   for(const c of S.cities){if(c.store)dRep+=1;if((c.areas||[]).length)dRep+=1;}
   dRep+=ouvidoriaMonth({clients,sla:clients?ccSla:1,util,over,compl,m});
@@ -2139,12 +2139,19 @@ function bestOffer(c,lot,tech){
   for(const pl of plansAt(c,lot,tech))for(const cb of sets){const r=chance(c,lot,pl.id,cb);const score=r.p*r.price;if(!best||score>best.score)best={plan:pl.id,combo:cb,price:r.price,p:r.p,score};}
   return best;
 }
-function nextIp(c){const u=new Set(c.used),h=hostsOf(netPrefix(c));for(let i=10;i<h;i++)if(!u.has(i))return i;return null;}
+/* Índice dos IPs usados por cidade (só na memória): posição de cada IP em c.used e o menor IP que pode estar livre.
+   Antes, cada venda varria todos os IPs da cidade e cada cancelamento recriava a lista (lento com dezenas de milhares de clientes). */
+const IPX=new WeakMap();
+function ipIdx(c){let x=IPX.get(c);if(!x||x.pos.size!==c.used.length){const pos=new Map();for(const ip of c.used)if(!pos.has(ip))pos.set(ip,pos.size);if(pos.size!==c.used.length)c.used=[...pos.keys()];
+    let top=10;for(const ip of c.used)if(ip>=top)top=ip+1;const free=[];for(let i=top-1;i>=10;i--)if(!pos.has(i))free.push(i);x={pos,top,free};IPX.set(c,x);}return x;}
+function ipAdd(c,ip){const x=ipIdx(c);if(x.pos.has(ip))return;x.pos.set(ip,c.used.length);c.used.push(ip);if(x.free.length&&x.free[x.free.length-1]===ip)x.free.pop();if(ip>=x.top)x.top=ip+1;}
+function ipFree(c,ip){if(ip==null)return;const x=ipIdx(c),i=x.pos.get(ip);if(i==null)return;const last=c.used.pop();if(i<c.used.length){c.used[i]=last;x.pos.set(last,i);}x.pos.delete(ip);if(ip>=10)x.free.push(ip);}
+function nextIp(c){const x=ipIdx(c),h=ipv6On()?Infinity:hostsOf(netPrefix(c));while(x.free.length){const ip=x.free[x.free.length-1];if(!x.pos.has(ip)&&ip<h)return ip;x.free.pop();}while(x.top<h&&x.pos.has(x.top))x.top++;return x.top<h?x.top:null;}
 function activate(c,lot,deal,ip){sfx('sale');if(c===city()&&FXS.anim)aniTrip('tec',c,famGeo(c,lot));
   lot.since=S.day;
   lot.tech=isFiberPlan(deal.plan)?'fiber':'radio';
   lot.st='client';lot.plan=deal.plan;lot.combo=deal.combo;lot.price=deal.price;lot.tid=deal.tid;lot.ip=ip;delete lot.deal;
-  if(!c.used.includes(ip))c.used.push(ip);
+  ipAdd(c,ip);
   applyEntryPromo(lot);
   S.signed++;S.cur.novos++;addXp(20);
 }
@@ -4519,7 +4526,7 @@ function perfCtx(){if(!S)return {};const c=city();return {d:S.day,sp:S.speed,ci:
 function perfWrap(name,fn){return function(){const t0=performance.now();PERF.stack.push(name);try{return fn.apply(this,arguments);}finally{PERF.stack.pop();const ms=performance.now()-t0;
   const st=PERF.stats[name]||(PERF.stats[name]={n:0,sum:0,max:0,slow:0});st.n++;st.sum+=ms;if(ms>st.max)st.max=ms;if(ms>100)st.slow++;
   if(ms>50){PERF.calls.push({n:name,ms:Math.round(ms),end:performance.now(),in:PERF.stack.slice(-1)[0]||''});if(PERF.calls.length>60)PERF.calls.shift();}}};}
-for(const k of ['tick','monthEnd','renderAll','renderTop','renderMap','renderReal','drawReal','drawQuadras','qnRefresh','checkMissions','saveJson','openPanel','refreshPanel','renderBuilding','openModal','rivalMonth','migrationCalls','clientCampaignsMonth','corpMonth','ouvidoriaMonth','evalGoals','staffAlerts','vendorAttempt','areaSales','checkOffline','loadArea','loadBlocks','geoLoad'])
+for(const k of ['tick','monthEnd','renderAll','renderTop','renderMap','renderReal','drawReal','drawQuadras','qnRefresh','checkMissions','saveJson','openPanel','refreshPanel','renderBuilding','openModal','rivalMonth','migrationCalls','clientCampaignsMonth','corpMonth','ouvidoriaMonth','evalGoals','staffAlerts','vendorAttempt','areaSales','checkOffline','loadArea','loadBlocks','geoLoad','mgmtMonth','attemptSale','activate','cancelClient','requestCancel','staffPayroll','allocSector','saleCache'])
   try{const f=eval(k);if(typeof f==='function')eval(k+'=perfWrap(k,f)');}catch(e){}
 setInterval(()=>{const now=performance.now(),gap=now-PERF.last-250;PERF.last=now;if(document.visibilityState!=='visible'||gap<500)return;
   const from=now-gap-250,during=PERF.calls.filter(x=>x.end>=from&&!x.in).map(x=>x.n+' '+x.ms+' ms');
