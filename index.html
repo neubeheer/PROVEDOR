@@ -1289,8 +1289,10 @@ async function connTest(){
   try{const j=await fetchJson(u+(u.includes('?')?'&':'?')+'lista=1',{},15000);r[3]=row(!!(j&&j.ok),'Banco de quadras (Drive)',j&&j.ok?`Link respondendo: ${(j.chaves||[]).length} cidade(s) no Drive.`:'O link respondeu, mas com erro: '+esc(JSON.stringify(j).slice(0,120)));}
   catch(e){r[3]=row(false,'Banco de quadras (Drive)','O link não respondeu. Confira se a implantação é "Qualquer pessoa" e se está na versão mais nova.');}
   if(SB.session&&SB.session.user){
-    for(const [t,label] of [['saves','Tabela saves (progresso)'],['presenca','Tabela presenca (concorrência)']]){
-      try{const q=await sbFetch('/rest/v1/'+t+'?select=user_id&limit=1');r.push(row(q.ok,label,q.ok?'Existe e responde.':q.status===404?'Não existe: rode o supabase/schema.sql no SQL Editor.':'Erro http '+q.status+'.'));}
+    // confere as tabelas e cada coluna que o jogo usa (coluna faltando responde 400)
+    for(const [t,label,cols] of [['saves','Tabela saves (progresso)','user_id,data,company,month,saved_at,updated_at,sess'],['presenca','Tabela presenca (concorrência)','user_id,city_code,city_name,uf,company,clients,homes,radio,fiber,price,rep,support,mkt,infra,updated_at']]){
+      try{const q=await sbFetch('/rest/v1/'+t+'?select='+cols+'&limit=1');
+        if(!q.ok&&q.status===400){const j=await q.json().catch(()=>({}));const miss=[];for(const cl of cols.split(',')){const q2=await sbFetch('/rest/v1/'+t+'?select='+cl+'&limit=1');if(q2.status===400)miss.push(cl);}r.push(row(false,label,'Faltam coluna(s): <b>'+esc(miss.join(', ')||String(j.message||''))+'</b>. Rode o supabase/schema.sql no SQL Editor.'));continue;}r.push(row(q.ok,label,q.ok?'Existe, responde e tem todas as colunas.':q.status===404?'Não existe: rode o supabase/schema.sql no SQL Editor.':'Erro http '+q.status+'.'));}
       catch(e){r.push(row(false,label,'Sem resposta.'));}
     }
   }
@@ -1394,7 +1396,8 @@ function myInfra(c){if(!c.geo)return {t:[],o:[]};const lm=c.geo.side/9,r5=v=>Mat
   return {t,o};}
 function myCityStats(c){const subs=famsOf(c).filter(isSub),n=subs.length,fib=subs.filter(l=>l.tech==='fiber').length;
   const price=n?subs.reduce((s,l)=>s+(l.price||0),0)/n:pp(PLANS[1]);
-  return {clients:n,homes:cityHomes(c),radio:n-fib,fiber:fib,price:Math.round(price*100)/100,rep:Math.round(S.rep),support:Math.round(citySupport()*100)/100,mkt:Math.round(cityBoost(c)*100)/100};}
+  // homes e clients limitados como no banco (versões antigas do schema aceitavam até 10 milhões)
+  return {clients:Math.min(n,10000000),homes:Math.min(cityHomes(c),10000000),radio:n-fib,fiber:fib,price:Math.round(price*100)/100,rep:Math.round(S.rep),support:Math.round(citySupport()*100)/100,mkt:Math.round(cityBoost(c)*100)/100};}
 /* Nota de 0 a 1 que o cliente dá para uma empresa: reputação, atendimento, fibra, campanhas e preço. */
 function provScore(x){const n=Math.max(1,(+x.radio||0)+(+x.fiber||0));
   return (+x.rep||50)/100*0.35+clamp(+x.support||0,0,1)*0.25+((+x.fiber||0)/n)*0.2+Math.min(0.25,+x.mkt||0)*0.8+clamp((130-(+x.price||100))/100,0,1)*0.2;}

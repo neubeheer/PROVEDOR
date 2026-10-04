@@ -65,3 +65,14 @@ create policy presenca_delete_own on public.presenca for delete to authenticated
 alter table public.presenca add column if not exists infra jsonb not null default '{}'::jsonb;
 alter table public.presenca drop constraint if exists presenca_infra_tamanho;
 alter table public.presenca add constraint presenca_infra_tamanho check (pg_column_size(infra) < 30000);
+
+-- 5) Limites maiores na presença: São Paulo passa de 10 milhões de moradores e, com o limite antigo,
+--    a linha da cidade era recusada (e junto todo o envio da concorrência). Pode rodar de novo sem problema.
+alter table public.presenca drop constraint if exists presenca_limites;
+alter table public.presenca add constraint presenca_limites check (
+  clients between 0 and 100000000 and homes between 0 and 100000000 and radio >= 0 and fiber >= 0
+  and price between 0 and 100000 and rep between 0 and 100 and support between 0 and 1 and mkt between 0 and 1);
+
+-- Conferência: deve listar as 7 colunas de saves e as 15 de presenca.
+-- select table_name, column_name, data_type from information_schema.columns
+--  where table_schema = 'public' and table_name in ('saves','presenca') order by table_name, ordinal_position;
