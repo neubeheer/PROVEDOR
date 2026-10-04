@@ -1343,7 +1343,7 @@ async function checkSession(){if(!cloud.ref||cloud.lock!=='on'||!cloud.ref.owner
 setInterval(checkSession,20000);
 /* O progresso fica só na conta (Supabase). Cada mudança marca o save como sujo; o envio acontece no máximo a cada
    CLOUD_MIN, em até CLOUD_EVERY depois de uma mudança comum, em poucos segundos depois de uma importante, e ao sair da aba. */
-const CLOUD_EVERY=30000,CLOUD_MIN=12000;
+const CLOUD_EVERY=60000,CLOUD_MIN=15000;
 /* Se o banco falha, espera cada vez mais antes de tentar de novo (30 s, 1, 2, 4 e no máximo 8 min), com um sorteio
    para os jogadores não baterem juntos: assim o jogo não ajuda a derrubar um banco já sobrecarregado. */
 const cloudBackoff=()=>Math.round(Math.min(480000,CLOUD_EVERY*Math.pow(2,Math.max(0,(cloud.fails||1)-1)))*(0.8+Math.random()*0.4));
