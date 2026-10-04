@@ -2820,9 +2820,12 @@ function openPanel(k){if(!S||!PANELS[k])return;renderPanelSrc(k);const [eb,t]=PA
 /* Os painéis da barra não pausam o jogo. Para não trocar um botão no meio do toque, a atualização espera o dedo sair da tela e acontece no máximo a cada 0,7 s. */
 let panelAt=0,panelT=null,panelDown=false;
 document.addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('#panelBody'))panelDown=true;},true);
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.tagName==='SELECT'&&t.closest&&t.closest('#panelBody'))setTimeout(()=>{t.blur();refreshPanel();},50);},true);
 for(const ev of ['pointerup','pointercancel'])document.addEventListener(ev,()=>{if(panelDown){panelDown=false;setTimeout(refreshPanel,60);}},true);
 function refreshPanel(){if(!PANEL)return;const b=document.getElementById('panelBody');if(!b||!modalOpen){PANEL=null;return;}
-  const wait=700-(Date.now()-panelAt);if(panelDown||wait>0){clearTimeout(panelT);panelT=setTimeout(refreshPanel,Math.max(wait,120));return;}
+  // com uma lista, campo ou texto em uso dentro do painel, espera: redesenhar fecharia a lista no meio da escolha
+  const ae=document.activeElement,busy=ae&&b.contains(ae)&&/^(SELECT|INPUT|TEXTAREA)$/.test(ae.tagName);
+  const wait=700-(Date.now()-panelAt);if(panelDown||busy||wait>0){clearTimeout(panelT);panelT=setTimeout(refreshPanel,Math.max(wait,120));return;}
   panelAt=Date.now();b.innerHTML=panelHtml(PANEL);}
 
 /* Avisos de equipe: o prédio avisa quando falta gente num setor */
