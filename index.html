@@ -979,6 +979,7 @@ html body #map.lockmode{padding-bottom:calc(16px + var(--sB))}
 @keyframes chand{50%{transform:translateY(-8px)}}
 @keyframes ctap{0%,100%{transform:scale(1)}50%{transform:scale(.82)}}
 @media (prefers-reduced-motion:reduce){#coach .c-ring,#coach .c-hand{animation:none}}
+.adm-ch{border-color:var(--accent)!important;background:#fff4e6!important}
 </style>
 </head>
 <body class="booting">
@@ -1040,32 +1041,32 @@ html body #map.lockmode{padding-bottom:calc(16px + var(--sB))}
 <script>
 /* ===================== Regras do jogo ===================== */
 const SAVE_KEY='provedor-tycoon-v2';
-const START_MONEY=20000, RANGE=2.6, CAP=64;
-const TOWER_COST=4500, CPE_COST=300, THIRD_COST=180, HIRE_COST=750, NEWCITY_COST=2500, FIBRA_LEVEL=12, EXPAND_LEVEL=4, STORE_LEVEL=8, EXPAND_KM=200;
+let START_MONEY=20000, RANGE=2.6, CAP=64;
+let TOWER_COST=4500, CPE_COST=300, THIRD_COST=180, HIRE_COST=750, NEWCITY_COST=2500, FIBRA_LEVEL=12, EXPAND_LEVEL=4, STORE_LEVEL=8, EXPAND_KM=200;
 const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900},{g:1,name:'1 Giga',price:1500},{g:2,name:'2 Gigas',price:2600},{g:5,name:'5 Gigas',price:5500},{g:10,name:'10 Gigas',price:9000},{g:20,name:'20 Gigas',price:16000},{g:40,name:'40 Gigas',price:28000},{g:100,name:'100 Gigas',price:60000},
   {g:200,name:'200 Gigas · 2ª rota de saída',price:110000,build:100000000,desc:'nova operadora de trânsito e bloco de IP público /20'},
   {g:400,name:'400 Gigas · 3ª rota + ASN próprio',price:200000,build:200000000,desc:'número de sistema autônomo (ASN) e bloco de IP /19'},
   {g:800,name:'800 Gigas · 4ª rota internacional',price:380000,build:400000000,desc:'saída por cabo submarino e bloco de IP /18'},
   {g:1600,name:'1,6 Tera · 5ª rota e ponto de troca (IX)',price:700000,build:800000000,desc:'participação em ponto de troca de tráfego e bloco de IP /17'}];
-const START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
-const BIG_CITY=50000, REGION_POP=20000;
-const PROMO_LEVEL=100;
+let START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
+let BIG_CITY=50000, REGION_POP=20000;
+let PROMO_LEVEL=100;
 /* Nível 150: empresas terceirizadas assumem setores inteiros (equipe pronta, com supervisores e gerente) cobrando uma taxa
    sobre os salários; consultorias treinam a equipe de um setor e sobem a eficiência por alguns meses.
    Nível 200: planos corporativos com link dedicado, vendidos por executivos de contas para as empresas da cidade (precisa de fibra). */
-const OUTS_LEVEL=150,CORP_LEVEL=200;
+let OUTS_LEVEL=150,CORP_LEVEL=200;
 const OUT_SECTORS=['callcenter','comercial','tecnico','retencao','recuperacao','logistica','ouvidoria','migracao','marketing'];
 const OUT_PACKS=[{id:'p',name:'Pequena',ops:5,sup:1,ger:0},{id:'m',name:'Média',ops:15,sup:3,ger:1},{id:'g',name:'Grande',ops:40,sup:8,ger:1}];
-const OUT_FEE=0.45;
+let OUT_FEE=0.45;
 const TRAININGS=[{id:'b',name:'Treinamento básico',bonus:.08,months:6,per:600},{id:'a',name:'Treinamento avançado',bonus:.15,months:6,per:1500},{id:'l',name:'Liderança e gestão',bonus:.22,months:12,per:3500}];
 const CORP_PLANS=[{id:'d50',name:'Dedicado 50 Mega',mb:50,price:1490},{id:'d100',name:'Dedicado 100 Mega',mb:100,price:2390},{id:'d300',name:'Dedicado 300 Mega',mb:300,price:4990},{id:'d1g',name:'Dedicado 1 Giga',mb:1000,price:11900}];
-const EXEC_SAL=4500,EXEC_HIRE=3000,EXEC_VISITS=4;
-const INDEP_SUBS=5000, INDEP_MUL=5, INDEP_BACKBONE=10000000;
+let EXEC_SAL=4500,EXEC_HIRE=3000,EXEC_VISITS=4;
+let INDEP_SUBS=5000, INDEP_MUL=5, INDEP_BACKBONE=10000000;
 const GRACE=[{m:1,acc:0.45},{m:2,acc:0.6},{m:3,acc:0.75}];
-const RIVAL_LEVEL=18, OFFLINE_LEVEL=22, OFFLINE_CAP=10000, OFFLINE_MIN_MIN=10, OFFLINE_RATE=0.1, CEO_DIAMONDS=20, CEO_MAX_H=8;
+let RIVAL_LEVEL=18, OFFLINE_LEVEL=22, OFFLINE_CAP=10000, OFFLINE_MIN_MIN=10, OFFLINE_RATE=0.1, CEO_DIAMONDS=20, CEO_MAX_H=8;
 const CITY_LINKS=[{name:'Enlace de rádio 300 Mega',g:0.3,cost:18000,price:350},{name:'Enlace de rádio 1 Giga',g:1,cost:45000,price:700},{name:'Fibra alugada 10 Gigas',g:10,cost:135000,price:3500},{name:'Backbone próprio 40 Gigas',g:40,cost:375000,price:6000},{name:'Backbone independente 100 Gigas (rede própria)',g:100,cost:10000000,price:25000,indep:true},{name:'Backbone DWDM 100 Gigas',g:100,cost:5000000,price:15000},{name:'Backbone DWDM 400 Gigas',g:400,cost:20000000,price:40000},{name:'Backbone independente 400 Gigas (rede própria)',g:400,cost:40000000,price:60000,indep:true}];
-const NET_FIRST=12000, NET_LAST=1000000, CAREER_COST=22000, PROMO_COST=300, GOALS_AT=5000;
-const BACKBONE_COST=150000, CTO_COST=9000, ONU_COST=350, KIT_COST=1200, DISMANTLE_COST=750, STORE_COST=25000, PARTNER_CASH=25000, PARTNER_PAY=3000;
+let NET_FIRST=12000, NET_LAST=1000000, CAREER_COST=22000, PROMO_COST=300, GOALS_AT=5000;
+let BACKBONE_COST=150000, CTO_COST=9000, ONU_COST=350, KIT_COST=1200, DISMANTLE_COST=750, STORE_COST=25000, PARTNER_CASH=25000, PARTNER_PAY=3000;
 const PLANS=[
   {id:'r10',name:'Rádio 10 Mega',mb:10,price:59.9},
   {id:'r20',name:'Rádio 20 Mega',mb:20,price:79.9},
@@ -1118,7 +1119,8 @@ const DOCS=[
   {id:'cnpj',name:'CNPJ na Receita Federal',cost:0,days:2,req:'contrato',info:'Registro da empresa, com o CNAE de serviço de comunicação multimídia (SCM).'},
   {id:'alvara',name:'Licenciamento: alvará da prefeitura',cost:250,days:4,req:'cnpj',out:true,info:'Licença para funcionar no endereço da sede e instalar as torres. Pede a outorga paga.'},
 ];
-const bonusFor=l=>Math.min(15000,l*600);
+let BONUS_PER_LEVEL=600,BONUS_CAP=15000;
+const bonusFor=l=>Math.min(BONUS_CAP,l*BONUS_PER_LEVEL);
 const LEVELS=[
   {l:1,items:['Tutorial: CNPJ, outorga, licenciamento, primeira torre e primeiro cliente','Recepção (grátis) e venda porta a porta']},
   {l:2,items:['1º e 2º andar: Call Center e Comercial']},
@@ -1167,7 +1169,9 @@ const RETAIN={
   up:{t:'Upgrade de velocidade grátis',p:{caro:.25,lenta:.6,mudar:.05,conc:.45,sinal:.1}},
   visita:{t:'Visita técnica grátis',cost:80,p:{caro:.1,lenta:.45,mudar:.05,conc:.15,sinal:.5}},
 };
-const COIN_RATE=50;
+let COIN_RATE=50,COIN_M3=1,COIN_M6=2,COIN_M12=3,DIA_LEVEL=5,DIA_MISSION=1;
+/* Milissegundos reais por dia de jogo em 1× (30 dias = 1 mês). O administrador define em minutos por mês. */
+let DAY_MS=1000;
 const BANK_RATE=0.03;
 const DIRS=['Noroeste','Norte','Nordeste','Oeste','Centro','Leste','Sudoeste','Sul','Sudeste'];
 
@@ -1184,7 +1188,10 @@ const pick=(r,arr)=>arr[Math.floor(r()*arr.length)];
 /* ===================== Estado ===================== */
 let S=null, modalOpen=false, timer=null, toastT=null, repView=null, showDone=false, selBairro=4;
 
-function outorgaFor(pop){return Math.round(clamp(pop*0.3*(1+Math.log10(1+pop/20000)),2000,300000)/100)*100;}
+/* Outorga: fórmula pela população × OUT_MUL, ou valor fixo por faixa quando o administrador define (0 = fórmula). */
+let OUT_MUL=1,OUT_MIN=2000,OUT_MAX=300000,OUT_FIX_S=0,OUT_FIX_M=0,OUT_FIX_B=0,OUT_TIER_M=50000,OUT_TIER_B=100000;
+function outorgaFor(pop){const fix=pop>=OUT_TIER_B?OUT_FIX_B:pop>=OUT_TIER_M?OUT_FIX_M:OUT_FIX_S;if(fix>0)return Math.round(fix);
+  return Math.round(clamp(pop*0.3*(1+Math.log10(1+pop/20000))*OUT_MUL,OUT_MIN,OUT_MAX)/100)*100;}
 function studyFor(pop){return Math.round(clamp(1500+pop*0.06,2500,40000)/100)*100;}
 /* Semente da família: o perfil (nome, necessidade, orçamento) é sempre o mesmo para a mesma semente,
    então o save guarda só a semente (fk) e o perfil é refeito ao carregar. */
@@ -1536,7 +1543,7 @@ function openRivals(){
 /* ===================== Consultas ===================== */
 const city=()=>S.cities[S.ci];
 /* Curva de XP: o nível l começa em XP_STEP·l·(l−1). Era 50; com 100 cada nível leva o dobro. */
-const XP_STEP=100;
+let XP_STEP=100;
 const xpFor=l=>XP_STEP*l*(l-1);
 const levelOf=xp=>{let l=1;while(xp>=xpFor(l+1))l++;return l;};
 const docsDone=()=>DOCS.every(d=>S.docs[d.id]&&S.docs[d.id].done);
@@ -1552,7 +1559,7 @@ function allFloors(){return [S.floors,...hqCities().map(c=>c.hq.floors),...S.cit
 const galpaoBuilt=fl=>!!(fl&&fl.logistica&&fl.logistica.built);
 function galpaoOf(c){const fl=S.sede&&S.sede.ci===c.idx?S.floors:c.hq?c.hq.floors:c.galpao||null;return galpaoBuilt(fl)?fl:null;}
 const canGalpao=c=>!!(c&&!c.hq&&!c.galpao&&!(S.sede&&S.sede.ci===c.idx)&&(c.store||(c.areas||[]).length));
-const GALPAO_COST=20000;
+let GALPAO_COST=20000;
 function ctxCity(){if(!BCTX||BCTX===S.floors)return S.cities[(S.sede&&S.sede.ci)||0]||S.cities[0];return S.cities.find(c=>(c.hq&&c.hq.floors===BCTX)||c.galpao===BCTX)||S.cities[0];}
 function buildings(){return BCTX?[BCTX]:allFloors();}
 function inB(fl,fn){const prev=BCTX;BCTX=fl;try{return fn();}finally{BCTX=prev;}}
@@ -1699,7 +1706,7 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTi
 function addXp(n){const b=levelOf(S.xp);S.xp+=n;const a=levelOf(S.xp);
   if(a>b)sfx('level');
   for(let L=b+1;L<=a;L++)coachLevel(L);
-  for(let L=b+1;L<=a;L++){const bonus=bonusFor(L);S.money+=bonus;S.cur.bonus+=bonus;S.diamonds=(S.diamonds||0)+5;log(`Subiu para o nível ${L}! Bônus de ${brl0(bonus)} no caixa.`);event(`Nível ${L}: bônus de ${brl0(bonus)}`);
+  for(let L=b+1;L<=a;L++){const bonus=bonusFor(L);S.money+=bonus;S.cur.bonus+=bonus;S.diamonds=(S.diamonds||0)+DIA_LEVEL;log(`Subiu para o nível ${L}! Bônus de ${brl0(bonus)} no caixa.`);event(`Nível ${L}: bônus de ${brl0(bonus)}`);
     const lv=LEVELS.find(x=>x.l===L);toast(`Nível ${L}! +${brl0(bonus)} de bônus.${lv&&lv.items[0]!=='Bônus de caixa'?' Liberado: '+lv.items.join(', ')+'.':''}`);}}
 function spend(v){if(S.money<v){toast(`Falta caixa: precisa de ${brl0(v)}.`);return false;}S.money-=v;S.cur.inv+=v;return true;}
 
@@ -1809,7 +1816,7 @@ function monthEnd(){
   let loanPay=0;
   S.loans=S.loans.filter(ln=>{const interest=ln.bal*ln.rate;const pay=Math.min(ln.pmt,ln.bal+interest);ln.bal=Math.max(0,ln.bal+interest-pay);ln.left--;loanPay+=pay;return ln.left>0&&ln.bal>0.5;});
   let coinsNow=0;
-  for(const c of S.cities)for(const l of famsOf(c))if(l.st==='client'&&l.since){const mo=Math.floor((S.day-l.since)/30);if(mo>=12)coinsNow+=3;else if(mo>=6)coinsNow+=2;else if(mo>=3)coinsNow+=1;}
+  for(const c of S.cities)for(const l of famsOf(c))if(l.st==='client'&&l.since){const mo=Math.floor((S.day-l.since)/30);if(mo>=12)coinsNow+=COIN_M12;else if(mo>=6)coinsNow+=COIN_M6;else if(mo>=3)coinsNow+=COIN_M3;}
   S.coins+=coinsNow;S.cur.coins+=coinsNow;
   if(S.autoCoins){const keep=S.coinKeep||0,n=Math.max(0,S.coins-keep);if(n){S.coins-=n;S.money+=n*COIN_RATE;S.cur.coinCash=(S.cur.coinCash||0)+n*COIN_RATE;log(`Conversão automática: ${n} selos viraram ${brl0(n*COIN_RATE)}.`);}}
   S.retB={};for(const b of bldgs())if(bHas(b,'retencao'))S.retB[b.key]=bCap(b,'retencao');S.retCap=Object.values(S.retB).reduce((a,b)=>a+b,0);S.retExtra=0;
@@ -2194,7 +2201,7 @@ function missionList(){
     {id:'kit',t:'Levar uma torre para outra cidade',d:'Desmonte uma torre sem clientes de rádio e reinstale em outra cidade.',done:!!S.kitUsed,need:FIBRA_LEVEL,act:'towers',btn:'Ver torres'},
   ];
 }
-function checkMissions(){for(const m of missionList()){if(m.done&&!S.mdone[m.id]){S.mdone[m.id]=monthOf(S.day);S.diamonds=(S.diamonds||0)+1;(S.cur.missoes=S.cur.missoes||[]).push(m.t);log(`Missão concluída: ${m.t}.`);}}}
+function checkMissions(){for(const m of missionList()){if(m.done&&!S.mdone[m.id]){S.mdone[m.id]=monthOf(S.day);S.diamonds=(S.diamonds||0)+DIA_MISSION;(S.cur.missoes=S.cur.missoes||[]).push(m.t);log(`Missão concluída: ${m.t}.`);}}}
 
 /* ===================== Desenhos ===================== */
 function houseSvg(l){
@@ -2485,7 +2492,7 @@ function rehomeFamilies(c,blocks){
 /* Filial de área: numa cidade grande, as quadras só cobrem o centro. A filial amplia a área de atuação
    num raio em volta do ponto escolhido: desenha as quadras pelas ruas, libera torres e CTOs ali e o balcão vende na região.
    Os moradores da cidade são redistribuídos entre todas as quadras (o teto continua sendo a população). */
-const AREA_COST=300000, AREA_MAINT=5000, AREA_MAX=8, AREA_SALES=20, AREA_BUSY=new Set();
+let AREA_COST=300000, AREA_MAINT=5000, AREA_MAX=8, AREA_SALES=20, AREA_BUSY=new Set();
 const areaR=c=>c.pop>200000?1800:1500;
 const areaCost=c=>AREA_COST*(c.costMul||1);
 const areaLimit=c=>clamp(Math.sqrt(c.pop)*25,4000,15000);
@@ -2685,7 +2692,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-ptab]');if
 
 /* Sede regional: uma loja filial vira um segundo prédio, com andares e equipes próprios.
    Cada prédio tem as próprias vagas por setor; as equipes de todos somam na capacidade da empresa. */
-const HQ_COST=2000000, HQ_MAINT=10000;
+let HQ_COST=2000000, HQ_MAINT=10000;
 const canHQ=c=>!!(c&&c.store&&!c.hq&&!(S.sede&&S.sede.ci===c.idx));
 function convertHQ(ci){const c=S.cities[ci];if(!canHQ(c))return;if(!spend(HQ_COST))return;
   c.hq={at:S.day,floors:Object.assign({recepcao:{built:true,team:{}}},c.galpao||{})};delete c.galpao;addXp(300);log(`Filial de ${c.name} convertida em sede regional (${brl0(HQ_COST)}).`);event(`Sede regional em ${c.name}`);checkMissions();save(true);renderAll();
@@ -2703,7 +2710,7 @@ let PANEL_B=null;
    Todo fechamento de mês (e na contratação) a consultoria: dimensiona a equipe pela demanda das cidades que o prédio
    atende, contrata ou dispensa, ajusta supervisores e gerente e promove (pleno e sênior) se houver plano de carreira.
    Salários, contratações e promoções saem do caixa, como se fosse o jogador. Contratos em S.mgmt["prédio:setor"]. */
-const MGMT_LEVEL=160,MGMT_BASE=10000,MGMT_MONTHS=12;
+let MGMT_LEVEL=160,MGMT_BASE=10000,MGMT_MONTHS=12;
 const MGMT_SECTORS=['callcenter','comercial','tecnico','retencao','recuperacao','logistica','ouvidoria','migracao','marketing','noc','rh'];
 const mgmtActive=()=>Object.entries(S.mgmt||{}).filter(([k,v])=>v.until>=monthOf(S.day));
 const mgmtPrice=()=>MGMT_BASE*(mgmtActive().length+1);
@@ -3032,6 +3039,7 @@ function openMenu(){
     <div class="choice-list">
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
       ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
+      ${isAdmin()?'<div class="choice" style="border-color:var(--accent)"><div><b>Administração</b><small>Valores, níveis, durações e tempo do jogo para todos os jogadores.</small></div><button class="btn small primary" data-act="admin">Abrir</button></div>':''}
       <div class="choice"><div><b>Tutorial guiado</b><small>Ligar, desligar ou rever os tutoriais de cada nível.</small></div><button class="btn small" data-act="tours">Abrir</button></div>
       <div class="choice"><div><b>Som e animações</b><small>Música, efeitos sonoros e carros e pessoas no mapa.</small></div><button class="btn small" data-act="fx">Ajustar</button></div>
       <div class="choice"><div><b>Relatório de desempenho</b><small>Mostra onde o jogo demora e quando a tela travou, para mandar ao suporte.</small></div><button class="btn small" data-act="perf">Abrir</button></div>
@@ -3442,7 +3450,7 @@ function openCoins(){
     <p>Todo fechamento de mês, cada cliente fiel rende selos: <b>1</b> a partir de 3 meses sem cancelar, <b>2</b> a partir de 6 e <b>3</b> a partir de 12. No próximo fechamento você ganha cerca de <b>${next}</b>.</p>
     <div class="choice-list">
       <div class="choice"><div><b>Trocar por dinheiro</b><small>Cada selo vale ${brl0(COIN_RATE)}.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${[10,50].map(n=>`<button class="btn small" data-swap="${n}" ${S.coins<n?'disabled':''}>${n} → ${brl0(n*COIN_RATE)}</button>`).join('')}<button class="btn small primary" data-swap="${S.coins}" ${S.coins<1?'disabled':''}>Todos → ${brl0(S.coins*COIN_RATE)}</button></div></div>
-      <div class="choice"><div><b>Converter automaticamente</b><small>Todo fechamento de mês, os selos viram dinheiro sozinhos${S.autoCoins?`, guardando ${S.coinKeep||0} de reserva`:''}.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center">${S.autoCoins?`<select class="input" id="coinKeep" style="width:auto;padding:4px 6px" aria-label="Reserva de selos">${[0,10,20,50,100].map(v=>`<option value="${v}" ${(S.coinKeep||0)===v?'selected':''}>Reserva ${v}</option>`).join('')}</select>`:''}<button class="btn small ${S.autoCoins?'':'primary'}" id="coinAuto">${S.autoCoins?'Desligar':'Ligar'}</button></div></div>
+      <div class="choice"><div><b>Converter automaticamente</b><small>Todo fechamento de mês, os selos viram dinheiro sozinhos${S.autoCoins?`, guardando ${S.coinKeep||0} de reserva`:''}.</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center">${S.autoCoins?`<label style="display:flex;align-items:center;gap:6px;font-weight:700">Guardar<input class="input" id="coinKeep" type="number" min="0" step="1" inputmode="numeric" value="${S.coinKeep||0}" style="width:110px;padding:4px 8px" aria-label="Selos de reserva"></label>`:''}<button class="btn small ${S.autoCoins?'':'primary'}" id="coinAuto">${S.autoCoins?'Desligar':'Ligar'}</button></div></div>
       <div class="choice"><div><b>Instalação expressa</b><small>${CPE_COIN_COST} selos: cliente conectado na hora, sem configurar nem pagar terceirizado.</small></div><span class="chip">Na instalação</span></div>
       <div class="choice"><div><b>Configuração automática</b><small>${TOWER_COIN_COST} selos na torre e ${CPE_COIN_COST} na casa do cliente: o rádio sai configurado certo, sem digitar nada.</small></div><span class="chip">Na configuração</span></div>
       <div class="choice"><div><b>Documento na hora</b><small>3 selos: conclui um documento em andamento.</small></div><span class="chip">Na documentação</span></div>
@@ -3451,7 +3459,7 @@ function openCoins(){
     <div class="choice-list">${Object.entries(SHIELDS).map(([k,sh])=>`<div class="choice"><div><b>${sh.name}</b><small>${sh.desc}${shieldOn(k)?` <b>Ativa até o mês ${S.shield[k]}.</b>`:''}</small></div><button class="btn small ${shieldOn(k)?'':'primary'}" data-shield="${k}" ${S.coins<sh.cost?'disabled':''}><i class="coin-ico"></i>${shieldOn(k)?'Renovar +12 meses':'Comprar'} · ${sh.cost}</button></div>`).join('')}</div>`,m=>{
     m.querySelectorAll('[data-shield]').forEach(b=>b.onclick=()=>{const k=b.dataset.shield,sh=SHIELDS[k];if(S.coins<sh.cost)return;S.coins-=sh.cost;S.shield=S.shield||{};const base=shieldOn(k)?S.shield[k]:monthOf(S.day)-1;S.shield[k]=base+12;log(`${sh.name} comprada até o mês ${S.shield[k]}.`);event(`${sh.short}: protegido por 1 ano`);save(true);renderAll();toast(`${sh.name}: protegido até o mês ${S.shield[k]}.`);openCoins();});
     const ca=m.querySelector('#coinAuto');if(ca)ca.onclick=()=>{S.autoCoins=!S.autoCoins;if(S.autoCoins&&S.coinKeep==null)S.coinKeep=10;save(true);openCoins();};
-    const ck=m.querySelector('#coinKeep');if(ck)ck.onchange=()=>{S.coinKeep=+ck.value;save(true);};
+    const ck=m.querySelector('#coinKeep');if(ck)ck.onchange=()=>{S.coinKeep=Math.max(0,Math.floor(+ck.value||0));ck.value=S.coinKeep;save(true);toast(`Reserva: ${S.coinKeep.toLocaleString('pt-BR')} selos.`);};
     m.querySelectorAll('[data-swap]').forEach(b=>b.onclick=()=>{const n=+b.dataset.swap;if(n<1||S.coins<n)return;S.coins-=n;S.money+=n*COIN_RATE;log(`Trocou ${n} selos por ${brl0(n*COIN_RATE)}.`);save(true);toast(`+${brl0(n*COIN_RATE)} no caixa.`);openCoins();});
   });
 }
@@ -3995,6 +4003,7 @@ document.addEventListener('click',e=>{
   else if(act==='rules')openRules();
   else if(act==='fx')openFx();
   else if(act==='tours')openTours();
+  else if(act==='admin')openAdmin();
   else if(act==='outs')openOuts();
   else if(act==='execAdd'){if(levelOf(S.xp)<CORP_LEVEL||!spend(EXEC_HIRE))return;S.execs=(S.execs||0)+1;log('Executivo de contas contratado.');save(true);refreshPanel();}
   else if(act==='execDel'){if(!S.execs)return;S.execs--;log('Executivo de contas desligado.');save(true);refreshPanel();}
@@ -4706,6 +4715,63 @@ function openTours(){const lvl=levelOf(S.xp),list=Object.keys(TOURS).map(Number)
 document.addEventListener('click',e=>{if(!S)return;const o=e.target.closest('[data-coachon]');if(o){S.coachOff=o.dataset.coachon!=='1';save(false);openTours();return;}
   const t=e.target.closest('[data-tour]');if(t){closeModal();const k=t.dataset.tour;setTimeout(()=>coachRun(k==='intro'?introTour():{id:'lv'+k,title:TOURS[k].title,steps:TOURS[k].steps}),300);}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&COACH.tour)coachEnd();});
+/* ===================== Administração =====================
+   Só a conta ADMIN_EMAIL vê o painel. Os valores ficam na tabela public.config (id "game", data = só o que mudou);
+   todos os jogadores leem ao abrir e a cada 5 min, e só o administrador grava (regras no supabase/schema.sql).
+   Cada item: chave (variável do jogo ou caminho em uma tabela, ex. FLOORS#callcenter.cost), grupo, rótulo e,
+   se precisar, uma escala para mostrar (ex. DAY_MS em minutos por mês). Valores mudados valem para compras novas. */
+const ADMIN_EMAIL='neubeheer@gmail.com';
+const isAdmin=()=>!!(SB.session&&SB.session.user&&String(SB.session.user.email||'').toLowerCase()===ADMIN_EMAIL);
+const FL=(id,f,lab)=>[`FLOORS#${id}.${f}`,f==='level'?'Níveis':'Andares e equipe',lab];
+const CFGS=[
+  ['DAY_MS','Tempo','Minutos reais por mês de jogo (em 1×)',30/60000],
+  ['FIBRA_LEVEL','Níveis','Fibra óptica'],['EXPAND_LEVEL','Níveis','Expansão para outras cidades'],['STORE_LEVEL','Níveis','Loja filial'],['RIVAL_LEVEL','Níveis','Concorrência entre jogadores'],['OFFLINE_LEVEL','Níveis','Empresa offline e CEO'],['PROMO_LEVEL','Níveis','Promoções'],['OUTS_LEVEL','Níveis','Terceirizadas e consultorias'],['MGMT_LEVEL','Níveis','Consultoria de gestão (selos)'],['CORP_LEVEL','Níveis','Planos corporativos'],
+  ...['callcenter','comercial','tecnico','logistica','retencao','rh','marketing','recuperacao','noc','ouvidoria','migracao'].map(id=>FL(id,'level','Andar: '+id)),
+  ['COMBOS#tv.level','Níveis','Combo TV'],['COMBOS#fone.level','Níveis','Combo telefone'],['FIBER_TIERS#1.level','Níveis','OLT 2ª geração'],['FIBER_TIERS#2.level','Níveis','OLT XGS-PON'],
+  ['XP_STEP','Níveis','Curva de XP (XP por nível)'],
+  ['OUT_MUL','Outorga','Multiplicador da fórmula (1 = padrão)'],['OUT_MIN','Outorga','Valor mínimo (R$)'],['OUT_MAX','Outorga','Valor máximo (R$)'],['OUT_TIER_M','Outorga','Faixa média começa em (habitantes)'],['OUT_TIER_B','Outorga','Faixa grande começa em (habitantes)'],
+  ['OUT_FIX_S','Outorga','Valor fixo: cidade pequena (0 = fórmula)'],['OUT_FIX_M','Outorga','Valor fixo: cidade média (0 = fórmula)'],['OUT_FIX_B','Outorga','Valor fixo: cidade grande (0 = fórmula)'],['BIG_CITY','Outorga','Cidade grande para regiões e preços (habitantes)'],
+  ['START_MONEY','Preços','Caixa inicial (R$)'],['TOWER_COST','Preços','Torre e rádio (R$)'],['CPE_COST','Preços','Rádio do cliente (R$)'],['ONU_COST','Preços','ONU de fibra (R$)'],['THIRD_COST','Preços','Instalação terceirizada (R$)'],['KIT_COST','Preços','Reinstalar torre do galpão (R$)'],['DISMANTLE_COST','Preços','Desmontar torre (R$)'],
+  ['BACKBONE_COST','Preços','Backbone de fibra (R$)'],['CTO_COST','Preços','Caixa CTO (R$)'],['NEWCITY_COST','Preços','Estudo de nova cidade (R$)'],['STORE_COST','Preços','Loja filial (R$)'],['AREA_COST','Preços','Filial de área (R$)'],['AREA_MAINT','Preços','Filial de área por mês (R$)'],['HQ_COST','Preços','Sede regional (R$)'],['HQ_MAINT','Preços','Sede regional por mês (R$)'],['GALPAO_COST','Preços','Galpão da filial (R$)'],
+  ['INDEP_SUBS','Preços','Assinantes para nova operação'],['INDEP_MUL','Preços','Multiplicador da nova operação'],
+  ...['callcenter','comercial','tecnico','logistica','retencao','rh','marketing','recuperacao','noc','ouvidoria','migracao'].map(id=>FL(id,'cost','Comprar andar: '+id+' (R$)')),
+  ['HIRE_COST','Andares e equipe','Contratação base (R$)'],['CAREER_COST','Andares e equipe','Plano de carreira (R$)'],['PROMO_COST','Andares e equipe','Promoção pleno/sênior (R$)'],['PARTNER_CASH','Andares e equipe','Capital do sócio (R$)'],['PARTNER_PAY','Andares e equipe','Pró-labore do sócio por mês (R$)'],
+  ['OUT_FEE','Andares e equipe','Taxa das terceirizadas (0,45 = 45%)'],['EXEC_SAL','Andares e equipe','Salário do executivo de contas (R$)'],['EXEC_HIRE','Andares e equipe','Contratação do executivo (R$)'],['EXEC_VISITS','Andares e equipe','Visitas por executivo por mês'],
+  ['PLANS#r10.price','Planos','Rádio 10 Mega (R$)'],['PLANS#r20.price','Planos','Rádio 20 Mega (R$)'],['PLANS#r35.price','Planos','Rádio 35 Mega (R$)'],['COMBOS#tv.price','Planos','Combo TV (R$/mês)'],['COMBOS#fone.price','Planos','Combo telefone (R$/mês)'],['COMBOS#tv.cost','Planos','Lançar combo TV (R$)'],['COMBOS#fone.cost','Planos','Lançar combo telefone (R$)'],
+  ['CORP_PLANS#d50.price','Planos','Dedicado 50 Mega (R$)'],['CORP_PLANS#d100.price','Planos','Dedicado 100 Mega (R$)'],['CORP_PLANS#d300.price','Planos','Dedicado 300 Mega (R$)'],['CORP_PLANS#d1g.price','Planos','Dedicado 1 Giga (R$)'],
+  ['COIN_M3','Selos e diamantes','Selos por cliente com 3 meses (por mês)'],['COIN_M6','Selos e diamantes','Selos por cliente com 6 meses (por mês)'],['COIN_M12','Selos e diamantes','Selos por cliente com 12 meses (por mês)'],['COIN_RATE','Selos e diamantes','R$ por selo convertido'],
+  ['START_DIAMONDS','Selos e diamantes','Diamantes no começo'],['DIA_LEVEL','Selos e diamantes','Diamantes por nível'],['DIA_MISSION','Selos e diamantes','Diamantes por missão'],['DIA_TO_COINS','Selos e diamantes','Selos por diamante'],['DIA_TO_MONEY','Selos e diamantes','R$ por diamante'],
+  ['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
+  ['DOCS#contrato.days','Duração','Contrato social (dias)'],['DOCS#cnpj.days','Duração','CNPJ (dias)'],['DOCS#alvara.days','Duração','Alvará (dias)'],['DOCS#contrato.cost','Preços','Contrato social (R$)'],['DOCS#alvara.cost','Preços','Alvará (R$)'],
+  ['TRAININGS#b.months','Duração','Treinamento básico (meses)'],['TRAININGS#a.months','Duração','Treinamento avançado (meses)'],['TRAININGS#l.months','Duração','Liderança e gestão (meses)'],['CEO_MAX_H','Duração','CEO: horas máximas'],
+  ['BONUS_PER_LEVEL','Economia','Bônus por nível (R$ × nível)'],['BONUS_CAP','Economia','Bônus máximo por nível (R$)'],['OFFLINE_CAP','Economia','Ganho offline máximo (R$)'],['OFFLINE_RATE','Economia','Ganho offline por hora (fração do saldo)'],
+];
+function cfgRef(k){const [base,path]=k.split('#');if(!path)return {get:()=>new Function('return '+base)(),set:v=>new Function('v',base+'=v')(v)};
+  const [id,f]=path.split('.'),o=new Function('return '+base)(),it=Array.isArray(o)?(/^\d+$/.test(id)?o[+id]:o.find(x=>x.id===id)):o[id];
+  return it?{get:()=>it[f],set:v=>{it[f]=v;}}:null;}
+const CFG_DEF={};for(const [k] of CFGS){try{const r=cfgRef(k);if(r)CFG_DEF[k]=r.get();}catch(e){}}
+let CFG_CUR={},CFG_AT=null;
+function cfgApply(data){CFG_CUR=data&&typeof data==='object'?data:{};for(const [k] of CFGS){const r=(()=>{try{return cfgRef(k);}catch(e){return null;}})();if(!r||!(k in CFG_DEF))continue;const v=k in CFG_CUR&&isFinite(+CFG_CUR[k])?+CFG_CUR[k]:CFG_DEF[k];try{r.set(v);}catch(e){}}if(S)renderAll();}
+async function cfgLoad(){if(!sbOn())return;try{const r=await sbFetch('/rest/v1/config?id=eq.game&select=data,updated_at',{},true,10000);if(!r.ok)return;const rows=await r.json();if(rows[0]){CFG_AT=rows[0].updated_at;cfgApply(rows[0].data);}}catch(e){}}
+setInterval(()=>{if(S)cfgLoad();},300000);
+async function cfgSave(data){const by=(SB.session.user||{}).email||'';
+  const r=await sbFetch('/rest/v1/config',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'game',data,updated_by:by,updated_at:new Date().toISOString()})});
+  if(!r.ok)throw new Error(r.status===404?'A tabela config não existe: rode o supabase/schema.sql.':r.status===401||r.status===403?'Sem permissão: só a conta do administrador grava.':'Erro '+r.status);
+  try{await sbFetch('/rest/v1/config_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({by,data})});}catch(e){}}
+let ADM_G='Tempo';
+function openAdmin(){if(!isAdmin())return;const groups=[...new Set(CFGS.map(x=>x[1]))];
+  const shown=k=>{const sc=(CFGS.find(x=>x[0]===k)||[])[3]||1;const v=k in CFG_CUR?+CFG_CUR[k]:CFG_DEF[k];return Math.round(v*sc*10000)/10000;};
+  const rows=CFGS.filter(x=>x[1]===ADM_G&&x[0] in CFG_DEF).map(([k,g,lab,sc])=>{const ch=k in CFG_CUR;return `<div class="choice ${ch?'adm-ch':''}"><div><b>${lab}</b><small>Padrão: ${(Math.round(CFG_DEF[k]*(sc||1)*10000)/10000).toLocaleString('pt-BR')}${ch?' · <a href="#" data-admreset="'+k+'">voltar ao padrão</a>':''}</small></div><input class="input" type="number" step="any" data-adm="${k}" value="${shown(k)}" style="width:150px"></div>`;}).join('');
+  openModal(head('Administração','Regras do jogo')+`<div class="notice warn">Só você vê esta tela. O que salvar aqui vale para <b>todos os jogadores</b> (em até 5 minutos) e só para compras novas.${CFG_AT?` Última mudança: ${new Date(CFG_AT).toLocaleString('pt-BR')}.`:''}</div>
+    <div class="seg" style="flex-wrap:wrap;margin:10px 0">${groups.map(g=>`<button data-admg="${g}" aria-pressed="${g===ADM_G}">${g}</button>`).join('')}</div>
+    ${ADM_G==='Tempo'?`<p class="muted" style="margin:0 0 8px;font-size:13px">Padrão: 1 mês de jogo = 0,5 minuto (30 s) em 1×. Ex.: 5 = cada mês dura 5 minutos reais; 2× e 4× continuam multiplicando.</p>`:''}
+    <div class="choice-list">${rows}</div>
+    <div class="foot"><button class="btn ghost" id="admAll">Voltar tudo ao padrão</button><span style="display:flex;gap:8px"><button class="btn" data-close>Fechar</button><button class="btn primary" id="admSave">Salvar para todos</button></span></div>`,m=>{
+    const collect=()=>{const out={...CFG_CUR};m.querySelectorAll('[data-adm]').forEach(i=>{const k=i.dataset.adm,sc=(CFGS.find(x=>x[0]===k)||[])[3]||1,v=+i.value/sc;if(!isFinite(v))return;if(Math.abs(v-CFG_DEF[k])<1e-9)delete out[k];else out[k]=v;});return out;};
+    m.querySelector('#admSave').onclick=async e=>{e.target.disabled=true;try{const d=collect();await cfgSave(d);CFG_AT=new Date().toISOString();cfgApply(d);toast('Regras salvas para todos os jogadores.');openAdmin();}catch(err){toast(err.message);e.target.disabled=false;}};
+    m.querySelector('#admAll').onclick=async()=>{if(!confirm('Voltar todos os valores ao padrão para todos os jogadores?'))return;try{await cfgSave({});cfgApply({});toast('Tudo de volta ao padrão.');openAdmin();}catch(err){toast(err.message);}};
+    m.querySelectorAll('[data-admg]').forEach(b=>b.onclick=()=>{ADM_G=b.dataset.admg;openAdmin();});
+    m.querySelectorAll('[data-admreset]').forEach(a=>a.onclick=async ev=>{ev.preventDefault();const d={...CFG_CUR};delete d[a.dataset.admreset];try{await cfgSave(d);cfgApply(d);openAdmin();}catch(err){toast(err.message);}});});}
 function showUpdateBar(reg){
   if(document.querySelector('.update-bar'))return;
   const bar=document.createElement('div');bar.className='update-bar';bar.setAttribute('role','status');
@@ -4731,7 +4797,7 @@ setOnline();
 let lastErr='';
 function reportErr(e,where){const msg=(e&&e.message)||String(e);console.error(where,e);if(msg===lastErr)return;lastErr=msg;try{log('Erro no jogo ('+where+'): '+msg);}catch(x){}toast('⚠️ Erro no jogo: '+msg+'. Mande um print para o suporte.');}
 const portraitLock=()=>!!(window.matchMedia&&matchMedia("(orientation:portrait) and (pointer:coarse)").matches);
-function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL)&&navigator.onLine&&cloud.ref&&!cloud.ser&&!portraitLock())tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?1000/sp:500);}
+function loop(){clearTimeout(timer);const sp=S?S.speed:1;timer=setTimeout(()=>{try{if(S&&sp>0&&(!modalOpen||PANEL)&&navigator.onLine&&cloud.ref&&!cloud.ser&&!portraitLock())tick();}catch(e){reportErr(e,'dia '+(S&&S.day));}loop();},sp>0?DAY_MS/sp:500);}
 window.addEventListener('error',e=>{if(e&&e.error)reportErr(e.error,'tela');});
 function autoGeo(){if(!S)return;const c=city();if(c.geo&&hasBlocks(c))for(const a of c.areas||[])if((!a.n||(a.n>0&&a.v!==2))&&!AREA_BUSY.has(a)&&!(a.tryAt>Date.now()-60000)){a.tryAt=Date.now();loadArea(c,a);}if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
@@ -4745,6 +4811,7 @@ function start(data){
 async function bootCloud(){
   openModal(head('Conta','Carregando sua empresa…',false)+'<div style="display:flex;justify-content:center;padding:18px"><span class="spin" aria-hidden="true"></span></div>');
   if(!navigator.onLine){bootFail('Sem internet. O jogo precisa de conexão para carregar a sua empresa.');return;}
+  await cfgLoad();
   const legacy=loadLocal();S=legacy?migrate(legacy):null;
   const ok=await initCloud();
   if(!ok){S=null;bootFail('Não deu para carregar a sua conta agora.');return;}

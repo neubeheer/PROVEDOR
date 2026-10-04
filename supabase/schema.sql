@@ -83,3 +83,37 @@ alter table public.presenca add constraint presenca_limites check (
 -- vacuum full public.saves;
 -- Tamanho atual da tabela:
 -- select pg_size_pretty(pg_total_relation_size('public.saves'));
+
+-- 7) Regras do jogo editáveis pelo administrador (painel Administração no Menu do jogo).
+--    Todos leem; só a conta do administrador grava. Um registro só, id = 'game'; data guarda apenas o que mudou.
+create table if not exists public.config (
+  id         text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_by text,
+  updated_at timestamptz not null default now()
+);
+alter table public.config enable row level security;
+drop policy if exists config_read on public.config;
+drop policy if exists config_insert_admin on public.config;
+drop policy if exists config_update_admin on public.config;
+create policy config_read on public.config for select to anon, authenticated using (true);
+create policy config_insert_admin on public.config for insert to authenticated
+  with check (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
+create policy config_update_admin on public.config for update to authenticated
+  using (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com')
+  with check (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
+
+-- Histórico das mudanças (só o administrador grava e lê).
+create table if not exists public.config_log (
+  id   bigserial primary key,
+  at   timestamptz not null default now(),
+  by   text,
+  data jsonb
+);
+alter table public.config_log enable row level security;
+drop policy if exists config_log_admin_ins on public.config_log;
+drop policy if exists config_log_admin_sel on public.config_log;
+create policy config_log_admin_ins on public.config_log for insert to authenticated
+  with check (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
+create policy config_log_admin_sel on public.config_log for select to authenticated
+  using (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
