@@ -2275,6 +2275,9 @@ let HUD_OPEN=null,HUD_T=null;
 document.addEventListener('click',e=>{if(!S)return;const b=e.target.closest('[data-hs]');
   if(b){HUD_OPEN=HUD_OPEN===b.dataset.hs?null:b.dataset.hs;clearTimeout(HUD_T);if(HUD_OPEN==='date')HUD_T=setTimeout(()=>{HUD_OPEN=null;renderTop();},5000);renderTop();return;}
   if(HUD_OPEN&&!e.target.closest('.hs-item')){HUD_OPEN=null;renderTop();}});
+/* Números do topo abreviados: até 99.999 por extenso; depois mil, mi, bi, tri e qua (o valor exato fica no title). */
+function shortN(v){v=Math.round(+v||0);const a=Math.abs(v);if(a<100000)return v.toLocaleString('pt-BR');
+  for(const [d,u] of [[1e15,' qua'],[1e12,' tri'],[1e9,' bi'],[1e6,' mi'],[1e3,' mil']])if(a>=d){const x=v/d;return x.toLocaleString('pt-BR',{maximumFractionDigits:Math.abs(x)<100?1:0})+u;}return String(v);}
 function renderTop(){
   const c=city();
   $('#companyName').textContent=`${S.company} · ${c.name}${c.uf?'/'+c.uf:''}`;
@@ -2285,11 +2288,11 @@ function renderTop(){
   const plus=(act,lab)=>`<button class="pill-plus" data-act="${act}" aria-label="${lab}">+</button>`;
   $('#stats').innerHTML=`
     <button class="hud-lvl" data-act="levels" aria-label="Nível ${lvl}, ver níveis"><span class="hud-ava">${HUD_ICO.tower}</span><span class="hud-xp"><span class="hud-xpbar"><i style="width:${pct}%"></i><b>${(S.xp-lo).toLocaleString('pt-BR')}/${(hi-lo).toLocaleString('pt-BR')}</b></span><span class="hud-star">★ Nv.${lvl}${ceoOn()?' · CEO':''}</span></span></button>
-    <div class="pill money ${S.money<0?'neg':''}" title="Caixa"><span class="pill-ico">${HUD_ICO.cash}</span><b>${brl0(S.money)}</b>${plus('bank','Banco e empréstimos')}</div><i class="hud-br" aria-hidden="true"></i>
-    <div class="pill" title="Clientes${rf.f?` · rádio ${rf.r}, fibra ${rf.f}`:''}"><span class="pill-ico">${HUD_ICO.people}</span><b>${allClients().toLocaleString('pt-BR')}</b></div>
+    <div class="pill money ${S.money<0?'neg':''}" title="Caixa: ${brl0(S.money)}"><span class="pill-ico">${HUD_ICO.cash}</span><b>${(S.money<0?"−":"")+"R$ "+shortN(Math.abs(S.money))}</b>${plus('bank','Banco e empréstimos')}</div><i class="hud-br" aria-hidden="true"></i>
+    <div class="pill" title="${allClients().toLocaleString('pt-BR')} clientes${rf.f?` · rádio ${rf.r}, fibra ${rf.f}`:''}"><span class="pill-ico">${HUD_ICO.people}</span><b>${shortN(allClients())}</b></div>
     <div class="pill" title="Reputação"><span class="pill-ico">${HUD_ICO.heart}</span><b>${Math.round(S.rep)}</b><span class="pill-bar"><i style="width:${S.rep}%"></i></span></div>
-    <div class="pill coin" title="Selos de fidelidade"><span class="pill-ico">${HUD_ICO.coin}</span><b>${S.coins}</b>${plus('coins','Selos de fidelidade')}</div>
-    <div class="pill dia" title="Diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${S.diamonds||0}</b>${plus('diamonds','Diamantes')}</div>
+    <div class="pill coin" title="${(S.coins||0).toLocaleString('pt-BR')} selos de fidelidade"><span class="pill-ico">${HUD_ICO.coin}</span><b>${shortN(S.coins||0)}</b>${plus('coins','Selos de fidelidade')}</div>
+    <div class="pill dia" title="${(S.diamonds||0).toLocaleString('pt-BR')} diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${shortN(S.diamonds||0)}</b>${plus('diamonds','Diamantes')}</div>
     ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
     ${isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Instalar o app ou tela cheia" title="Instalar o app / tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
