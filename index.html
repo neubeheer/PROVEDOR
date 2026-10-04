@@ -960,6 +960,21 @@ html body #map.lockmode{padding-bottom:calc(16px + var(--sB))}
 .blk-note{position:fixed;z-index:38;left:50%;transform:translateX(-50%);top:calc(var(--ovTop) + 4px);display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);padding:8px 12px;border-radius:14px;background:var(--cream);border:2.5px solid var(--navy);box-shadow:0 3px 0 rgba(15,35,80,.45);font-weight:700;color:var(--navy);font-size:13.5px}
 .blk-note .spin{width:18px;height:18px}
 .ani-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:450}
+/* tutorial guiado */
+#coach{position:fixed;inset:0;z-index:140;pointer-events:none}
+#coach .cb{position:fixed;background:rgba(8,20,45,.62);pointer-events:auto}
+#coach .c-ring{position:fixed;border-radius:14px;border:3px solid #ffe066;box-shadow:0 0 0 4px rgba(255,224,102,.35),0 0 24px 6px rgba(255,224,102,.55);pointer-events:none;animation:cring 1.3s ease-in-out infinite}
+#coach .c-hand{position:fixed;font-size:38px;line-height:1;pointer-events:none;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45));animation:chand .9s ease-in-out infinite}
+#coach .c-hand.tap{animation:ctap 1.1s ease-in-out infinite}
+#coach .c-bub{position:fixed;pointer-events:auto;background:linear-gradient(180deg,#fffdf6,var(--cream));border:3px solid var(--navy);border-radius:16px;box-shadow:0 5px 0 rgba(15,35,80,.45),0 16px 40px rgba(0,0,0,.35);padding:10px 12px;color:var(--navy);font-size:15px}
+#coach .c-bub p{margin:6px 0 0;line-height:1.35}
+#coach .c-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font:400 13px/1.2 var(--display);color:#d9480f}
+#coach .c-skip{border:0;background:transparent;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:2px}
+#coach .c-foot{display:flex;justify-content:flex-end;margin-top:8px}
+@keyframes cring{50%{box-shadow:0 0 0 7px rgba(255,224,102,.25),0 0 32px 10px rgba(255,224,102,.7)}}
+@keyframes chand{50%{transform:translateY(-8px)}}
+@keyframes ctap{0%,100%{transform:scale(1)}50%{transform:scale(.82)}}
+@media (prefers-reduced-motion:reduce){#coach .c-ring,#coach .c-hand{animation:none}}
 </style>
 </head>
 <body class="booting">
@@ -1679,6 +1694,7 @@ function event(msg){S.cur.eventos.push(msg);if(S.cur.eventos.length>20)S.cur.eve
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200);}
 function addXp(n){const b=levelOf(S.xp);S.xp+=n;const a=levelOf(S.xp);
   if(a>b)sfx('level');
+  for(let L=b+1;L<=a;L++)coachLevel(L);
   for(let L=b+1;L<=a;L++){const bonus=bonusFor(L);S.money+=bonus;S.cur.bonus+=bonus;S.diamonds=(S.diamonds||0)+5;log(`Subiu para o nível ${L}! Bônus de ${brl0(bonus)} no caixa.`);event(`Nível ${L}: bônus de ${brl0(bonus)}`);
     const lv=LEVELS.find(x=>x.l===L);toast(`Nível ${L}! +${brl0(bonus)} de bônus.${lv&&lv.items[0]!=='Bônus de caixa'?' Liberado: '+lv.items.join(', ')+'.':''}`);}}
 function spend(v){if(S.money<v){toast(`Falta caixa: precisa de ${brl0(v)}.`);return false;}S.money-=v;S.cur.inv+=v;return true;}
@@ -3012,6 +3028,7 @@ function openMenu(){
     <div class="choice-list">
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
       ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
+      <div class="choice"><div><b>Tutorial guiado</b><small>Ligar, desligar ou rever os tutoriais de cada nível.</small></div><button class="btn small" data-act="tours">Abrir</button></div>
       <div class="choice"><div><b>Som e animações</b><small>Música, efeitos sonoros e carros e pessoas no mapa.</small></div><button class="btn small" data-act="fx">Ajustar</button></div>
       <div class="choice"><div><b>Relatório de desempenho</b><small>Mostra onde o jogo demora e quando a tela travou, para mandar ao suporte.</small></div><button class="btn small" data-act="perf">Abrir</button></div>
       <div class="choice"><div><b>Testar conexões</b><small>Confere o Supabase (login) e o banco de quadras no Drive.</small></div><button class="btn small" data-act="connTest">Testar</button></div>
@@ -3973,6 +3990,7 @@ document.addEventListener('click',e=>{
   else if(act==='galpao')buildGalpao(+a.dataset.c);
   else if(act==='rules')openRules();
   else if(act==='fx')openFx();
+  else if(act==='tours')openTours();
   else if(act==='outs')openOuts();
   else if(act==='execAdd'){if(levelOf(S.xp)<CORP_LEVEL||!spend(EXEC_HIRE))return;S.execs=(S.execs||0)+1;log('Executivo de contas contratado.');save(true);refreshPanel();}
   else if(act==='execDel'){if(!S.execs)return;S.execs--;log('Executivo de contas desligado.');save(true);refreshPanel();}
@@ -4579,6 +4597,111 @@ function aniFrame(ts){ANI.raf=0;const cv=aniCanvas();if(!cv||!S)return;const c=c
       if(e.badge>0){ctx.font='18px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif';ctx.fillText(ANI_DONE[e.kind],pt.x,pt.y-24);ctx.font='24px system-ui,"Apple Color Emoji","Segoe UI Emoji",sans-serif';}}}
   ANI.ents=ANI.ents.filter(e=>e.d<e.len);
   ANI.raf=requestAnimationFrame(aniFrame);}
+/* ===================== Tutorial guiado =====================
+   Um roteiro (tour) é uma lista de passos. Cada passo aponta um elemento (sel): o fundo escurece, o elemento fica em foco,
+   um dedo aponta e um balão explica. O passo avança quando o elemento é tocado, quando done() fica verdadeiro ou, nos passos
+   info, no botão Entendi. Sem elemento na tela, o balão espera no rodapé sem bloquear o jogo. Roteiros já vistos ficam em
+   S.tours; S.coachOff desliga. Fila: tutorial inicial ao começar e um roteiro por nível liberado (TOURS). */
+const COACH={tour:null,i:0,root:null,iv:0,hit:false,scrolled:false,shown:-1,q:[]};
+function coachEls(){if(COACH.root)return COACH.root;const r=document.createElement('div');r.id='coach';r.hidden=true;
+  r.innerHTML='<div class="cb"></div><div class="cb"></div><div class="cb"></div><div class="cb"></div><div class="c-ring"></div><div class="c-hand" aria-hidden="true">👆</div><div class="c-bub" role="dialog" aria-live="polite"></div>';
+  document.body.appendChild(r);COACH.root=r;
+  r.addEventListener('click',e=>{const b=e.target.closest('[data-coach]');if(!b)return;e.stopPropagation();if(b.dataset.coach==='skip')coachEnd();else coachNext();});return r;}
+function coachRun(tour){if(!tour||!tour.steps.length)return;COACH.tour=tour;COACH.i=-1;coachNext();}
+function coachNext(){const T=COACH.tour;if(!T)return;do{COACH.i++;}while(COACH.i<T.steps.length&&T.steps[COACH.i].skip&&T.steps[COACH.i].skip());
+  if(COACH.i>=T.steps.length){coachEnd();return;}COACH.hit=false;COACH.scrolled=false;COACH.shown=-1;coachEls().hidden=false;clearInterval(COACH.iv);COACH.iv=setInterval(coachTick,200);coachTick();}
+function coachEnd(){const T=COACH.tour;clearInterval(COACH.iv);if(COACH.root)COACH.root.hidden=true;if(T&&S){S.tours=S.tours||{};S.tours[T.id]=1;save(false);}COACH.tour=null;}
+function coachFind(st){let sel=typeof st.sel==='function'?st.sel():st.sel;if(!sel)return null;const L=typeof sel==='string'?[...document.querySelectorAll(sel)]:[sel];
+  return L.find(e=>e&&e.isConnected&&e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden')||null;}
+document.addEventListener('click',e=>{if(!COACH.tour||!COACH.el)return;if(COACH.el.contains(e.target))COACH.hit=true;},true);
+function coachTick(){const T=COACH.tour;if(!T||!S){coachEnd();return;}const st=T.steps[COACH.i];
+  if(st.done?st.done():(COACH.hit&&!st.info)){setTimeout(coachNext,st.done?0:250);clearInterval(COACH.iv);return;}
+  const r=COACH.root,[t,b,l,rt]=r.querySelectorAll('.cb'),ring=r.querySelector('.c-ring'),hand=r.querySelector('.c-hand'),bub=r.querySelector('.c-bub');
+  if(COACH.shown!==COACH.i){COACH.shown=COACH.i;const n=T.steps.length;
+    bub.innerHTML=`<div class="c-head"><span>${T.title} · ${COACH.i+1}/${n}</span><button class="c-skip" data-coach="skip">Pular tutorial</button></div><p>${st.text}</p>${st.info?'<div class="c-foot"><button class="btn small primary" data-coach="next">Entendi</button></div>':''}`;}
+  const el=coachFind(st);COACH.el=el;const W=innerWidth,H=innerHeight;
+  if(!el){for(const x of [t,b,l,rt])x.style.display='none';ring.style.display=hand.style.display='none';
+    Object.assign(bub.style,{left:'50%',top:'auto',bottom:'calc(var(--dockH) + 30px + var(--sB))',transform:'translateX(-50%)'});return;}
+  if(!COACH.scrolled){COACH.scrolled=true;try{el.scrollIntoView({block:'center',inline:'nearest'});}catch(e){}}
+  const R=el.getBoundingClientRect(),p=6,x=Math.max(0,R.left-p),y=Math.max(0,R.top-p),w=Math.min(W-x,R.width+2*p),h=Math.min(H-y,R.height+2*p),free=!!st.free;
+  const box=(e,a,bb,c,d)=>{e.style.display=free?'none':'block';Object.assign(e.style,{left:a+'px',top:bb+'px',width:Math.max(0,c)+'px',height:Math.max(0,d)+'px'});};
+  box(t,0,0,W,y);box(b,0,y+h,W,H-y-h);box(l,0,y,x,h);box(rt,x+w,y,W-x-w,h);
+  Object.assign(ring.style,{display:'block',left:x+'px',top:y+'px',width:w+'px',height:h+'px'});
+  const big=w>W*0.6&&h>H*0.5,below=y+h+150<H;
+  if(big){hand.style.display='block';Object.assign(hand.style,{left:(x+w/2-18)+'px',top:(y+h/2-18)+'px'});hand.textContent='👆';hand.className='c-hand tap';}
+  else{hand.style.display='block';hand.className='c-hand';hand.textContent=below?'👆':'👇';Object.assign(hand.style,{left:(x+w/2-18)+'px',top:(below?y+h+4:y-46)+'px'});}
+  const bw=Math.min(340,W-24),bh=bub.offsetHeight||120;let bx=Math.min(W-bw-12,Math.max(12,x+w/2-bw/2)),by=big?Math.max(12,y+16):below?y+h+52:y-56-bh;
+  if(by<8)by=Math.min(H-bh-12,y+h+52);if(by+bh>H-8)by=Math.max(8,H-bh-12);
+  Object.assign(bub.style,{left:bx+'px',top:by+'px',bottom:'auto',transform:'none',width:bw+'px'});}
+const cP=(k,lab)=>({sel:`.tabs [data-panel="${k}"]`,text:`Toque em <b>${lab}</b>, na barra de baixo.`,done:()=>PANEL===k});
+const cBuild=(id,name,why)=>({sel:`#panelBody [data-act="build"][data-f="${id}"]:not([data-hq])`,text:`Toque em <b>Comprar andar</b> do <b>${name}</b>. ${why}`,done:()=>built(id),skip:()=>built(id)});
+const cTeam=(id,name)=>({sel:`#panelBody [data-act="team"][data-f="${id}"]:not([data-hq])`,text:`Toque em <b>Equipe</b> no andar do <b>${name}</b>.`,done:()=>!!document.querySelector('#modal [data-add]')&&!PANEL,skip:()=>opsOf(id)>0});
+const cHire=(id,why)=>({sel:'#modal [data-add]',text:`Toque no <b>+</b> para contratar. ${why}`,done:()=>opsOf(id)>0,skip:()=>opsOf(id)>0});
+const cClose=txt=>({sel:'#modal .x',text:txt||'Pronto! Feche esta janela no <b>×</b>.',done:()=>!modalOpen});
+const cInfo=(sel,text)=>({sel,text,info:true,free:!sel});
+const TOURS={
+  2:{title:'Nível 2 · Call Center e Comercial',steps:[cP('building','Prédio'),cBuild('callcenter','Call Center','Ele atende os clientes: sem atendimento a reputação cai e mais gente cancela.'),cTeam('callcenter','Call Center'),cHire('callcenter','Cada atendente N1 voz atende até 40 clientes.'),cClose(),cP('building','Prédio'),cBuild('comercial','Comercial','Os vendedores batem de porta em porta sozinhos nas quadras com sinal.'),cTeam('comercial','Comercial'),cHire('comercial','Cada vendedor faz 3 visitas a cada 4 dias.'),cClose()]},
+  4:{title:'Nível 4 · Técnico, Logística e Expansão',steps:[cP('building','Prédio'),cBuild('tecnico','Técnico','Com técnicos próprios você não paga instalação terceirizada.'),cBuild('logistica','Logística (galpão)','Os motoristas recolhem os rádios de quem cancela e o próximo cliente sai sem custo de equipamento.'),cClose('Contrate a equipe depois pelo botão <b>Equipe</b> de cada andar. Feche no <b>×</b>.'),cInfo('.fab-expand','<b>Expandir</b> liberado: daqui você abre outras cidades até 200 km das que já atende.')]},
+  6:{title:'Nível 6 · Retenção, RH e combo de TV',steps:[cP('building','Prédio'),cBuild('retencao','Retenção','Cada retentor tenta segurar até 5 pedidos de cancelamento por mês.'),cBuild('rh','RH','O RH libera mais vagas por setor, segura pedidos de demissão e implanta o plano de carreira.'),cClose(),cP('plans','Planos'),{sel:'#panelBody [data-act="combo-tv"]',text:'Lance o <b>combo de TV</b>: o cliente paga mais por mês e cancela menos.',done:()=>!!(S.combos&&S.combos.tv),skip:()=>!!(S.combos&&S.combos.tv)},cClose()]},
+  8:{title:'Nível 8 · Marketing, Recuperação e Loja',steps:[cP('building','Prédio'),cBuild('marketing','Marketing','Campanhas aumentam a chance de venda na cidade.'),cBuild('recuperacao','Recuperação','Cada cobrador negocia até 3 dívidas por mês e reativa o cliente.'),cClose(),cInfo('#realMap','<b>Loja filial</b> liberada: toque num ponto do mapa e escolha <b>Loja aqui</b>. A loja vende no balcão e libera a carreata no Marketing.')]},
+  9:{title:'Nível 9 · Eventos e crises',steps:[cInfo('.pill.coin','A partir de agora acontecem <b>eventos e crises</b> (tempestade, dólar alto, crise). Proteções são compradas com <b>selos</b>, que vêm dos clientes fiéis: toque no <b>+</b> dos selos.')]},
+  10:{title:'Nível 10 · NOC e telefone',steps:[cP('building','Prédio'),cBuild('noc','NOC','Monitoramento 24h: as torres aguentam 50% mais clientes e ficam os servidores de cache.'),cClose(),cP('plans','Planos'),{sel:'#panelBody [data-act="combo-fone"]',text:'Lance o <b>combo com telefone fixo</b>.',done:()=>!!(S.combos&&S.combos.fone),skip:()=>!!(S.combos&&S.combos.fone)},cClose()]},
+  11:{title:'Nível 11 · Ouvidoria',steps:[cP('building','Prédio'),cBuild('ouvidoria','Ouvidoria','Recebe as reclamações e mostra o que melhorar; reclamação sem resposta vira multa da Anatel.'),cClose()]},
+  12:{title:'Nível 12 · Fibra óptica',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="fiber"]',text:'Toque em <b>Rede de fibra</b> para montar o backbone e as caixas CTO nos bairros.',done:()=>modalOpen&&!PANEL},cInfo(null,'Na fibra cada bairro com <b>caixa CTO</b> pode receber clientes de fibra: aguenta muito mais e cancela menos que o rádio. Depois monte o andar <b>Migração e Upgrade</b> para levar a base do rádio para a fibra.')]},
+  14:{title:'Nível 14 · OLT 2ª geração',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="fiber"]',text:'Nova geração de OLT: abra a <b>Rede de fibra</b> e faça o upgrade para Fibra 300 Mega com preços menores.',done:()=>modalOpen&&!PANEL}]},
+  16:{title:'Nível 16 · OLT XGS-PON',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="fiber"]',text:'XGS-PON liberado: abra a <b>Rede de fibra</b> e faça o upgrade para a Fibra 600 Mega.',done:()=>modalOpen&&!PANEL}]},
+  18:{title:'Nível 18 · Concorrência',steps:[cInfo('.city-card .cc-info','<b>Concorrência entre jogadores</b>: quem atende a mesma cidade disputa os assinantes. Toque no <b>i</b> e em <b>Concorrentes</b> para ver quem está na cidade. Torres e caixas dos rivais aparecem em roxo no mapa.')]},
+  22:{title:'Nível 22 · Empresa offline e CEO',steps:[cInfo('.hud-gear','A empresa agora <b>rende enquanto você está fora</b> (até R$ 10 mil) e dá para contratar um <b>CEO com diamantes</b>, que administra quando você sai. Veja no <b>Menu</b>.')]},
+  100:{title:'Nível 100 · Promoções',steps:[cP('building','Prédio'),cTeam('comercial','Comercial'),cInfo('#modal [data-eoff]','<b>Promoções de contratação</b>: instalação grátis, desconto nas mensalidades, fidelidade ou plano em oferta. Escolha uma aqui. Campanhas para a base (clube, indicação, migração) ficam nas Campanhas do Marketing.'),cClose()]},
+  150:{title:'Nível 150 · Terceirizadas e consultorias',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="outs"]',text:'Toque em <b>Abrir</b> em Terceirizadas e consultorias.',done:()=>!!document.querySelector('#modal [data-out]')},cInfo('#modal [data-out]','Uma <b>terceirizada</b> assume um setor inteiro com equipe pronta (cobra salários + 45%). Mais abaixo, as <b>consultorias de treinamento</b> sobem a eficiência por alguns meses.'),cClose()]},
+  160:{title:'Nível 160 · Consultoria de gestão',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="outs"]',text:'Toque em <b>Abrir</b> em Terceirizadas e consultorias.',done:()=>!!document.querySelector('#modal [data-out]')},cInfo('#modal [data-mgmt], #modal [data-mgball]','<b>Consultoria de gestão</b> paga em selos: administra um setor (contrata, promove e deixa no tamanho certo). Ligue o <b>🔁 Automático no prédio</b> para não precisar renovar.'),cClose()]},
+  200:{title:'Nível 200 · Corporativo',steps:[cP('plans','Planos'),{sel:'#panelBody [data-act="execAdd"]',text:'Contrate <b>executivos de contas</b>: eles vendem links dedicados para as empresas das cidades com fibra.',done:()=>(S.execs||0)>0},cClose()]},
+};
+function introTour(){const c0=()=>S.cities[0],dn=d=>!!(S.docs[d]&&S.docs[d].done),st=d=>!!S.docs[d],docsOpen=()=>!!document.querySelector('#modal [data-doc], #modal .doc-row');
+  const openDocs=(txt,when)=>({sel:'#tutBar [data-act="docs"]',text:txt,done:()=>docsOpen(),skip:when});
+  const waitDoc=(d,name)=>({sel:'[data-hs="speed"]',text:`<b>${name}</b> em andamento: leva alguns dias do jogo. Feche as janelas e deixe o relógio correr. Para acelerar, toque aqui e escolha <b>4×</b>.`,free:true,done:()=>dn(d),skip:()=>dn(d)});
+  return {id:'intro',title:'Primeiros passos',steps:[
+    {sel:'#realMap',text:'Bem-vindo! Primeiro, escolha onde fica a <b>sede</b>: toque no mapa no ponto exato do prédio da sua empresa.',done:()=>!!sedePick||!!S.sede,skip:()=>!!S.sede},
+    {sel:'[data-act="declareSede"]',text:'Agora toque em <b>Declarar sede aqui</b>. O térreo com a recepção é grátis.',done:()=>!!S.sede,skip:()=>!!S.sede},
+    openDocs('Hora de abrir a empresa. Toque em <b>Documentação</b>.',()=>st('contrato')),
+    {sel:'#modal [data-doc="contrato"]',text:'Faça o <b>Contrato social</b>: ele cria a empresa, com sócios, capital e atividade.',done:()=>st('contrato'),skip:()=>st('contrato')},
+    cClose('Feche a janela no <b>×</b> para o relógio do jogo andar.'),
+    waitDoc('contrato','Contrato social'),
+    openDocs('Contrato pronto! Abra a <b>Documentação</b> de novo para tirar o CNPJ.',()=>st('cnpj')),
+    {sel:'#modal [data-doc="cnpj"]',text:'Peça o <b>CNPJ na Receita Federal</b>, com o CNAE de internet (SCM).',done:()=>st('cnpj'),skip:()=>st('cnpj')},
+    cClose('Feche a janela no <b>×</b> e deixe o relógio correr.'),
+    waitDoc('cnpj','CNPJ'),
+    {sel:'#tutBar [data-act="outorga"]',text:'Empresa aberta! Agora a <b>outorga da Anatel</b>, a licença para vender internet na cidade. Toque em <b>Comprar outorga</b>.',done:()=>!!document.querySelector('#modal #oPay, #modal #oWhole'),skip:()=>cityLicensed(c0())},
+    {sel:'#modal #oPay, #modal #oWhole',text:'Toque em <b>pagar</b> para tirar a outorga.',done:()=>cityLicensed(c0()),skip:()=>cityLicensed(c0())},
+    {sel:'#modal .x',text:'Outorga paga! Feche no <b>×</b>.',done:()=>!modalOpen,skip:()=>!modalOpen},
+    openDocs('Falta o <b>alvará da prefeitura</b>. Abra a Documentação.',()=>st('alvara')),
+    {sel:'#modal [data-doc="alvara"]',text:'Peça o <b>alvará</b>: é a licença para funcionar e instalar torres.',done:()=>st('alvara'),skip:()=>st('alvara')},
+    cClose('Feche no <b>×</b> e deixe o relógio correr.'),
+    waitDoc('alvara','Alvará'),
+    {sel:'#mapTools [data-act="newTower"]',text:'Tudo licenciado! Vamos subir a <b>primeira torre</b>: toque em <b>Nova torre</b>.',done:()=>!!draft,skip:()=>S.towersBuilt>=1},
+    {sel:'#realMap',text:'Toque no mapa onde quer a torre: perto das casas e, se der, num ponto alto.',done:()=>!!(draft&&!draft.picking),skip:()=>S.towersBuilt>=1},
+    {sel:'[data-act="bestAz"]',text:'Toque em <b>Melhor direção</b>: a antena vira para o lado com mais casas sem sinal.',skip:()=>S.towersBuilt>=1},
+    {sel:'[data-act="buyDraft"]',text:'Toque em <b>comprar</b> a torre. Depois você configura o rádio.',done:()=>!!document.querySelector('#modal #dvApply'),skip:()=>S.towersBuilt>=1},
+    {sel:'#modal #dvMode',text:'Configure o rádio. No <b>Modo de operação</b>, escolha <b>Access Point (AP)</b>: a torre distribui sinal para os clientes.',done:()=>{const e=document.querySelector('#dvMode');return !!(e&&e.value==='ap');},skip:()=>S.towersBuilt>=1},
+    {sel:'#modal #dvSsid',text:'Dê um <b>nome à rede (SSID)</b>, por exemplo TORRE-CENTRO.',done:()=>{const e=document.querySelector('#dvSsid');return !!(e&&e.value.trim().length>=3);},skip:()=>S.towersBuilt>=1},
+    {sel:'#modal #dvIp',text:'Preencha o <b>IP</b>, a <b>máscara</b> e o <b>gateway</b> usando a folha da rede ao lado (ex.: IP 10.1.0.2, máscara 255.255.255.0, gateway 10.1.0.1).',done:()=>{const v=id=>(document.querySelector('#'+id)||{}).value||'';return v('dvIp')&&v('dvMask')&&v('dvGw');},skip:()=>S.towersBuilt>=1},
+    {sel:'#modal #dvApply',text:'Toque em <b>Aplicar configuração</b>. Se algo estiver errado, o rádio avisa o que corrigir.',done:()=>S.towersBuilt>=1,skip:()=>S.towersBuilt>=1},
+    {sel:'#realMap',text:'Torre no ar! Agora toque numa <b>quadra com sinal</b> (verde-água) perto da torre.',free:true,done:()=>!!document.querySelector('#modal #qKnock'),skip:()=>S.signed>=1},
+    {sel:'#modal #qKnock',text:'Toque em <b>Bater na próxima porta</b>: você conversa com uma família da quadra.',done:()=>!!document.querySelector('#modal #papGo'),skip:()=>S.signed>=1},
+    {sel:'#modal #papGo',text:'Escolha um plano que caiba no bolso da família (veja quanto ela quer pagar) e toque em <b>Oferecer plano</b>. Se recusar, tente outra casa.',done:()=>S.signed>=1,skip:()=>S.signed>=1},
+    cInfo(null,'<b>Primeiro cliente!</b> A cada nível novo o jogo libera setores e recursos, e este tutorial mostra onde ficam. Dá para desligar ou rever no <b>Menu</b>.')]};}
+function coachPump(){if(COACH.tour||!S||S.coachOff||S.phase==='start')return;S.tours=S.tours||{};
+  if(!S.tours.intro&&S.tut&&!S.tut.done&&!S.tut.skip&&!modalOpen){coachRun(introTour());return;}
+  if(modalOpen)return;const k=COACH.q.find(x=>!S.tours[x.id]);COACH.q=COACH.q.filter(x=>!S.tours[x.id]&&x!==k);if(k)coachRun(k);}
+function coachLevel(L){const T=TOURS[L];if(T&&S&&!(S.tours&&S.tours['lv'+L]))COACH.q.push({id:'lv'+L,title:T.title,steps:T.steps});}
+setInterval(coachPump,1500);
+function openTours(){const lvl=levelOf(S.xp),list=Object.keys(TOURS).map(Number).filter(L=>L<=lvl);
+  openModal(head('Ajuda','Tutorial guiado')+`<div class="choice"><div><b>Tutorial guiado</b><small>Foco no botão com um dedo apontando, no começo e a cada nível liberado.</small></div><div class="seg"><button data-coachon="1" aria-pressed="${!S.coachOff}">Ligado</button><button data-coachon="0" aria-pressed="${!!S.coachOff}">Desligado</button></div></div>
+    <h3 style="margin:12px 0 6px">Rever um tutorial</h3><div class="choice-list">${!S.tut||!S.tut.done?`<div class="choice"><div><b>Primeiros passos</b><small>Sede, documentos, outorga, torre e primeiro cliente.</small></div><button class="btn small" data-tour="intro">Ver</button></div>`:''}${list.map(L=>`<div class="choice"><div><b>${TOURS[L].title}</b></div><button class="btn small" data-tour="${L}">Ver</button></div>`).join('')||'<p class="muted">Nenhum ainda.</p>'}</div>
+    <div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
+document.addEventListener('click',e=>{if(!S)return;const o=e.target.closest('[data-coachon]');if(o){S.coachOff=o.dataset.coachon!=='1';save(false);openTours();return;}
+  const t=e.target.closest('[data-tour]');if(t){closeModal();const k=t.dataset.tour;setTimeout(()=>coachRun(k==='intro'?introTour():{id:'lv'+k,title:TOURS[k].title,steps:TOURS[k].steps}),300);}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&COACH.tour)coachEnd();});
 function showUpdateBar(reg){
   if(document.querySelector('.update-bar'))return;
   const bar=document.createElement('div');bar.className='update-bar';bar.setAttribute('role','status');
