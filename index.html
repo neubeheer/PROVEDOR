@@ -1508,14 +1508,22 @@ function effOf(id){
   return clamp(e,0.4,1.45);
 }
 const capOf=(id,per)=>Math.floor(opsOf(id)*per*effOf(id)+1e-9);
-function sectorCap(){return built('rh')?Math.min(16,4+opsOf('rh')*4):4;}
+/* Vagas por setor: 4 sem RH, +4 por analista de RH; o teto sobe com o nível (16 até o nível 24, +8 a cada 25 níveis). */
+const sectorMax=()=>16+8*Math.floor(levelOf(S.xp)/25);
+function sectorCap(){return built('rh')?Math.min(sectorMax(),4+opsOf('rh')*4):4;}
 function hireCost(){return Math.round(HIRE_COST*(1+totalStaff()/40)*(built('rh')?0.8:1)/50)*50;}
 function staffPayroll(){let s=0;for(const f of FLOORS){if(!built(f.id)||f.id==='recepcao')continue;const R=rolesOf(f),t=team(f.id);for(const k in t)s+=(t[k]||0)*((R[k]||{}).sal||0);s+=careerExtra(f);}return s+(S.partners||0)*PARTNER_PAY;}
 const fiberPlans=()=>FIBER_TIERS[S.fiberTier].plans;
 const isFiberPlan=id=>String(id)[0]==='f';
 /* Preço de tabela que o jogador ajusta em Planos e combos. Vale para vendas novas, migração e upgrade; quem já é cliente mantém o preço do contrato. */
-function pp(p){const v=S&&S.prices&&S.prices[p.id];return v!=null?v:p.price;}
-function cbPrice(k){const v=S&&S.prices&&S.prices['cb_'+k];return v!=null?v:COMBOS[k].price;}
+function pp(p){return priceOf(p.id,p.price);}
+/* Duas tabelas de preço: cidades pequenas (S.prices) e grandes, a partir de BIG_CITY habitantes (S.pricesBig).
+   A tabela grande herda a pequena enquanto um preço não for mexido nela. PRICE_C é a cidade da venda em andamento
+   (chance, bestOffer, migração); sem ela vale a cidade que está na tela. */
+let PRICE_C=null,PRICE_TAB='prices';
+function priceOf(id,base){const c=PRICE_C||(S&&S.cities?city():null),big=c&&isBig(c),vb=big&&S.pricesBig?S.pricesBig[id]:null,v=S&&S.prices?S.prices[id]:null;return vb!=null?vb:v!=null?v:base;}
+function withPriceCity(fn){return function(c){const prev=PRICE_C;PRICE_C=c;try{return fn.apply(this,arguments);}finally{PRICE_C=prev;}};}
+function cbPrice(k){return priceOf('cb_'+k,COMBOS[k].price);}
 function planById(id){const p=PLANS.find(x=>x.id===id)||fiberPlans().find(x=>x.id===id);if(p)return {...p,price:pp(p)};const n=FIBER_NAMES[id];return n?{id,name:n[0],mb:n[1],price:0}:PLANS[0];}
 function planList(l){return l.tech==='fiber'?fiberPlans():PLANS;}
 function nextPlan(l){const list=planList(l);const i=list.findIndex(x=>x.id===l.plan);return i>=0&&i<list.length-1?list[i+1]:null;}
@@ -1834,7 +1842,8 @@ function migTargets(){
     if(nextPlan(l)&&!(l.upAt&&S.day-l.upAt<120))up.push([c,l]);}
   return {mig,up};
 }
-function migrateClient(c,l,same){
+function migrateClient(c,l,same){const prevPC=PRICE_C;PRICE_C=c;try{return migrateClient0(c,l,same);}finally{PRICE_C=prevPC;}}
+function migrateClient0(c,l,same){
   const fp=fiberPlans()[0],oldPrice=l.price;
   if(S.money<onuFor(c))return false;takeOnu(c);if(!opsOf('tecnico')){S.money-=THIRD_COST;}
   l.tech='fiber';l.tid=null;l.plan=fp.id;l.price=same?oldPrice:Math.round((pp(fp)+l.combo.reduce((s,k)=>s+cbPrice(k),0))*100)/100;delete l.disc;
@@ -1847,7 +1856,7 @@ function migrationCalls(){
   for(let i=0;i<calls;i++){
     const wantMig=cfg.mode==='migra'||(cfg.mode==='both'&&(i%2===0||!up.length));
     const pool=wantMig&&mig.length?mig:(cfg.mode!=='migra'&&up.length?up:null);if(!pool)break;
-    const [c,l]=pickOut(pool);if(l.calledM===S.day){i--;continue;}l.calledM=S.day;did++;
+    const [c,l]=pickOut(pool);PRICE_C=c;if(l.calledM===S.day){i--;continue;}l.calledM=S.day;did++;
     if(pool===mig){
       const fp=fiberPlans()[0],newP=pp(fp)+l.combo.reduce((s,k)=>s+cbPrice(k),0);
       let p=cfg.same?0.62:(newP<=l.fam.budget*1.25?0.42:0.15);if(cpOn('migra'))p+=0.2;if(!cfg.same&&newP<=l.price)p+=0.15;if(l.fam.need==='work'||l.fam.need==='game')p+=0.15;p+=(S.rep-50)/250;
@@ -1859,7 +1868,7 @@ function migrationCalls(){
       if(Math.random()<clamp(p,0.03,0.85)){l.plan=nx.id;l.price=Math.round((l.price+diff)*100)/100;if(cfg.offer==='disc'){l.disc={pct:Math.min(0.5,diff*0.5/l.price),until:monthOf(S.day)+3};}S.cur.upgrades++;okU++;addXp(5);}
     }
   }
-  S.cur.ligacoes+=did;
+  PRICE_C=null;S.cur.ligacoes+=did;
   if(did)log(`Migração e Upgrade: ${did} ligações, ${okM} migração(ões) para fibra e ${okU} upgrade(s) de plano.`);
 }
 function ticketNow(){let s=0,n=0;for(const c of S.cities)for(const l of famsOf(c))if(pays(l)){s+=priceNow(l);n++;}return n?s/n:0;}
@@ -1886,10 +1895,10 @@ function careerHtml(id){
   const f=FLOORS.find(x=>x.id===id);if(!f||id==='recepcao')return '';
   if(!built('rh'))return '<p class="muted" style="font-size:12.5px;margin-top:10px">Plano de carreira: monte o RH para promover a equipe.</p>';
   const on=S.career&&S.career.on;
-  if(id==='rh')return `<h3 style="font-size:15px;margin:14px 0 8px">Plano de carreira</h3>${on?'<div class="notice ok">Plano de carreira implantado: a equipe pede menos demissão e cada setor pode promover operadores a pleno e sênior.</div>':`<div class="choice"><div><b>Implantar plano de carreira</b><small>${brl0(CAREER_COST)} uma vez. Cargos júnior, pleno e sênior em todos os setores; menos pedidos de demissão.</small></div><button class="btn small primary" id="carOn">Implantar</button></div>`}`;
+  if(id==='rh'&&!on)return `<h3 style="font-size:15px;margin:14px 0 8px">Plano de carreira</h3>${on?'':`<div class="choice"><div><b>Implantar plano de carreira</b><small>${brl0(CAREER_COST)} uma vez. Cargos júnior, pleno e sênior em todos os setores; menos pedidos de demissão.</small></div><button class="btn small primary" id="carOn">Implantar</button></div>`}`;
   if(!on)return '<p class="muted" style="font-size:12.5px;margin-top:10px">Plano de carreira: implante no RH para promover a equipe.</p>';
   const o=opsOf(id),cr=careerOf(id),jr=o-cr.pl-cr.sr,maxSr=Math.ceil(o/3),sal=opSal(f);
-  return `<h3 style="font-size:15px;margin:14px 0 8px">Plano de carreira</h3>
+  return `<h3 style="font-size:15px;margin:14px 0 8px">Plano de carreira</h3>${id==='rh'?'<div class="notice ok" style="margin-bottom:8px">Plano de carreira implantado: a equipe pede menos demissão e cada setor, inclusive o RH, pode promover operadores a pleno e sênior.</div>':''}
     <div class="role-row"><div><b>Júnior</b><small>Salário base ${brl0(sal)}</small></div><div class="role-ctl"><b>${jr}</b><button class="btn small signal" data-promo="pl" ${jr>0?'':'disabled'}>Promover a pleno · ${brl0(PROMO_COST)}</button></div></div>
     <div class="role-row"><div><b>Pleno</b><small>+25% de salário (${brl0(sal*1.25)}) · rende 12% a mais</small></div><div class="role-ctl"><b>${cr.pl}</b><button class="btn small signal" data-promo="sr" ${cr.pl>0&&cr.sr<maxSr?'':'disabled'}>Promover a sênior · ${brl0(PROMO_COST)}</button></div></div>
     <div class="role-row"><div><b>Sênior</b><small>+50% de salário (${brl0(sal*1.5)}) · rende 25% a mais · até ${maxSr} no setor</small></div><div class="role-ctl"><b>${cr.sr}</b></div></div>
@@ -1985,6 +1994,7 @@ function signupBlock(c){
   if(!docsDone())return 'docs';
   return null;
 }
+chance=withPriceCity(chance);bestOffer=withPriceCity(bestOffer);
 function chance(c,lot,planId,combo){
   const pl=planById(planId),f=lot.fam,cov=coverOf(c,lot),fib=isFiberPlan(planId);
   const price=pl.price+combo.reduce((s,k)=>s+cbPrice(k),0);
@@ -2552,9 +2562,12 @@ function renderProducts(){$('#products').innerHTML='';}
 const PRICE_MIN=0.6,PRICE_MAX=1.5,PRICE_STEP=5;
 function priceRow(id,name,base,cur,extra){const lo=Math.round(base*PRICE_MIN),hi=Math.round(base*PRICE_MAX),d=cur-base;
   return `<div class="role-row"><div><b>${name}</b><small>Tabela ${brl(base)}${d?` · ${d>0?'+':''}${brl(d)}`:''}${extra?' · '+extra:''}</small></div><div class="role-ctl"><button class="btn small" data-price="${id}" data-d="-1" ${cur-PRICE_STEP<lo?'disabled':''} aria-label="Baixar o preço de ${name}">−</button><b style="min-width:84px">${brl(cur)}</b><button class="btn small" data-price="${id}" data-d="1" ${cur+PRICE_STEP>hi?'disabled':''} aria-label="Subir o preço de ${name}">+</button></div></div>`;}
-function plansHtml(){
+function plansHtml(){const prevPC=PRICE_C;PRICE_C=PRICE_TAB==='pricesBig'?{pop:BIG_CITY}:{pop:0};try{return plansHtml0();}finally{PRICE_C=prevPC;}}
+function plansHtml0(){
   const lvl=levelOf(S.xp),fib=lvl>=FIBRA_LEVEL;
+  const nBig=S.cities.filter(isBig).length,nSmall=S.cities.length-nBig;
   let h=`<p class="muted" style="font-size:13px">Preço menor vende mais e ajuda a migrar; preço maior rende mais por cliente, mas o cliente compara com o bolso. Vale para vendas novas, migração e upgrade. Quem já é cliente mantém o preço do contrato.</p>`;
+  h=`<div class="seg" style="margin-bottom:8px"><button data-ptab="prices" aria-pressed="${PRICE_TAB==='prices'}">Cidades pequenas · ${nSmall}</button><button data-ptab="pricesBig" aria-pressed="${PRICE_TAB==='pricesBig'}">Cidades grandes · ${nBig}</button></div><p class="muted" style="font-size:12.5px;margin:0 0 6px">${PRICE_TAB==='pricesBig'?`Vale para cidades a partir de ${BIG_CITY.toLocaleString('pt-BR')} habitantes. Enquanto um preço não for mexido aqui, ele segue a tabela das cidades pequenas.`:`Vale para cidades com menos de ${BIG_CITY.toLocaleString('pt-BR')} habitantes.`}</p>`+h;
   h+='<h3 style="margin:10px 0 6px">Rádio</h3>'+PLANS.map(p=>priceRow(p.id,p.name,p.price,pp(p))).join('');
   h+='<h3 style="margin:14px 0 6px">Fibra</h3>'+(fib?fiberPlans().map(p=>priceRow(p.id,p.name,p.price,pp(p))).join(''):`<div class="notice">A fibra chega no nível ${FIBRA_LEVEL}.</div>`);
   if(fib){const r=pp(PLANS[PLANS.length-1]),f=pp(fiberPlans()[0]);h+=`<div class="notice ${f<=r?'ok':'warn'}">${f<=r?`A fibra de entrada (${brl(f)}) não custa mais que o rádio mais caro (${brl(r)}): a Migração convence mais clientes a trocar.`:`A fibra de entrada (${brl(f)}) custa mais que o rádio mais caro (${brl(r)}). Baixe a fibra ou suba o rádio para empurrar a migração.`}</div>`;}
@@ -2566,9 +2579,10 @@ function plansHtml(){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-price]');if(!b||!S)return;const id=b.dataset.price,d=+b.dataset.d;
   const base=id.startsWith('cb_')?COMBOS[id.slice(3)].price:(PLANS.find(x=>x.id===id)||fiberPlans().find(x=>x.id===id)||{}).price;if(!base)return;
-  const cur=id.startsWith('cb_')?cbPrice(id.slice(3)):pp({id,price:base}),nv=Math.round((cur+d*PRICE_STEP)*100)/100;
+  const prevPC=PRICE_C;PRICE_C=PRICE_TAB==='pricesBig'?{pop:BIG_CITY}:{pop:0};const cur=id.startsWith('cb_')?cbPrice(id.slice(3)):pp({id,price:base});PRICE_C=prevPC;const nv=Math.round((cur+d*PRICE_STEP)*100)/100;
   if(nv<Math.round(base*PRICE_MIN)||nv>Math.round(base*PRICE_MAX))return;
-  S.prices=S.prices||{};if(Math.abs(nv-base)<0.01)delete S.prices[id];else S.prices[id]=nv;save(false);refreshPanel();});
+  const T=PRICE_TAB;S[T]=S[T]||{};const ref=T==='pricesBig'?((S.prices||{})[id]??base):base;if(Math.abs(nv-ref)<0.01)delete S[T][id];else S[T][id]=nv;save(false);refreshPanel();});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ptab]');if(!b||!S)return;PRICE_TAB=b.dataset.ptab;refreshPanel();});
 
 /* Sede regional: uma loja filial vira um segundo prédio, com andares e equipes próprios.
    Cada prédio tem as próprias vagas por setor; as equipes de todos somam na capacidade da empresa. */
@@ -2682,7 +2696,10 @@ function refreshPanel(){if(!PANEL)return;const b=document.getElementById('panelB
   panelAt=Date.now();b.innerHTML=panelHtml(PANEL);}
 
 /* Avisos de equipe: o prédio avisa quando falta gente num setor */
-function staffAlerts(){
+/* Os avisos de equipe contam a base inteira: são lembrados até o próximo dia de jogo ou a próxima mudança salva. */
+let SA_KEY='',SA_VAL=null;
+function staffAlerts(){const k=S.day+':'+S.savedAt;if(SA_VAL&&SA_KEY===k)return SA_VAL;SA_KEY=k;return SA_VAL=staffAlerts0();}
+function staffAlerts0(){
   if(!S||S.phase!=='play')return [];
   const out=[],add=(key,id,msg)=>out.push({key,id,msg});
   const cnt=fn=>S.cities.reduce((s,c)=>s+famsOf(c).filter(fn).length,0),cl=allClients();
@@ -3826,7 +3843,7 @@ async function overpass(q,ms){let last;for(const url of OVERPASS){try{return awa
 async function fetchBairros(g){
   const filt='[place~"^(suburb|neighbourhood|quarter)$"][name];out body 300;';
   const q=g.osmType==='relation'?`[out:json][timeout:25];area(${3600000000+Number(g.osmId)})->.a;node(area.a)${filt}`:`[out:json][timeout:25];node(around:7000,${g.lat},${g.lon})${filt}`;
-  const r=await overpass(q);const seen=new Set();
+  const r=await overpass(q,15000);const seen=new Set();
   return (r.elements||[]).filter(e=>e.tags&&e.tags.name).map(e=>({name:e.tags.name,lat:e.lat,lon:e.lon})).filter(b=>{const k=b.name.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;});
 }
 async function countBuildingsPoly(latlngs){
@@ -4220,7 +4237,7 @@ function perfCtx(){if(!S)return {};const c=city();return {d:S.day,sp:S.speed,ci:
 function perfWrap(name,fn){return function(){const t0=performance.now();PERF.stack.push(name);try{return fn.apply(this,arguments);}finally{PERF.stack.pop();const ms=performance.now()-t0;
   const st=PERF.stats[name]||(PERF.stats[name]={n:0,sum:0,max:0,slow:0});st.n++;st.sum+=ms;if(ms>st.max)st.max=ms;if(ms>100)st.slow++;
   if(ms>50){PERF.calls.push({n:name,ms:Math.round(ms),end:performance.now(),in:PERF.stack.slice(-1)[0]||''});if(PERF.calls.length>60)PERF.calls.shift();}}};}
-for(const k of ['tick','monthEnd','renderAll','renderTop','renderMap','renderReal','drawReal','drawQuadras','qnRefresh','checkMissions','saveJson','openPanel','refreshPanel','renderBuilding','openModal'])
+for(const k of ['tick','monthEnd','renderAll','renderTop','renderMap','renderReal','drawReal','drawQuadras','qnRefresh','checkMissions','saveJson','openPanel','refreshPanel','renderBuilding','openModal','rivalMonth','migrationCalls','clientCampaignsMonth','corpMonth','ouvidoriaMonth','evalGoals','staffAlerts','vendorAttempt','areaSales','checkOffline','loadArea','loadBlocks','geoLoad'])
   try{const f=eval(k);if(typeof f==='function')eval(k+'=perfWrap(k,f)');}catch(e){}
 setInterval(()=>{const now=performance.now(),gap=now-PERF.last-250;PERF.last=now;if(document.visibilityState!=='visible'||gap<500)return;
   const from=now-gap-250,during=PERF.calls.filter(x=>x.end>=from&&!x.in).map(x=>x.n+' '+x.ms+' ms');
