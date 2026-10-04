@@ -117,3 +117,40 @@ create policy config_log_admin_ins on public.config_log for insert to authentica
   with check (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
 create policy config_log_admin_sel on public.config_log for select to authenticated
   using (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
+
+-- 8) Painel do administrador: resumo de cada empresa na tabela saves (o jogo preenche) e leitura de todas pelo admin.
+alter table public.saves add column if not exists email    text;
+alter table public.saves add column if not exists level    int;
+alter table public.saves add column if not exists clients  int;
+alter table public.saves add column if not exists coins    bigint;
+alter table public.saves add column if not exists diamonds bigint;
+alter table public.saves add column if not exists cities   int;
+drop policy if exists saves_select_admin on public.saves;
+create policy saves_select_admin on public.saves for select to authenticated
+  using (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
+
+-- Comandos do administrador para um jogador (selos, diamantes, dinheiro ou zerar a conta).
+-- O jogo do jogador lê os pendentes, aplica e marca applied_at.
+create table if not exists public.grants (
+  id         bigserial primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  coins      bigint not null default 0,
+  diamonds   bigint not null default 0,
+  money      numeric not null default 0,
+  reset      boolean not null default false,
+  note       text,
+  created_at timestamptz not null default now(),
+  applied_at timestamptz
+);
+create index if not exists grants_pending on public.grants (user_id) where applied_at is null;
+alter table public.grants enable row level security;
+drop policy if exists grants_admin_ins on public.grants;
+drop policy if exists grants_admin_sel on public.grants;
+drop policy if exists grants_own_sel on public.grants;
+drop policy if exists grants_own_upd on public.grants;
+create policy grants_admin_ins on public.grants for insert to authenticated
+  with check (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
+create policy grants_admin_sel on public.grants for select to authenticated
+  using (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
+create policy grants_own_sel on public.grants for select to authenticated using (auth.uid() = user_id);
+create policy grants_own_upd on public.grants for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);

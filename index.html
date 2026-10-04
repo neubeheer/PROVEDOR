@@ -1169,6 +1169,8 @@ const RETAIN={
   up:{t:'Upgrade de velocidade grátis',p:{caro:.25,lenta:.6,mudar:.05,conc:.45,sinal:.1}},
   visita:{t:'Visita técnica grátis',cost:80,p:{caro:.1,lenta:.45,mudar:.05,conc:.15,sinal:.5}},
 };
+/* Capacidade de cada função por mês (administrador pode mudar): clientes por atendente, visitas por vendedor (a cada 4 dias)… */
+let CAP_VOZ=40,CAP_TEXTO=50,CAP_COM=3,CAP_RET=5,CAP_REC=3,CAP_LOG=6,CAP_OUV=60,CAP_MIG=30,CAP_TEC=1500,SUP_SAL=700,GER_SAL=1200,SUP_PER=5;
 let COIN_RATE=50,COIN_M3=1,COIN_M6=2,COIN_M12=3,DIA_LEVEL=5,DIA_MISSION=1;
 /* Milissegundos reais por dia de jogo em 1× (30 dias = 1 mês). O administrador define em minutos por mês. */
 let DAY_MS=1000;
@@ -1305,7 +1307,7 @@ function sbSaveRef(){
   const uid=SB.session.user.id;
   return {
     async get(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=data,saved_at`);if(!r.ok)throw new Error('http '+r.status);const rows=await r.json();const json=rows.length?await unpackSave(rows[0].data):null;return {exists:rows.length>0,data:()=>({json})};},
-    async set(o){const meta=`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${await packSave(o.json)}`;
+    async set(o){const meta=(cloud.meta2&&S?`"email":${JSON.stringify((SB.session.user||{}).email||'')},"level":${levelOf(S.xp)},"clients":${allClients()},"coins":${S.coins|0},"diamonds":${S.diamonds|0},"cities":${S.cities.length},`:'')+`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${await packSave(o.json)}`;
       // com a trava ligada e a linha criada, só grava se a sessão ainda for deste aparelho (senão outro aparelho assumiu)
       if(cloud.lock==='on'&&cloud.hasRow){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&sess=eq.${MYSESS}&select=user_id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:'{'+meta+'}'},true,30000);
         if(!r.ok)throw new Error('http '+r.status);const rows=await r.json().catch(()=>null);if(Array.isArray(rows)&&!rows.length){const e=new Error('outro aparelho');e.takeover=true;throw e;}return;}
@@ -1432,6 +1434,14 @@ async function flushCloud(){
 }
 function validSave(d){return !!(d&&d.v===2&&Array.isArray(d.cities)&&d.cities.length>0&&typeof d.money==='number');}
 function loadLocal(){try{const raw=localStorage.getItem(SAVE_KEY);if(raw){const d=JSON.parse(raw);if(validSave(d))return d;}}catch(e){}return null;}
+/* Comandos do administrador chegam pela tabela grants: selos, diamantes, dinheiro ou zerar a conta. */
+async function grantsCheck(){if(!cloud.ref||!sbOn()||!SB.session||!SB.session.user)return null;try{const r=await sbFetch(`/rest/v1/grants?user_id=eq.${SB.session.user.id}&applied_at=is.null&select=id,coins,diamonds,money,reset,note&order=id`);if(!r.ok)return null;return await r.json();}catch(e){return null;}}
+async function grantsMark(ids){if(!ids.length)return;try{await sbFetch(`/rest/v1/grants?id=in.(${ids.join(',')})`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({applied_at:new Date().toISOString()})});}catch(e){}}
+async function grantsApply(){const L=await grantsCheck();if(!L||!L.length||!S)return false;let reset=false;
+  for(const g of L){if(g.reset){reset=true;continue;}const c=g.coins|0,d=g.diamonds|0,m=+g.money||0;S.coins=Math.max(0,(S.coins||0)+c);S.diamonds=Math.max(0,(S.diamonds||0)+d);S.money+=m;
+    const parts=[c?`${c.toLocaleString('pt-BR')} selos`:'',d?`${d.toLocaleString('pt-BR')} diamantes`:'',m?brl0(m):''].filter(Boolean).join(', ');if(parts){log(`Administração: você recebeu ${parts}${g.note?' ('+g.note+')':''}.`);toast(`🎁 Administração: ${parts}${g.note?' · '+g.note:''}`);sfx('level');}}
+  await grantsMark(L.map(g=>g.id));if(reset){log('Administração zerou a conta.');S=null;cloud.dirty=false;showStart();toast('Sua conta foi zerada pela administração. Comece uma nova empresa.');return true;}save(true);renderAll();return true;}
+setInterval(()=>{if(S)grantsApply();},120000);
 async function initCloud(){
   try{
     if(sbOn()&&SB.session&&SB.session.user){cloud.ref=sbSaveRef();}
@@ -1464,7 +1474,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 const rivalTowerSvg='<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#8a3ffc" stroke="#fff" stroke-width="3"/><path d="M20 10 15 31M20 10l5 21M16.7 25h6.6M18 18.5h4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>';
 const RIVAL={rows:new Map(),at:0,busy:false,ok:false,err:'',memo:new Map()};
 try{const raw=JSON.parse(localStorage.getItem('pt-rivais')||'null');if(raw&&raw.rows)RIVAL.rows=new Map(raw.rows);}catch(e){}
-function citySupport(){const cl=allClients();if(!built('callcenter'))return cl>8?0.2:0.6;const t=team('callcenter'),k=((t.voz||0)*40+(t.texto||0)*50)*effOf('callcenter');return cl?clamp(k/cl,0,1):1;}
+function citySupport(){const cl=allClients();if(!built('callcenter'))return cl>8?0.2:0.6;const t=team('callcenter'),k=((t.voz||0)*CAP_VOZ+(t.texto||0)*CAP_TEXTO)*effOf('callcenter');return cl?clamp(k/cl,0,1):1;}
 /* Infraestrutura que os rivais veem no mapa: torres com o leque e as caixas CTO (até 80 de cada). */
 function myInfra(c){if(!c.geo)return {t:[],o:[]};const lm=c.geo.side/9,r5=v=>Math.round(v*1e5)/1e5;
   const t=c.towers.slice(0,80).map(x=>{const g=towerGeo(c,x);return {la:r5(g.lat),lo:r5(g.lon),az:x.az||0,bm:x.beam||360,m:Math.round(tRange(x)*lm),off:x.off?1:0};});
@@ -1565,7 +1575,7 @@ function buildings(){return BCTX?[BCTX]:allFloors();}
 function inB(fl,fn){const prev=BCTX;BCTX=fl;try{return fn();}finally{BCTX=prev;}}
 const built=id=>buildings().some(f=>f[id]&&f[id].built);
 const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
-function rolesOf(f){return f.roles||{op:{t:f.op,sal:f.sal},sup:{t:'Supervisor',sal:700},ger:{t:'Gerente',sal:1200}};}
+function rolesOf(f){if(f.roles){if(f.roles.sup)f.roles.sup.sal=SUP_SAL;if(f.roles.ger)f.roles.ger.sal=GER_SAL;return f.roles;}return {op:{t:f.op,sal:f.sal},sup:{t:'Supervisor',sal:SUP_SAL},ger:{t:'Gerente',sal:GER_SAL}};}
 const team=id=>{const L=buildings().filter(f=>f[id]&&f[id].built);if(!L.length)return {};if(L.length===1){const fl=L[0][id];return fl.team||(fl.team={});}const o={};for(const f of L)for(const [k,v] of Object.entries(f[id].team||{}))o[k]=(o[k]||0)+(v||0);return o;};
 function opsOf(id){if(!built(id))return 0;const t=team(id);return id==='callcenter'?(t.voz||0)+(t.texto||0):(t.op||0);}
 const staff=opsOf;
@@ -1730,7 +1740,7 @@ function monthEnd(){
   mgmtMonth();
   let rev=0,clients=0,radioCl=0,fiberCl=0,tv=0,fone=0,over=0,calNow=0,lateUnpaid=0;
   const tcc=team('callcenter'),n2=built('callcenter')?(tcc.n2||0):0,ccE=effOf('callcenter');
-  const ccCap=built('callcenter')?((tcc.voz||0)*40+(tcc.texto||0)*50)*ccE:0;
+  const ccCap=built('callcenter')?((tcc.voz||0)*CAP_VOZ+(tcc.texto||0)*CAP_TEXTO)*ccE:0;
   const ccOps=opsOf('callcenter');
   // atendimento por cidade pelas regras de negócio: cidade mal atendida cancela mais
   const ccDem=demClients(),ccA=allocSector('callcenter',ccDem),ccR=ccDem.map((d,i)=>d?Math.min(1,ccA.got[i]/d):1),ccDemT=ccDem.reduce((a,b)=>a+b,0),ccSla=ccDemT?Math.min(1,ccA.got.reduce((a,b)=>a+b,0)/ccDemT):1;
@@ -1781,8 +1791,8 @@ function monthEnd(){
   if(recN>5)log(`Recuperação: ${recN} dívidas negociadas no mês (${brl0(recV)}), assinantes reativados.`);
   // logística
   // cada galpão recolhe na sua cidade; o da sede também atende cidades sem galpão, gastando 2 viagens por equipamento
-  const capMain={n:(galpaoBuilt(S.floors)?inB(S.floors,()=>capOf('logistica',6)):0)+(S.outs&&S.outs.logistica?inB(S.outs,()=>capOf('logistica',6)):0)};
-  for(const c of S.cities){const fl=galpaoOf(c),cap=fl===S.floors?capMain:{n:fl?inB(fl,()=>capOf('logistica',6)):0};
+  const capMain={n:(galpaoBuilt(S.floors)?inB(S.floors,()=>capOf('logistica',CAP_LOG)):0)+(S.outs&&S.outs.logistica?inB(S.outs,()=>capOf('logistica',CAP_LOG)):0)};
+  for(const c of S.cities){const fl=galpaoOf(c),cap=fl===S.floors?capMain:{n:fl?inB(fl,()=>capOf('logistica',CAP_LOG)):0};
     for(const l of famsOf(c)){
       if(!l.cpe)continue;
       let go=false;if(cap.n>0){cap.n--;go=true;}else if(!fl&&capMain.n>=2){capMain.n-=2;go=true;}
@@ -1939,7 +1949,7 @@ function migrateClient0(c,l,same){
   eqOf(c).r++;S.migrated=(S.migrated||0)+1;S.cur.migrados++;if(cpOn('migra'))l.disc={pct:1,until:monthOf(S.day)};addXp(15);return true;
 }
 function migrationCalls(){
-  const calls=capOf('migracao',30);if(!calls)return;
+  const calls=capOf('migracao',CAP_MIG);if(!calls)return;
   const cfg=migCfg(),{mig,up}=migTargets();let did=0,okM=0,okU=0;
   const pickOut=a=>a.splice(Math.floor(Math.random()*a.length),1)[0];
   for(let i=0;i<calls;i++){
@@ -1963,7 +1973,7 @@ function migrationCalls(){
 function ticketNow(){let s=0,n=0;for(const c of S.cities)for(const l of famsOf(c))if(pays(l)){s+=priceNow(l);n++;}return n?s/n:0;}
 function openMigSector(){
   if(!built('migracao')){toast('Monte o andar de Migração e Upgrade.');return;}
-  const cfg=migCfg(),{mig,up}=migTargets(),calls=capOf('migracao',30),last=S.history[S.history.length-1]||{};
+  const cfg=migCfg(),{mig,up}=migTargets(),calls=capOf('migracao',CAP_MIG),last=S.history[S.history.length-1]||{};
   openModal(head('Migração e Upgrade','Ligações para a base')+`<div class="kpis"><div class="kpi"><span>Ligações/mês</span><b>${calls}</b></div><div class="kpi"><span>Ticket médio</span><b>${brl(ticketNow())}</b></div><div class="kpi"><span>Este mês</span><b>${S.cur.migrados} mig. · ${S.cur.upgrades} up.</b></div></div>
     <p class="muted" style="font-size:13px">No fechamento do mês os operadores ligam para os clientes. Hoje há <b>${mig.length}</b> cliente(s) de rádio em bairros com fibra e <b>${up.length}</b> que podem subir de plano.${last.ticket?` Ticket médio do mês passado: ${brl(last.ticket)}.`:''}</p>
     <div class="field"><label>Foco das ligações</label><div class="seg">${[['both','Migração e upgrade'],['migra','Só migração'],['upgrade','Só upgrade']].map(([k,t])=>`<button data-mmode="${k}" aria-pressed="${cfg.mode===k}">${t}</button>`).join('')}</div></div>
@@ -2008,7 +2018,7 @@ const GOALS=[
   {id:'ticket',name:'Ticket médio',sector:'migracao',dir:1,fmt:'R$',unit:'mensalidade média por assinante',val:h=>h.ticket,cur:()=>ticketNow(),f:[1,1.02,1.05]},
 ];
 const PLR=[150,300,500],GFX_OK=[0.03,0.05,0.08],GFX_BAD=[0,-0.03,-0.06];
-function slaNow(){const t=team('callcenter'),cl=allClients();if(!cl)return 1;const capC=built('callcenter')?((t.voz||0)*40+(t.texto||0)*50)*effOf('callcenter'):0;return Math.min(1,capC/cl);}
+function slaNow(){const t=team('callcenter'),cl=allClients();if(!cl)return 1;const capC=built('callcenter')?((t.voz||0)*CAP_VOZ+(t.texto||0)*CAP_TEXTO)*effOf('callcenter'):0;return Math.min(1,capC/cl);}
 function cacNow(){const fc=FLOORS.find(f=>f.id==='comercial');const cost=(S.cur.mkt||0)+(built('comercial')?rolesSum(fc):0)+S.cities.filter(c=>c.store).length*1500;return S.cur.novos?cost/S.cur.novos:cost;}
 const goalsOn=()=>S.peak>=GOALS_AT||allClients()>=GOALS_AT;
 function goalBase(g){const hs=S.history.slice(-3).map(g.val).filter(v=>Number.isFinite(v));if(hs.length)return hs.reduce((a,b)=>a+b,0)/hs.length;const v=g.cur();return Number.isFinite(v)&&v>0?v:(g.dir>0?1:0.05);}
@@ -2718,12 +2728,12 @@ const mgmtOn=(bk,id)=>{const v=(S.mgmt||{})[bk+':'+id];return !!(v&&v.until>=mon
 function mgmtServed(b,id){if(RULE_SECTORS.some(x=>x[0]===id))return servesOf(b,id);const set=new Set(b.ci!=null?[b.ci]:[]);if(b.main)for(const c of S.cities)if(!bldgs().some(x=>!x.main&&x.ci===c.idx&&bHas(x,id)))set.add(c.idx);return set;}
 /* Operadores que o setor precisa para dar conta das cidades que o prédio atende (null = manter como está). */
 function mgmtNeed(b,id){const sv=mgmtServed(b,id),cs=S.cities.filter(c=>sv.has(c.idx)),cnt=f=>cs.reduce((t,c)=>t+famsOf(c).filter(f).length,0);
-  if(id==='callcenter')return Math.ceil(cnt(isSub)/40*1.05);
-  if(id==='recuperacao')return Math.ceil(cnt(l=>(l.st==='late'||l.st==='suspended')&&l.debt>0)/3);
-  if(id==='retencao')return Math.ceil(Math.max(cnt(l=>l.st==='cancelReq'),cnt(isSub)*0.02)/5);
-  if(id==='logistica')return Math.ceil(cnt(l=>l.cpe)/6);
-  if(id==='ouvidoria')return S.ouv?Math.ceil((S.ouv.total||0)/60):1;
-  if(id==='tecnico')return Math.max(1,Math.ceil(cnt(isSub)/1500));
+  if(id==='callcenter')return Math.ceil(cnt(isSub)/CAP_VOZ*1.05);
+  if(id==='recuperacao')return Math.ceil(cnt(l=>(l.st==='late'||l.st==='suspended')&&l.debt>0)/CAP_REC);
+  if(id==='retencao')return Math.ceil(Math.max(cnt(l=>l.st==='cancelReq'),cnt(isSub)*0.02)/CAP_RET);
+  if(id==='logistica')return Math.ceil(cnt(l=>l.cpe)/CAP_LOG);
+  if(id==='ouvidoria')return S.ouv?Math.ceil((S.ouv.total||0)/CAP_OUV):1;
+  if(id==='tecnico')return Math.max(1,Math.ceil(cnt(isSub)/CAP_TEC));
   return null;}
 function mgmtRun(b,id,quiet){return inB(b.fl,()=>{if(!built(id))return null;const f=FLOORS.find(x=>x.id===id),t=team(id),cc=id==='callcenter',opK=cc?'voz':'op';
   const cap=sectorCap(),need=mgmtNeed(b,id);let hired=0,fired=0,prom=0;
@@ -2777,7 +2787,7 @@ document.addEventListener('click',e=>{if(!S)return;
    (S.rules.flow[setor] !== false), a capacidade que sobra num prédio cobre a falta de qualquer outra cidade. */
 const RULE_SECTORS=[['callcenter','Call Center','clientes'],['comercial','Comercial','visitas'],['retencao','Retenção','pedidos'],['recuperacao','Recuperação','inadimplentes']];
 const POSTO_FLOORS=['callcenter','comercial','retencao','recuperacao','logistica'];
-const RULE_PER={comercial:3,retencao:5,recuperacao:3};
+const RULE_PER={get comercial(){return CAP_COM;},get retencao(){return CAP_RET;},get recuperacao(){return CAP_REC;}};
 function bldgs(){const sc=(S.sede&&S.sede.ci)||0,out=[{key:'sede',fl:S.floors,ci:sc,name:'Sede · '+((S.cities[sc]||{}).name||''),main:true}];
   for(const c of S.cities){if(c.idx===sc)continue;if(c.hq)out.push({key:'hq'+c.idx,fl:c.hq.floors,ci:c.idx,name:'Regional · '+c.name});else if(c.galpao)out.push({key:'f'+c.idx,fl:c.galpao,ci:c.idx,name:'Filial · '+c.name});}
   if(S.outs&&Object.keys(S.outs).length)out.push({key:'out',fl:S.outs,ci:null,name:'Terceirizada',main:true});return out;}
@@ -2788,7 +2798,7 @@ function servesOf(b,id){const r=rulesOf().serve[b.key+':'+id],set=new Set(b.ci!=
   if(r){for(const i of r)if(S.cities[i])set.add(i);return set;}
   if(b.main){const others=new Set(bldgs().filter(x=>!x.main&&bHas(x,id)).map(x=>x.ci));for(const c of S.cities)if(!others.has(c.idx))set.add(c.idx);}
   return set;}
-function bCap(b,id){return inB(b.fl,()=>{if(!built(id))return 0;if(id==='callcenter'){const t=team(id);return ((t.voz||0)*40+(t.texto||0)*50)*effOf(id);}return capOf(id,RULE_PER[id]||1);});}
+function bCap(b,id){return inB(b.fl,()=>{if(!built(id))return 0;if(id==='callcenter'){const t=team(id);return ((t.voz||0)*CAP_VOZ+(t.texto||0)*CAP_TEXTO)*effOf(id);}return capOf(id,RULE_PER[id]||1);});}
 function allocSector(id,dem){const B=bldgs().filter(b=>bHas(b,id)).map(b=>({b,cap:bCap(b,id),sv:servesOf(b,id)})),left=dem.slice(),got=dem.map(()=>0);
   const give=(cap,set)=>{let tot=0;for(const i of set)tot+=left[i]||0;if(tot<=0||cap<=0)return cap;const use=Math.min(cap,tot);for(const i of set){const x=use*(left[i]||0)/tot;got[i]+=x;left[i]-=x;}return cap-use;};
   for(const x of B)x.rest=give(x.cap,x.sv);
@@ -2889,7 +2899,7 @@ function logisticsHtml(){if(!S.cities.length)return '';
     const who=fl===S.floors?'Galpão da sede':c.hq?(fl?'Galpão da sede regional':'Sede regional sem galpão (compre no prédio)'):c.galpao?'Galpão da filial':main?'Atendida pelo galpão da sede (2 viagens por equipamento)':'Sem galpão';
     const drv=fl?inB(fl,()=>opsOf('logistica')):0;
     const btn=c.galpao&&!c.hq?`<button class="btn small signal" data-act="team" data-f="logistica" data-hq="${ci}">Motoristas · ${drv}</button>`:canGalpao(c)?`<button class="btn small primary" data-act="galpao" data-c="${ci}">Galpão · ${brl0(GALPAO_COST)}</button>`:'';
-    return `<div class="choice"><div><b>${esc(c.name)}</b><small>${e.r} rádio(s) · ${e.o} ONU(s) no estoque${n?` · ${n} para recolher`:''}<br>${who}${fl?` · ${drv} motorista(s), até ${inB(fl,()=>capOf('logistica',6))}/mês`:''}</small></div>${btn}</div>`;}).join('');
+    return `<div class="choice"><div><b>${esc(c.name)}</b><small>${e.r} rádio(s) · ${e.o} ONU(s) no estoque${n?` · ${n} para recolher`:''}<br>${who}${fl?` · ${drv} motorista(s), até ${inB(fl,()=>capOf('logistica',CAP_LOG))}/mês`:''}</small></div>${btn}</div>`;}).join('');
   return `<div class="notice" style="margin-top:12px"><b>Logística e estoque por cidade</b><p class="muted" style="margin:4px 0 0;font-size:12.5px">Rádios e ONUs ficam no estoque da cidade onde foram recolhidos. Filiais (loja ou filial de área) podem ter galpão próprio com motoristas.</p><div class="choice-list" style="margin-top:8px">${rows}</div></div>`;}
 function buildGalpao(ci){const c=S.cities[ci];if(!canGalpao(c))return;if(!spend(GALPAO_COST))return;c.galpao={logistica:{built:true,team:{}}};addXp(40);log(`Galpão de logística aberto na filial de ${c.name}.`);save(true);toast(`Galpão em ${c.name}! Contrate motoristas.`);openTeam('logistica',ci);}
 function buildingPanelHtml(){
@@ -2936,11 +2946,11 @@ function staffAlerts0(){
   if(!S||S.phase!=='play')return [];
   const out=[],add=(key,id,msg)=>out.push({key,id,msg});
   const cnt=fn=>S.cities.reduce((s,c)=>s+famsOf(c).filter(fn).length,0),cl=allClients();
-  if(built('callcenter')){const t=team('callcenter'),k=Math.floor(((t.voz||0)*40+(t.texto||0)*50)*effOf('callcenter'));if(cl>k)add('cc','callcenter',`Call Center: ${cl} clientes e a equipe atende ${k}. Contrate atendentes.`);}
-  if(built('recuperacao')){const n=cnt(l=>l.st==='late'||l.st==='suspended'),k=capOf('recuperacao',3);if(n>k)add('rec','recuperacao',`Recuperação: ${n} inadimplentes e os cobradores negociam ${k} por mês.`);}
-  if(built('retencao')){const n=cnt(l=>l.st==='cancelReq'),k=capOf('retencao',5);if(n>k)add('ret','retencao',`Retenção: ${n} pedidos de cancelamento e a equipe atende ${k} por mês.`);}
-  if(built('logistica')){const n=cnt(l=>l.cpe),k=capOf('logistica',6);if(n>k)add('log','logistica',`Logística: ${n} rádios para recolher e os motoristas buscam ${k} por mês.`);}
-  if(built('ouvidoria')&&S.ouv){const k=capOf('ouvidoria',60);if((S.ouv.total||0)>k)add('ouv','ouvidoria',`Ouvidoria: ${S.ouv.total} manifestações e a equipe trata ${k} por mês.`);}
+  if(built('callcenter')){const t=team('callcenter'),k=Math.floor(((t.voz||0)*CAP_VOZ+(t.texto||0)*CAP_TEXTO)*effOf('callcenter'));if(cl>k)add('cc','callcenter',`Call Center: ${cl} clientes e a equipe atende ${k}. Contrate atendentes.`);}
+  if(built('recuperacao')){const n=cnt(l=>l.st==='late'||l.st==='suspended'),k=capOf('recuperacao',CAP_REC);if(n>k)add('rec','recuperacao',`Recuperação: ${n} inadimplentes e os cobradores negociam ${k} por mês.`);}
+  if(built('retencao')){const n=cnt(l=>l.st==='cancelReq'),k=capOf('retencao',CAP_RET);if(n>k)add('ret','retencao',`Retenção: ${n} pedidos de cancelamento e a equipe atende ${k} por mês.`);}
+  if(built('logistica')){const n=cnt(l=>l.cpe),k=capOf('logistica',CAP_LOG);if(n>k)add('log','logistica',`Logística: ${n} rádios para recolher e os motoristas buscam ${k} por mês.`);}
+  if(built('ouvidoria')&&S.ouv){const k=capOf('ouvidoria',CAP_OUV);if((S.ouv.total||0)>k)add('ouv','ouvidoria',`Ouvidoria: ${S.ouv.total} manifestações e a equipe trata ${k} por mês.`);}
   for(const f of FLOORS){if(f.id==='recepcao'||!built(f.id))continue;
     if(!headcount(f.id))add('zero-'+f.id,f.id,`${f.name}: setor sem ninguém trabalhando.`);
     else for(const i of effIssues(f.id))add('lid-'+f.id+i,f.id,`${f.name}: ${i}.`);}
@@ -3428,7 +3438,7 @@ function ouvidoriaMonth(ctx){
     {id:'cache',t:'Travamento em vídeos e jogos',n:compl*6,fix:'Instale servidores de cache no NOC',act:'servers'},
     {id:'geral',t:'Elogios, sugestões e dúvidas',n:Math.round(clients*0.006),fix:'Mantenha a equipe treinada',act:null},
   ].filter(x=>x.n>0).sort((a,b)=>b.n-a.n);
-  const total=T.reduce((a,b)=>a+b.n,0),cap=capOf('ouvidoria',60),handled=Math.min(total,cap),left=total-handled;
+  const total=T.reduce((a,b)=>a+b.n,0),cap=capOf('ouvidoria',CAP_OUV),handled=Math.min(total,cap),left=total-handled;
   let dRep=0,fine=0;
   if(handled)dRep+=Math.min(3,Math.floor(handled/40));
   if(left>20&&Math.random()<0.35){fine=Math.round(2000+left*40);S.money-=fine;log(`Anatel: ${left} reclamações sem resposta da ouvidoria viraram multa de ${brl0(fine)}.`);event(`Multa da Anatel: ${brl0(fine)}`);dRep-=2;}
@@ -4632,7 +4642,8 @@ function coachTick(){const T=COACH.tour;if(!T||!S){coachEnd();return;}const st=T
   const r=COACH.root,[t,b,l,rt]=r.querySelectorAll('.cb'),ring=r.querySelector('.c-ring'),hand=r.querySelector('.c-hand'),bub=r.querySelector('.c-bub');
   if(COACH.shown!==COACH.i){COACH.shown=COACH.i;const n=T.steps.length;
     bub.innerHTML=`<div class="c-head"><span>${T.title} · ${COACH.i+1}/${n}</span><button class="c-skip" data-coach="skip">Pular tutorial</button></div><p>${st.text}</p>${st.info?'<div class="c-foot"><button class="btn small primary" data-coach="next">Entendi</button></div>':''}`;}
-  const el=coachFind(st);COACH.el=el;const W=innerWidth,H=innerHeight;
+  // com outra janela aberta e o alvo fora dela, o tutorial espera sem bloquear
+  let el=coachFind(st);if(el&&modalOpen&&!document.getElementById("modalWrap").contains(el))el=null;COACH.el=el;const W=innerWidth,H=innerHeight;
   if(!el){for(const x of [t,b,l,rt])x.style.display='none';ring.style.display=hand.style.display='none';
     Object.assign(bub.style,{left:'50%',top:'auto',bottom:'calc(var(--dockH) + 30px + var(--sB))',transform:'translateX(-50%)'});return;}
   if(!COACH.scrolled){COACH.scrolled=true;try{el.scrollIntoView({block:'center',inline:'nearest'});}catch(e){}}
@@ -4747,8 +4758,21 @@ const CFGS=[
   ['BONUS_PER_LEVEL','Economia','Bônus por nível (R$ × nível)'],['BONUS_CAP','Economia','Bônus máximo por nível (R$)'],['OFFLINE_CAP','Economia','Ganho offline máximo (R$)'],['OFFLINE_RATE','Economia','Ganho offline por hora (fração do saldo)'],
 ];
 function cfgRef(k){const [base,path]=k.split('#');if(!path)return {get:()=>new Function('return '+base)(),set:v=>new Function('v',base+'=v')(v)};
-  const [id,f]=path.split('.'),o=new Function('return '+base)(),it=Array.isArray(o)?(/^\d+$/.test(id)?o[+id]:o.find(x=>x.id===id)):o[id];
-  return it?{get:()=>it[f],set:v=>{it[f]=v;}}:null;}
+  const segs=path.split('.'),id=segs.shift(),f=segs.pop(),o=new Function('return '+base)();let it=Array.isArray(o)?(/^\d+$/.test(id)?o[+id]:o.find(x=>x.id===id)):o[id];
+  for(const k of segs)it=it&&it[k];
+  return it&&f in it?{get:()=>it[f],set:v=>{it[f]=v;}}:null;}
+/* Etapa 2: salários, capacidade de cada função, torre e links. */
+CFGS.push(
+  ['FLOORS#callcenter.roles.voz.sal','Salários','N1 voz (R$/mês)'],['FLOORS#callcenter.roles.texto.sal','Salários','N1 texto/chat (R$/mês)'],['FLOORS#callcenter.roles.n2.sal','Salários','N2 suporte técnico (R$/mês)'],
+  ...['comercial','tecnico','logistica','retencao','recuperacao','rh','marketing','noc','ouvidoria','migracao'].map(id=>[`FLOORS#${id}.sal`,'Salários',`${(FLOORS.find(f=>f.id===id)||{}).op||id} (R$/mês)`]),
+  ['SUP_SAL','Salários','Supervisor (R$/mês)'],['GER_SAL','Salários','Gerente (R$/mês)'],
+  ['CAP_VOZ','Capacidade','Clientes por atendente N1 voz'],['CAP_TEXTO','Capacidade','Clientes por atendente N1 texto'],['CAP_COM','Capacidade','Visitas por vendedor (a cada 4 dias)'],['CAP_RET','Capacidade','Pedidos de cancelamento por retentor/mês'],['CAP_REC','Capacidade','Dívidas por cobrador/mês'],
+  ['CAP_LOG','Capacidade','Equipamentos recolhidos por motorista/mês'],['CAP_OUV','Capacidade','Manifestações por ouvidor/mês'],['CAP_MIG','Capacidade','Ligações por operador de migração/mês'],['CAP_TEC','Capacidade','Clientes por técnico (consultoria de gestão)'],
+  ['CAP','Capacidade','Clientes por torre de rádio'],['RANGE','Capacidade','Alcance da torre (quadras do tabuleiro)'],
+  ...LINKS.map((l,i)=>[`LINKS#${i}.price`,'Links',`Link ${l.name}: mensalidade (R$)`]),
+  ...LINKS.map((l,i)=>l.build?[`LINKS#${i}.build`,'Links',`Link ${l.name}: construção (R$)`]:null).filter(Boolean),
+  ...CITY_LINKS.map((l,i)=>[`CITY_LINKS#${i}.cost`,'Links',`Interligação ${l.name}: instalação (R$)`]),
+  ...CITY_LINKS.map((l,i)=>[`CITY_LINKS#${i}.price`,'Links',`Interligação ${l.name}: mensalidade (R$)`]));
 const CFG_DEF={};for(const [k] of CFGS){try{const r=cfgRef(k);if(r)CFG_DEF[k]=r.get();}catch(e){}}
 let CFG_CUR={},CFG_AT=null;
 function cfgApply(data){CFG_CUR=data&&typeof data==='object'?data:{};for(const [k] of CFGS){const r=(()=>{try{return cfgRef(k);}catch(e){return null;}})();if(!r||!(k in CFG_DEF))continue;const v=k in CFG_CUR&&isFinite(+CFG_CUR[k])?+CFG_CUR[k]:CFG_DEF[k];try{r.set(v);}catch(e){}}if(S)renderAll();}
@@ -4758,8 +4782,23 @@ async function cfgSave(data){const by=(SB.session.user||{}).email||'';
   const r=await sbFetch('/rest/v1/config',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'game',data,updated_by:by,updated_at:new Date().toISOString()})});
   if(!r.ok)throw new Error(r.status===404?'A tabela config não existe: rode o supabase/schema.sql.':r.status===401||r.status===403?'Sem permissão: só a conta do administrador grava.':'Erro '+r.status);
   try{await sbFetch('/rest/v1/config_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({by,data})});}catch(e){}}
-let ADM_G='Tempo';
-function openAdmin(){if(!isAdmin())return;const groups=[...new Set(CFGS.map(x=>x[1]))];
+let ADM_G='Tempo',ADM_PL=null;
+async function admPlayers(){try{const r=await sbFetch('/rest/v1/saves?select=user_id,company,email,level,clients,coins,diamonds,cities,month,updated_at&order=updated_at.desc&limit=300');if(!r.ok)throw new Error(r.status===400?'Rode o supabase/schema.sql (colunas novas da tabela saves).':'Erro '+r.status);return await r.json();}catch(e){return {err:e.message};}}
+async function admGrant(uid,g){const r=await sbFetch('/rest/v1/grants',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({user_id:uid,...g})});if(!r.ok)throw new Error(r.status===404?'Rode o supabase/schema.sql (tabela grants).':'Erro '+r.status);}
+function admPlayersHtml(){if(!ADM_PL)return '<p class="muted">Carregando jogadores…</p>';if(ADM_PL.err)return `<div class="notice warn">${esc(ADM_PL.err)}</div>`;
+  const ago=t=>{const m=Math.round((Date.now()-new Date(t))/60000);return m<60?m+' min':m<1440?Math.round(m/60)+' h':Math.round(m/1440)+' d';};
+  return `<p class="muted" style="margin:0 0 8px;font-size:13px">${ADM_PL.length} empresa(s). O presente chega ao jogador em até 2 minutos (ou quando ele abrir o jogo). Zerar a conta apaga a empresa dele no próximo acesso.</p><div class="choice-list">${ADM_PL.map(p=>`<div class="rule-row"><div><b>${esc(p.company||'(sem empresa)')}</b><small>${esc(p.email||p.user_id)}${p.level!=null?` · nível ${p.level} · ${(p.clients||0).toLocaleString('pt-BR')} clientes · ${p.cities||0} cidade(s) · ${(p.coins||0).toLocaleString('pt-BR')} selos · ${(p.diamonds||0).toLocaleString('pt-BR')} diamantes`:''} · salvo há ${ago(p.updated_at)}</small></div>
+    <div class="rule-chips" style="align-items:center"><input class="input" type="number" placeholder="Selos" data-gc="${p.user_id}" style="width:100px"><input class="input" type="number" placeholder="Diamantes" data-gd="${p.user_id}" style="width:110px"><input class="input" type="number" placeholder="R$" data-gm="${p.user_id}" style="width:120px"><input class="input" placeholder="Motivo (opcional)" data-gn="${p.user_id}" style="width:170px"><button class="btn small primary" data-give="${p.user_id}">Enviar</button><button class="btn small" data-zero="${p.user_id}" style="background:#ffe3e3">Zerar conta</button></div></div>`).join('')}</div>`;}
+document.addEventListener('click',async e=>{if(!S||!isAdmin())return;
+  const gv=e.target.closest('[data-give]');if(gv){const u=gv.dataset.give,v=a=>+((document.querySelector(`[data-${a}="${u}"]`)||{}).value||0),note=((document.querySelector(`[data-gn="${u}"]`)||{}).value||'').slice(0,120);
+    const g={coins:Math.round(v('gc')),diamonds:Math.round(v('gd')),money:v('gm'),note};if(!g.coins&&!g.diamonds&&!g.money){toast('Preencha selos, diamantes ou R$.');return;}gv.disabled=true;
+    try{await admGrant(u,g);toast('Enviado. Chega ao jogador em até 2 minutos.');if(u===SB.session.user.id)grantsApply();}catch(err){toast(err.message);}gv.disabled=false;return;}
+  const z=e.target.closest('[data-zero]');if(z){const p=(ADM_PL||[]).find(x=>x.user_id===z.dataset.zero)||{};if(!confirm(`Zerar a conta de ${p.company||p.email||'jogador'}? A empresa será apagada no próximo acesso dele. Não dá para desfazer.`))return;
+    try{await admGrant(z.dataset.zero,{reset:true,note:'conta zerada'});toast('Conta marcada para zerar.');}catch(err){toast(err.message);}}});
+function openAdmin(){if(!isAdmin())return;const groups=[...new Set(CFGS.map(x=>x[1])),'Jogadores'];
+  if(ADM_G==='Jogadores'){openModal(head('Administração','Jogadores')+`<div class="seg" style="flex-wrap:wrap;margin:10px 0">${groups.map(g=>`<button data-admg="${g}" aria-pressed="${g===ADM_G}">${g}</button>`).join('')}</div><div id="admPl">${admPlayersHtml()}</div><div class="foot"><button class="btn ghost" id="admRef">Atualizar lista</button><button class="btn" data-close>Fechar</button></div>`,m=>{
+      m.querySelectorAll('[data-admg]').forEach(b=>b.onclick=()=>{ADM_G=b.dataset.admg;openAdmin();});
+      const load=async()=>{ADM_PL=null;m.querySelector('#admPl').innerHTML=admPlayersHtml();ADM_PL=await admPlayers();const el=document.getElementById('admPl');if(el)el.innerHTML=admPlayersHtml();};m.querySelector('#admRef').onclick=load;if(!ADM_PL)load();});return;}
   const shown=k=>{const sc=(CFGS.find(x=>x[0]===k)||[])[3]||1;const v=k in CFG_CUR?+CFG_CUR[k]:CFG_DEF[k];return Math.round(v*sc*10000)/10000;};
   const rows=CFGS.filter(x=>x[1]===ADM_G&&x[0] in CFG_DEF).map(([k,g,lab,sc])=>{const ch=k in CFG_CUR;return `<div class="choice ${ch?'adm-ch':''}"><div><b>${lab}</b><small>Padrão: ${(Math.round(CFG_DEF[k]*(sc||1)*10000)/10000).toLocaleString('pt-BR')}${ch?' · <a href="#" data-admreset="'+k+'">voltar ao padrão</a>':''}</small></div><input class="input" type="number" step="any" data-adm="${k}" value="${shown(k)}" style="width:150px"></div>`;}).join('');
   openModal(head('Administração','Regras do jogo')+`<div class="notice warn">Só você vê esta tela. O que salvar aqui vale para <b>todos os jogadores</b> (em até 5 minutos) e só para compras novas.${CFG_AT?` Última mudança: ${new Date(CFG_AT).toLocaleString('pt-BR')}.`:''}</div>
@@ -4815,7 +4854,10 @@ async function bootCloud(){
   const legacy=loadLocal();S=legacy?migrate(legacy):null;
   const ok=await initCloud();
   if(!ok){S=null;bootFail('Não deu para carregar a sua conta agora.');return;}
+  try{const q=await sbFetch('/rest/v1/saves?select=level&limit=1');cloud.meta2=q.ok;}catch(e){}
+  if(S){const L=await grantsCheck();if(L&&L.some(g=>g.reset)){await grantsMark(L.filter(g=>g.reset).map(g=>g.id));log('Administração zerou a conta.');S=null;}}
   if(!S){showStart();return;}
+  setTimeout(grantsApply,3000);
   for(const c of S.cities)for(const l of famsOf(c))if(l.st==='pending'&&!l.deal)l.st='none';
   closeModal();renderAll();setTimeout(checkOffline,1500);setTimeout(autoGeo,2500);
 }
