@@ -1047,7 +1047,10 @@ const LINKS=[{g:0.2,name:'200 Mega',price:450},{g:0.5,name:'500 Mega',price:900}
   {g:200,name:'200 Gigas · 2ª rota de saída',price:110000,build:100000000,desc:'nova operadora de trânsito e bloco de IP público /20'},
   {g:400,name:'400 Gigas · 3ª rota + ASN próprio',price:200000,build:200000000,desc:'número de sistema autônomo (ASN) e bloco de IP /19'},
   {g:800,name:'800 Gigas · 4ª rota internacional',price:380000,build:400000000,desc:'saída por cabo submarino e bloco de IP /18'},
-  {g:1600,name:'1,6 Tera · 5ª rota e ponto de troca (IX)',price:700000,build:800000000,desc:'participação em ponto de troca de tráfego e bloco de IP /17'}];
+  {g:1600,name:'1,6 Tera · 5ª rota e ponto de troca (IX)',price:700000,build:800000000,desc:'participação em ponto de troca de tráfego e bloco de IP /17'},
+  {g:3200,name:'3,2 Tera · 6ª rota IPv6 nativa',price:1250000,build:1500000000,desc:'trânsito IPv6 nativo com duas operadoras internacionais',v6:1},
+  {g:6400,name:'6,4 Tera · 7ª rota e CDN própria',price:2300000,build:3000000000,desc:'rede de entrega de conteúdo própria em dois data centers',v6:1},
+  {g:12800,name:'12,8 Tera · 8ª rota transoceânica',price:4200000,build:6000000000,desc:'capacidade própria em cabo submarino para dois continentes',v6:1,lvl:400}];
 let START_DIAMONDS=50, DIA_TO_COINS=10, DIA_TO_MONEY=500, EVENTS_LEVEL=9, OUV_LEVEL=11, TOWER_COIN_COST=3, CPE_COIN_COST=2;
 let BIG_CITY=50000, REGION_POP=20000;
 let PROMO_LEVEL=100;
@@ -1142,6 +1145,8 @@ const LEVELS=[
   {l:100,items:['Promoções de contratação no Comercial (instalação grátis, mensalidades com desconto, fidelidade, plano em oferta)','Campanhas para clientes no Marketing (clube de vantagens, indique um amigo, migração premiada)']},
   {l:150,items:['Empresas terceirizadas assumem setores inteiros (Prédio → Terceirizadas e consultorias)','Consultorias de treinamento sobem a eficiência das equipes']},
   {l:160,items:['Consultoria de gestão paga em selos: administra qualquer setor da sede, regionais e filiais (contrata, promove e mantém a equipe certa)']},
+  {l:300,items:['IPv6 em toda a rede: peering direto, redes sem limite de endereços e rotas de 3,2 e 6,4 Tera (Link de internet)']},
+  {l:400,items:['Rota transoceânica de 12,8 Tera']},
   {l:200,items:['Planos corporativos com link dedicado para as empresas da cidade (Planos → Corporativo)','Executivos de contas vendem para empresas; SLA: link estourado dá desconto e perde cliente']},
   {l:22,items:['Empresa rende offline: até R$ 10 mil enquanto você está fora','CEO contratado com diamantes administra a empresa quando você sai']},
 ];
@@ -1886,7 +1891,7 @@ function netSteps(c){
   return ps.map((p,k)=>({p,cap:k===n?Math.min(homes,hostsOf(p)-12):hostsOf(p)-12,cost:mul*(k===0?0:n===1?Math.round(Math.max(NET_FIRST,last*0.3)/100)*100:Math.round(NET_FIRST*Math.pow(r,k-1)/100)*100)}));
 }
 function netPrefix(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length-1)].p;}
-function netCap(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length-1)].cap;}
+function netCap(c){const st=netSteps(c),cap=st[Math.min(c.net||0,st.length-1)].cap;return ipv6On()?Math.max(cap,cityHomes(c)+1000):cap;}
 function netUsed(c){return famsOf(c).filter(f=>isSub(f)||f.st==='pending').length;}
 const netFull=c=>netUsed(c)>=netCap(c);
 function saleBlock(c){return signupBlock(c)||(needsBlocks(c)?'quadras':null)||(needIlink(c)?'ilink':null)||(netFull(c)?'rede':null);}
@@ -1907,17 +1912,24 @@ function openNet(ci){
 
 /* ===================== Link de internet e tráfego ===================== */
 const TRAFFIC_MIX=[['YouTube','yt'],['Netflix','nf'],['Facebook, Instagram e WhatsApp','meta'],['TikTok','tt'],['Jogos online','game']];
+/* IPv6 (nível IPV6_LEVEL): construção única. Parte do tráfego sai por peering IPv6 direto (IPV6_OFF) sem passar pelo link,
+   e as redes das cidades deixam de ter limite de endereços. Libera as rotas de link marcadas com v6. */
+let IPV6_LEVEL=300,IPV6_COST=500000000,IPV6_OFF=0.2;
+const ipv6On=()=>!!(S&&S.ipv6);
 function cacheRed(){if(!built('noc'))return 0;return SERVERS.reduce((s,sv)=>s+(S.servers[sv.id]?sv.share*0.8:0),0);}
 function trafficRaw(){let mb=0;for(const c of S.cities)for(const l of famsOf(c))if(pays(l)||l.st==='late')mb+=planById(l.plan).mb||10;return mb*0.025*(1+monthOf(S.day)*0.004)/1000+corpMb()*0.6/1000;}
 /* Durante um desenho (RC) o tráfego é calculado uma vez só. */
-function trafficGbps(){if(RC&&RC.has("tg"))return RC.get("tg");const v=trafficRaw()*(1-cacheRed());if(RC)RC.set("tg",v);return v;}
+function trafficGbps(){if(RC&&RC.has("tg"))return RC.get("tg");const v=trafficRaw()*(1-cacheRed())*(ipv6On()?1-IPV6_OFF:1);if(RC)RC.set("tg",v);return v;}
 const linkNow=()=>LINKS[clamp(S.link||0,0,LINKS.length-1)];
 const gb=v=>v>=1?v.toFixed(1).replace('.',',')+' Gbps':Math.round(v*1000)+' Mbps';
+function linkLock(x){const lv=levelOf(S.xp);if(x.lvl&&lv<x.lvl)return 'Nível '+x.lvl;if(x.v6&&!ipv6On())return lv<IPV6_LEVEL?'Nível '+IPV6_LEVEL+' + IPv6':'Implante o IPv6';return '';}
+function ipv6Html(){const lv=levelOf(S.xp);if(ipv6On())return `<div class="notice ok" style="margin:8px 0"><b>IPv6 na rede</b> desde o mês ${S.ipv6.at}: ${Math.round(IPV6_OFF*100)}% do tráfego sai por peering IPv6 sem passar pelo link, e as redes das cidades não têm mais limite de endereços.</div>`;
+  return `<div class="choice" style="margin:8px 0;${lv<IPV6_LEVEL?'opacity:.75':''}"><div><b>IPv6 em toda a rede</b><small>${lv<IPV6_LEVEL?`Libera no nível ${IPV6_LEVEL}. `:''}Endereços praticamente infinitos (acaba o limite de IP de cada cidade), ${Math.round(IPV6_OFF*100)}% do tráfego sai por peering IPv6 direto com os grandes serviços e libera as rotas acima de 1,6 Tera.</small></div><button class="btn small primary" id="ipv6Go" ${lv<IPV6_LEVEL?'disabled':''}>${lv<IPV6_LEVEL?'🔒 Nível '+IPV6_LEVEL:'Implantar · '+brl0(IPV6_COST)}</button></div>`;}
 function openLink(){
   const raw=trafficRaw(),tr=trafficGbps(),ln=linkNow(),u=tr/ln.g,hist=S.history.slice(-12);
   const maxV=Math.max(ln.g,...hist.map(h=>Math.max(h.traf||0,h.linkG||0)),tr)*1.1||1;
   const W=300,H=110,bw=W/Math.max(6,hist.length+1);
-  const bars=[...hist.map(h=>({m:'M'+h.m,v:h.traf||0,cap:h.linkG||0})),{m:'agora',v:tr,cap:ln.g}].map((d,i)=>{const x=i*bw+3,hgt=d.v/maxV*H,cy=H-d.cap/maxV*H;return `<rect x="${x.toFixed(1)}" y="${(H-hgt).toFixed(1)}" width="${(bw-6).toFixed(1)}" height="${hgt.toFixed(1)}" rx="2" fill="${d.v>d.cap?'var(--danger)':d.v>d.cap*0.85?'var(--gold)':'var(--signal)'}"/><line x1="${x}" x2="${(x+bw-6).toFixed(1)}" y1="${cy.toFixed(1)}" y2="${cy.toFixed(1)}" stroke="#1e2a30" stroke-width="2"/><text x="${(x+(bw-6)/2).toFixed(1)}" y="${H+13}" text-anchor="middle" font-size="9" fill="#5b6a70">${d.m}</text>`;}).join('');
+  const bars=[...hist.map(h=>({m:'M'+h.m,v:h.traf||0,cap:h.linkG||0})),{m:'agora',v:tr,cap:ln.g}].map((d,i)=>{const x=i*bw+3,hgt=d.v/maxV*H,cy=H-d.cap/maxV*H;return `<rect x="${x.toFixed(1)}" y="${(H-hgt).toFixed(1)}" width="${(bw-6).toFixed(1)}" height="${hgt.toFixed(1)}" rx="2" fill="${d.v>d.cap?'var(--danger)':d.v>d.cap*0.85?'var(--gold)':'var(--signal)'}"/><line x1="${x}" x2="${(x+bw-6).toFixed(1)}" y1="${cy.toFixed(1)}" y2="${cy.toFixed(1)}" stroke="#1e2a30" stroke-width="2"/><text x="${(x+(bw-6)/2).toFixed(1)}" y="${H+13}" text-anchor="middle" font-size="7.5" fill="#5b6a70">${i%2===0||d.m==='agora'?d.m:''}</text>`;}).join('');
   const mix=TRAFFIC_MIX.map(([n,id])=>{const sv=SERVERS.find(x=>x.id===id),own=built('noc')&&S.servers[id];return [n,raw*sv.share,own];});mix.push(['Outros sites e serviços',raw*(1-SERVERS.reduce((s,x)=>s+x.share,0)),false]);
   openModal(head('Rede','Link de internet e tráfego')+`<div class="kpis"><div class="kpi"><span>Tráfego no pico</span><b>${gb(tr)}</b></div><div class="kpi"><span>Link contratado</span><b>${ln.name}</b></div><div class="kpi"><span>Uso</span><b style="color:${u>1?'var(--danger)':u>0.85?'#9a6a00':'inherit'}">${Math.round(u*100)}%</b></div></div>
     ${u>1?'<div class="notice bad">Link estourado: no horário de pico a internet fica lenta, a reputação cai e mais clientes cancelam. Contrate um link maior.</div>':u>0.85?'<div class="notice warn">O link está quase cheio. O consumo cresce todo mês: planeje o próximo.</div>':''}
@@ -1927,8 +1939,10 @@ function openLink(){
     <div class="mix">${mix.map(([n,v,own])=>`<div class="mix-row"><span>${n}${own?' <small class="chip ok">no cache</small>':''}</span><i style="width:${Math.round(v/Math.max(raw,1e-9)*100)}%;${own?'opacity:.35':''}"></i><b>${gb(v)}</b></div>`).join('')}</div>
     <p class="muted" style="font-size:12.5px">${cacheRed()?`Os servidores de cache do NOC tiram ${Math.round(cacheRed()*100)}% do tráfego do link.`:'Servidores de cache no NOC tiram parte do tráfego do link.'} O consumo de cada cliente cresce com o tempo, e planos mais rápidos consomem mais.</p>
     <p class="eyebrow" style="margin-top:10px">Contratar link (cobrado todo mês)</p>
-    <div class="choice-list">${LINKS.map((x,i)=>{const need=x.build&&!((S.linkOwned??-1)>=i);return `<div class="choice"><div><b>${x.name}</b><small>${brl0(x.price)}/mês · aguenta até ${gb(x.g)} no pico${x.build?` · ${x.desc}${need?` · construção única de ${brl0(x.build)}`:' · rota já construída'}`:''}</small></div>${i===(S.link||0)?'<span class="chip ok">Contratado</span>':`<button class="btn small ${x.g>=tr*1.15&&i>(S.link||0)?'primary':''}" data-link="${i}">${need?'Construir · '+brl0(x.build):i>(S.link||0)?'Contratar':'Reduzir'}</button>`}</div>`;}).join('')}</div>`,m=>{
-    m.querySelectorAll('[data-link]').forEach(b=>b.onclick=()=>{const i=+b.dataset.link,x=LINKS[i];if(x.build&&!((S.linkOwned??-1)>=i)){if(!spend(x.build))return;S.linkOwned=i;addXp(500);log(`Nova rota de saída construída: ${x.name} (${brl0(x.build)}).`);event(`Rota de saída: ${x.name}`);}S.link=i;log(`Link de internet alterado para ${x.name} (${brl0(x.price)}/mês).`);event(`Link de ${x.name}`);checkMissions();save(true);renderAll();openLink();});
+    ${ipv6Html()}
+    <div class="choice-list">${LINKS.map((x,i)=>{const need=x.build&&!((S.linkOwned??-1)>=i),lk=linkLock(x);if(lk)return `<div class="choice" style="opacity:.7"><div><b>${x.name}</b><small>${brl0(x.price)}/mês · aguenta até ${gb(x.g)} no pico · ${x.desc}</small></div><span class="chip">🔒 ${lk}</span></div>`;return `<div class="choice"><div><b>${x.name}</b><small>${brl0(x.price)}/mês · aguenta até ${gb(x.g)} no pico${x.build?` · ${x.desc}${need?` · construção única de ${brl0(x.build)}`:' · rota já construída'}`:''}</small></div>${i===(S.link||0)?'<span class="chip ok">Contratado</span>':`<button class="btn small ${x.g>=tr*1.15&&i>(S.link||0)?'primary':''}" data-link="${i}">${need?'Construir · '+brl0(x.build):i>(S.link||0)?'Contratar':'Reduzir'}</button>`}</div>`;}).join('')}</div>`,m=>{
+    const v6=m.querySelector('#ipv6Go');if(v6)v6.onclick=()=>{if(ipv6On()||levelOf(S.xp)<IPV6_LEVEL||!spend(IPV6_COST))return;S.ipv6={at:monthOf(S.day)};addXp(1000);sfx('level');log(`IPv6 implantado em toda a rede (${brl0(IPV6_COST)}).`);event('IPv6 na rede');save(true);renderAll();openLink();};
+    m.querySelectorAll('[data-link]').forEach(b=>b.onclick=()=>{const i=+b.dataset.link,x=LINKS[i];if(linkLock(x))return;if(x.build&&!((S.linkOwned??-1)>=i)){if(!spend(x.build))return;S.linkOwned=i;addXp(500);log(`Nova rota de saída construída: ${x.name} (${brl0(x.build)}).`);event(`Rota de saída: ${x.name}`);}S.link=i;log(`Link de internet alterado para ${x.name} (${brl0(x.price)}/mês).`);event(`Link de ${x.name}`);checkMissions();save(true);renderAll();openLink();});
   });
 }
 
@@ -4679,6 +4693,7 @@ const TOURS={
   100:{title:'Nível 100 · Promoções',steps:[cP('building','Prédio'),cTeam('comercial','Comercial'),cInfo('#modal [data-eoff]','<b>Promoções de contratação</b>: instalação grátis, desconto nas mensalidades, fidelidade ou plano em oferta. Escolha uma aqui. Campanhas para a base (clube, indicação, migração) ficam nas Campanhas do Marketing.'),cClose()]},
   150:{title:'Nível 150 · Terceirizadas e consultorias',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="outs"]',text:'Toque em <b>Abrir</b> em Terceirizadas e consultorias.',done:()=>!!document.querySelector('#modal [data-out]')},cInfo('#modal [data-out]','Uma <b>terceirizada</b> assume um setor inteiro com equipe pronta (cobra salários + 45%). Mais abaixo, as <b>consultorias de treinamento</b> sobem a eficiência por alguns meses.'),cClose()]},
   160:{title:'Nível 160 · Consultoria de gestão',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="outs"]',text:'Toque em <b>Abrir</b> em Terceirizadas e consultorias.',done:()=>!!document.querySelector('#modal [data-out]')},cInfo('#modal [data-mgmt], #modal [data-mgball]','<b>Consultoria de gestão</b> paga em selos: administra um setor (contrata, promove e deixa no tamanho certo). Ligue o <b>🔁 Automático no prédio</b> para não precisar renovar.'),cClose()]},
+  300:{title:'Nível 300 · IPv6',steps:[{sel:'[data-act="link"]',text:'Toque no ícone do <b>link de internet</b>.',done:()=>!!document.querySelector('#modal #ipv6Go, #modal .notice.ok')},cInfo('#modal #ipv6Go','<b>IPv6</b>: implante uma vez e parte do tráfego sai por peering direto, as cidades deixam de ter limite de endereços e liberam as rotas de 3,2 e 6,4 Tera.'),cClose()]},
   200:{title:'Nível 200 · Corporativo',steps:[cP('plans','Planos'),{sel:'#panelBody [data-act="execAdd"]',text:'Contrate <b>executivos de contas</b>: eles vendem links dedicados para as empresas das cidades com fibra.',done:()=>(S.execs||0)>0},cClose()]},
 };
 function introTour(){const c0=()=>S.cities[0],dn=d=>!!(S.docs[d]&&S.docs[d].done),st=d=>!!S.docs[d],docsOpen=()=>!!document.querySelector('#modal [data-doc], #modal .doc-row');
@@ -4752,6 +4767,7 @@ const CFGS=[
   ['CORP_PLANS#d50.price','Planos','Dedicado 50 Mega (R$)'],['CORP_PLANS#d100.price','Planos','Dedicado 100 Mega (R$)'],['CORP_PLANS#d300.price','Planos','Dedicado 300 Mega (R$)'],['CORP_PLANS#d1g.price','Planos','Dedicado 1 Giga (R$)'],
   ['COIN_M3','Selos e diamantes','Selos por cliente com 3 meses (por mês)'],['COIN_M6','Selos e diamantes','Selos por cliente com 6 meses (por mês)'],['COIN_M12','Selos e diamantes','Selos por cliente com 12 meses (por mês)'],['COIN_RATE','Selos e diamantes','R$ por selo convertido'],
   ['START_DIAMONDS','Selos e diamantes','Diamantes no começo'],['DIA_LEVEL','Selos e diamantes','Diamantes por nível'],['DIA_MISSION','Selos e diamantes','Diamantes por missão'],['DIA_TO_COINS','Selos e diamantes','Selos por diamante'],['DIA_TO_MONEY','Selos e diamantes','R$ por diamante'],
+  ['IPV6_LEVEL','Níveis','IPv6'],['IPV6_COST','Preços','IPv6: implantação (R$)'],['IPV6_OFF','Links','IPv6: fração do tráfego por peering (0,2 = 20%)'],
   ['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
   ['DOCS#contrato.days','Duração','Contrato social (dias)'],['DOCS#cnpj.days','Duração','CNPJ (dias)'],['DOCS#alvara.days','Duração','Alvará (dias)'],['DOCS#contrato.cost','Preços','Contrato social (R$)'],['DOCS#alvara.cost','Preços','Alvará (R$)'],
   ['TRAININGS#b.months','Duração','Treinamento básico (meses)'],['TRAININGS#a.months','Duração','Treinamento avançado (meses)'],['TRAININGS#l.months','Duração','Liderança e gestão (meses)'],['CEO_MAX_H','Duração','CEO: horas máximas'],
