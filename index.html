@@ -927,6 +927,27 @@ html body .hs-fly.speed button{padding:calc(var(--ph)*.16) calc(var(--ph)*.3);fo
   html body .fab-expand b,html body .fab-expand small{display:none}
   html body .hud-side{top:calc(var(--ovTop) + var(--fabH) + var(--gap) + 4px)}
 }
+/* tela de carregamento do mapa */
+.ql-load{max-width:520px;margin:0 auto;gap:10px;text-align:left;align-items:stretch}
+.ql-title{font-family:var(--display);font-weight:400;font-size:22px;color:var(--navy);text-align:center}
+.ql-steps{list-style:none;margin:4px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ql-step{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;opacity:.55}
+.ql-step.now,.ql-step.done{opacity:1}
+.ql-dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:2.5px solid var(--navy);background:#fff;font:400 15px/1 var(--display);color:var(--navy)}
+.ql-step.now .ql-dot{background:linear-gradient(180deg,#ffe066,var(--sun));animation:qlpulse 1.2s ease-in-out infinite}
+.ql-step.done .ql-dot{background:linear-gradient(180deg,#86e86f,var(--go));color:#fff}
+.ql-step b{font-size:14px;color:var(--navy)}
+.ql-step small{font-size:11.5px;color:var(--muted)}
+.ql-bar{height:10px;border-radius:6px;background:#dfe6ee;border:2px solid var(--navy);overflow:hidden}
+.ql-bar i{display:block;height:100%;background:linear-gradient(90deg,#5fc7ff,#1c8be6);transition:width .6s}
+.ql-now{display:flex;align-items:center;justify-content:center;gap:8px;margin:0;font-weight:700;color:var(--navy);font-size:14px;text-align:center}
+.ql-now .spin{width:18px;height:18px}
+.ql-note{margin:0;font-size:12.5px;color:var(--muted);text-align:center}
+.ql-tip{background:linear-gradient(180deg,#fffdf6,var(--cream));border:2.5px solid var(--wood);border-radius:14px;padding:10px 12px}
+.ql-tip span{font-family:var(--display);color:#d9480f;font-size:15px}
+.ql-tip p{margin:4px 0 0;color:#5c4326;font-size:14px;min-height:2.8em}
+@keyframes qlpulse{50%{transform:scale(1.12)}}
+@media (prefers-reduced-motion:reduce){.ql-step.now .ql-dot{animation:none}}
 </style>
 </head>
 <body class="booting">
@@ -1259,16 +1280,23 @@ function sbSaveRef(){
 function cityKeys(c){const nk=`${normName(c.name)}|${(c.uf||'').toUpperCase()}`;return {code:c.ibgeCode||null,nk};}
 /* Banco de quadras no Google Drive (via Apps Script) */
 const quadrasUrl=()=>String((window.PT_CONFIG||{}).quadrasUrl||'').trim();
-async function driveGetFaces(c){
-  const u=quadrasUrl();if(!u)return null;
-  const k=cityKeys(c),qs=`${k.code?`cidade=${encodeURIComponent(k.code)}&`:''}nome=${encodeURIComponent(k.nk)}`;
-  try{const r=await fetchJson(`${u}${u.includes('?')?'&':'?'}${qs}`,{},15000);return r&&r.ok&&Array.isArray(r.faces)&&r.faces.length>=6?r.faces:null;}catch(e){return null;}
-}
+/* Documento da cidade no banco de quadras: quadras (faces) e, quando já foi montado por alguém, o mapa da cidade (geo:
+   centro, tamanho e bairros). Uma busca por cidade a cada 10 min serve o geoLoad e o loadBlocks. */
+const DRIVE_DOC=new Map();
+async function driveDoc(c){const u=quadrasUrl();if(!u)return null;const k=cityKeys(c),hit=DRIVE_DOC.get(k.nk);if(hit&&Date.now()-hit.at<600000)return hit.doc;
+  const qs=`${k.code?`cidade=${encodeURIComponent(k.code)}&`:''}nome=${encodeURIComponent(k.nk)}`;
+  try{const r=await fetchJson(`${u}${u.includes('?')?'&':'?'}${qs}`,{},15000);const doc=r&&r.ok?r:null;DRIVE_DOC.set(k.nk,{at:Date.now(),doc});return doc;}catch(e){return null;}}
+async function driveGetFaces(c){const d=await driveDoc(c);return d&&Array.isArray(d.faces)&&d.faces.length>=6?d.faces:null;}
+const geoOk=g=>!!(g&&typeof g==='object'&&isFinite(g.lat)&&isFinite(g.lon)&&g.side>=500&&Array.isArray(g.bairros)&&g.bairros.length>=1&&g.bairros.length<=30&&g.bairros.every(b=>b&&typeof b.name==='string'&&isFinite(b.lat)&&isFinite(b.lon)));
+function geoForDrive(c){const g=c.geo;if(!g)return null;const o={lat:g.lat,lon:g.lon,side:g.side,source:g.source||'osm',pop:g.pop||c.pop||0,homes:g.homes||0,nBairros:g.nBairros||undefined,ibgeCode:g.ibgeCode||c.ibgeCode||undefined,
+  bairros:(g.bairros||[]).map((b,j)=>({name:String(c.bairros[j]||b.name||'').slice(0,60),lat:+(+b.lat).toFixed(6),lon:+(+b.lon).toFixed(6),real:!!b.real}))};return geoOk(o)?o:null;}
+async function drivePutGeo(c){const u=quadrasUrl(),geo=geoForDrive(c);if(!u||!geo||!sbOn()||!SB.session)return;const k=cityKeys(c);
+  try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({acao:'geo',city_key:k.code||k.nk,name_key:k.nk,geo,token:SB.session.access_token})});}catch(e){}}
 async function drivePutFaces(c,faces,R){
   const u=quadrasUrl();if(!u||!sbOn()||!SB.session)return;
   if(SB.session.expires_at*1000<Date.now()+60000)await sbRefresh();if(!SB.session)return;
   const k=cityKeys(c);
-  try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({city_key:k.code||k.nk,name_key:k.nk,name:c.name,uf:c.uf||'',lat:c.geo.lat,lon:c.geo.lon,radius:R,faces,token:SB.session.access_token})});}catch(e){}
+  try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({city_key:k.code||k.nk,name_key:k.nk,name:c.name,uf:c.uf||'',lat:c.geo.lat,lon:c.geo.lon,radius:R,faces,geo:geoForDrive(c),token:SB.session.access_token})});}catch(e){}
 }
 /* Avisa o banco de quadras das cidades que o jogador atende: o robô desenha primeiro as cidades até ${EXPAND_KM} km delas. */
 async function driveRegions(){
@@ -2276,7 +2304,22 @@ function quadraLook(c,q,overT){
   return {fill,cls,subs,sh,cov,fib};
 }
 function sectorPath(cx,cy,az,beam,r){if(!beam||beam>=360)return `M${cx-r} ${cy}a${r} ${r} 0 1 0 ${2*r} 0a${r} ${r} 0 1 0 ${-2*r} 0Z`;const n=Math.max(8,Math.round(beam/6));let d=`M${cx} ${cy}`;for(let i=0;i<=n;i++){const a=(az-beam/2+beam*i/n)*Math.PI/180;d+=`L${(cx+Math.sin(a)*r).toFixed(1)} ${(cy-Math.cos(a)*r).toFixed(1)}`;}return d+'Z';}
+/* Tela de carregamento do mapa: três etapas (cidade, bairros, quadras), tempo desde o início e uma dica do jogo
+   que troca a cada 7 s. Um relógio de 1 s atualiza tempo e dica enquanto a tela está aberta. */
+const GEO_T0=new WeakMap();
+const TIPS=['Cada torre setorial cobre um leque: gire a antena para o lado com mais casas sem sinal.','Cliente inadimplente não paga, mas ocupa a rede: monte a Recuperação para negociar as dívidas.','O Call Center precisa acompanhar a base: atendimento lento derruba a reputação e aumenta os cancelamentos.','Fibra custa mais para montar, mas aguenta muito mais clientes e cancela menos que o rádio.','Quem cancela deixa o rádio ou a ONU em casa: a Logística recolhe e o próximo cliente sai sem custo de equipamento.','Link estourado deixa a internet lenta à noite: acompanhe o ícone do link na lateral.','Preço menor vende mais; preço maior rende mais por cliente. Cidades pequenas e grandes têm tabelas separadas em Planos.','Selos de fidelidade vêm de clientes antigos: dá para trocar por proteção contra crises.','A expansão abre cidades até 200 km das que você já atende, em cadeia.','A Retenção tenta segurar quem pediu cancelamento: cada retentor atende 5 pedidos por mês.','Supervisores e gerente aumentam a eficiência do setor: 1 supervisor para cada 5 operadores.','O RH libera mais vagas por setor e segura pedidos de demissão.','No mapa, tocar numa quadra mostra as famílias, quem já é cliente e quem tem sinal.','Uma filial de área amplia a área de atuação de uma cidade grande e tem balcão de vendas.','Velocidade 4× acelera o jogo, mas os problemas também chegam mais rápido.'];
+function lockStep(c){if(c.geo)return 3;const st=c.geoStep||'';return /bairro|CEP|regi|IBGE/i.test(st)?2:1;}
+setInterval(()=>{const el=document.getElementById('qlTime');if(!el||!S)return;const c=city(),t0=GEO_T0.get(c);if(t0)el.textContent=Math.round((Date.now()-t0)/1000)+' s';const tp=document.getElementById('qlTip');if(tp){const k=Math.floor(Date.now()/7000)%TIPS.length;if(tp.dataset.k!==String(k)){tp.dataset.k=k;tp.textContent=TIPS[k];}}},1000);
 function lockHtml(c){
+  const busy0=blockBusy.has(c)||geoBusy.has(c);
+  if(busy0&&navigator.onLine){if(!GEO_T0.has(c))GEO_T0.set(c,Date.now());const step=lockStep(c),t0=GEO_T0.get(c),k=Math.floor(Date.now()/7000)%TIPS.length;
+    const steps=[['Cidade','Localizar no mapa'],['Bairros','Nomes e regiões'],['Quadras','Ruas e quarteirões']].map(([t,d],i)=>`<li class="ql-step ${i+1<step?'done':i+1===step?'now':''}"><span class="ql-dot">${i+1<step?'✓':i+1}</span><b>${t}</b><small>${d}</small></li>`).join('');
+    return `<div class="qlock ql-load" role="status"><b class="ql-title">Montando o mapa de ${esc(c.name)}</b>
+      <ol class="ql-steps">${steps}</ol>
+      <div class="ql-bar"><i style="width:${[0,20,55,85][step]}%"></i></div>
+      <p class="ql-now"><span class="spin" aria-hidden="true"></span>${esc(c.geoStep||(c.geo?'Desenhando as quadras pelas ruas…':`Procurando ${c.name} no mapa…`))} · <span id="qlTime">${Math.round((Date.now()-t0)/1000)} s</span></p>
+      <p class="ql-note">Os dados vêm do OpenStreetMap e do IBGE. Na primeira vez a cidade pode levar até um minuto; depois fica guardada no banco do jogo e abre em segundos.</p>
+      <div class="ql-tip"><span>💡 Dica</span><p id="qlTip" data-k="${k}">${esc(TIPS[k])}</p></div></div>`;}
   const busy=blockBusy.has(c)||geoBusy.has(c),st=BSTAT.get(c),off=!navigator.onLine;
   const secs=st&&st.next?Math.max(0,Math.ceil((st.next-Date.now())/1000)):0;
   const title=!c.geo?(geoBusy.has(c)?(c.geoStep||`Procurando ${c.name} no mapa…`):off?'Sem internet agora':'Mapa da cidade ainda não carregado'):busy?`Rastreando as ruas e quadras de ${c.name}…`:off?'Sem internet agora':`Servidor de mapas ocupado`;
@@ -2488,7 +2531,7 @@ async function loadBlocks(c){
     const keep=hasBlocks(c)?c.blocks.filter(q=>q.ar):[];if(keep.length)c.blocks=c.blocks.filter(q=>!q.ar);
     const moved=rehomeFamilies(c,blocks);
     c.blocks=blocks;
-    if(keep.length){let id=blocks.length;for(const q of keep)q.id=id++;c.blocks.push(...keep);blockHomes(c,c.blocks);for(const q of c.blocks)delete q.ib;}c.blocksAt=Date.now();delete c.blocksTried;BSTAT.delete(c);QV=null;QSig='';
+    if(keep.length){let id=blocks.length;for(const q of keep)q.id=id++;c.blocks.push(...keep);blockHomes(c,c.blocks);for(const q of c.blocks)delete q.ib;}c.blocksAt=Date.now();delete c.blocksTried;BSTAT.delete(c);QV=null;QSig='';GEO_T0.delete(c);
     log(`${c.name}: ${blocks.length} quadras ${src==='cache'?'carregadas do banco de quadras (Drive)':'desenhadas pelas ruas do OpenStreetMap'}, ${cityHomes(c).toLocaleString('pt-BR')} moradores${moved?`, ${moved} cliente(s) e pendência(s) mantidos`:''}.`);
     toast(`${blocks.length} quadras reais de ${c.name} no tabuleiro.`);
     save(true);
@@ -3856,7 +3899,13 @@ async function geocodeCity(name,uf){
   const a=good.address||{};
   return {lat:+good.lat,lon:+good.lon,osmType:good.osm_type,osmId:good.osm_id,pop:parseInt(((good.extratags||{}).population||'').replace(/\D/g,''))||0,name:a.city||a.town||a.village||a.municipality||good.name,uf:ufFrom(a)};
 }
-async function overpass(q,ms){let last;for(const url of OVERPASS){try{return await fetchJson(url,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},ms||30000);}catch(e){last=e;}}throw last;}
+/* Servidores do Overpass em paralelo escalonado: começa no primeiro; se em 6 s não respondeu, chama o próximo (e na hora,
+   se algum falhar). Vale a primeira resposta. Antes era um de cada vez, até 30 s cada (até 2 minutos parado). */
+function overpass(q,ms){ms=ms||30000;const opts={method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}};
+  return new Promise((res,rej)=>{let next=0,active=0,done=false,last=null,timer=null;
+    const launch=()=>{if(done||next>=OVERPASS.length)return;const url=OVERPASS[next++];active++;clearTimeout(timer);timer=setTimeout(launch,6000);
+      fetchJson(url,opts,ms).then(r=>{if(done)return;done=true;clearTimeout(timer);res(r);}).catch(e=>{last=e;active--;if(done)return;if(next<OVERPASS.length)launch();else if(!active){clearTimeout(timer);rej(last);}});};
+    launch();});}
 async function fetchBairros(g){
   const filt='[place~"^(suburb|neighbourhood|quarter)$"][name];out body 300;';
   const q=g.osmType==='relation'?`[out:json][timeout:25];area(${3600000000+Number(g.osmId)})->.a;node(area.a)${filt}`:`[out:json][timeout:25];node(around:7000,${g.lat},${g.lon})${filt}`;
@@ -3920,7 +3969,7 @@ function buildGeoIbge(c,g,d){
 const STREET_TYPES=/^(rua|avenida|av\.?|travessa|alameda|estrada|rodovia|praça|praca|largo|viela|via)\s+/i;
 async function cepBairros(g,cityName,uf){
   if(!uf)return [];
-  const r=await overpass(`[out:json][timeout:25];way(around:3500,${g.lat},${g.lon})[highway~"^(residential|tertiary|secondary|primary|living_street|unclassified)$"][name];out center 600;`);
+  const r=await overpass(`[out:json][timeout:15];way(around:3500,${g.lat},${g.lon})[highway~"^(residential|tertiary|secondary|primary|living_street|unclassified)$"][name];out center 600;`);
   const streets=new Map();
   for(const e of r.elements||[]){if(!e.center||!e.tags||!e.tags.name)continue;const k=e.tags.name;if(!streets.has(k))streets.set(k,[]);streets.get(k).push([e.center.lat,e.center.lon]);}
   const list=[...streets.entries()].map(([name,pts])=>{const la=pts.reduce((a,p)=>a+p[0],0)/pts.length,lo=pts.reduce((a,p)=>a+p[1],0)/pts.length;return {name,lat:la,lon:lo,d:Math.hypot(la-g.lat,lo-g.lon)};}).sort((a,b)=>a.d-b.d);
@@ -3942,8 +3991,15 @@ async function cepBairros(g,cityName,uf){
 async function geoLoad(c,opts={}){
   if(!c||geoBusy.has(c))return;
   if(!navigator.onLine){c.geoError='offline';renderReal();return;}
-  geoBusy.add(c);c.geoError=null;c.geoStep='Procurando a cidade…';renderReal();
+  geoBusy.add(c);c.geoError=null;c.geoStep='Procurando a cidade…';GEO_T0.set(c,Date.now());renderReal();
   try{
+    c.geoStep='Procurando o mapa no banco do jogo…';renderMap();
+    const dd=await driveDoc(c);
+    if(dd&&geoOk(dd.geo)){const geo=JSON.parse(JSON.stringify(dd.geo));geo.bairros.forEach(b=>{b.real=b.real!==false;});c.geo=geo;setQuadraHomes(c,geo.homes||Math.round((geo.pop||c.pop)/PEOPLE_PER_HOME));
+      if((opts.rename||c.namesAuto)&&c.namesAuto!==false){geo.bairros.forEach((b,j)=>{c.bairros[j]=b.name;});c.namesAuto=true;}
+      if(geo.ibgeCode&&!c.ibgeCode)c.ibgeCode=geo.ibgeCode;if(geo.pop&&!c.popOk){c.pop=geo.pop;if(!c.outorgaPaid)c.outorga=outorgaFor(geo.pop)*(c.costMul||1);}
+      log(`Mapa real de ${c.name}: carregado do banco do jogo.`);toast(`Mapa de ${c.name} carregado.`);save(true);setTimeout(()=>loadBlocks(c),50);return;}
+    c.geoStep='Procurando a cidade…';renderMap();
     let g=null;try{g=await geocodeCity(c.name,c.uf);}catch(e){g=null;}
     if(c.hint&&(!g||kmBetween(g,c.hint)>30))g={lat:c.hint.lat,lon:c.hint.lon,pop:0,name:c.name,uf:c.uf,osmType:null,osmId:null};
     const uf=(c.uf||(g&&g.uf)||'').toUpperCase();
@@ -3959,7 +4015,7 @@ async function geoLoad(c,opts={}){
       let source='osm';
       if(raw.length<5){
         c.geoStep='Cruzando ruas com os CEPs dos Correios…';renderReal();
-        let cep=[];try{cep=await cepBairros(g,c.name,uf);}catch(e){cep=[];}
+        let cep=[];try{cep=await Promise.race([cepBairros(g,c.name,uf),new Promise(r=>setTimeout(()=>r([]),20000))]);}catch(e){cep=[];}
         if(cep.length>=3){const seen=new Set(raw.map(b=>normName(b.name)));for(const b of cep.sort((a,b)=>b.n-a.n))if(!seen.has(normName(b.name))){raw.push(b);seen.add(normName(b.name));}source=raw.length?'cep':'osm';}
       }
       geo=buildGeo(c,g,raw);geo.source=source;
@@ -3978,7 +4034,7 @@ async function geoLoad(c,opts={}){
     const src={ibge:`${geo.nBairros} bairros oficiais do IBGE (Censo 2022)`,cep:'bairros cruzando ruas com os CEPs',osm:'bairros do OpenStreetMap'}[geo.source];
     log(`Mapa real de ${c.name}: ${src}, ${geo.homes.toLocaleString('pt-BR')} domicílios.`);
     toast(`Mapa de ${c.name} carregado: ${src}.`);
-    save(true);
+    save(true);drivePutGeo(c);
     setTimeout(()=>loadBlocks(c),50);
   }catch(e){c.geoError='fail';}
   finally{geoBusy.delete(c);c.geoStep='';LSig='';renderAll();}

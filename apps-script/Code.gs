@@ -9,6 +9,8 @@
  *   Regiões: GET  .../exec?regioes=1                  (cidades que os jogadores atendem; o robô desenha as vizinhas)
  *   Gravar:  POST .../exec   corpo JSON (texto)       ver doPost
  *   Região:  POST .../exec   {"acao":"regiao", ...}    o jogo avisa uma cidade que o jogador atende
+ *   Mapa:    POST .../exec   {"acao":"geo", ...}       o jogo guarda o mapa da cidade (centro, tamanho e bairros) junto das quadras,
+ *                                                       para a próxima abertura não precisar do OpenStreetMap nem dos Correios
  *
  * Quem pode gravar:
  *   - jogador logado no Supabase: só cria cidade nova (não sobrescreve);
@@ -58,9 +60,14 @@ function json_(obj) {
 }
 function chaveOk_(k) { return typeof k === 'string' && /^[0-9a-z| _-]{3,80}$/i.test(k); }
 function nomeArquivo_(k) { return k.replace(/[^0-9a-z]+/gi, '_') + '.json'; }
+/* O id de cada arquivo fica guardado nas Propriedades (F_<nome>): abrir por id é bem mais rápido que procurar por nome na pasta. */
 function arquivo_(k) {
-  const it = pasta_().getFilesByName(nomeArquivo_(k));
-  return it.hasNext() ? it.next() : null;
+  const p = props_(), nome = nomeArquivo_(k), chave = 'F_' + nome, id = p.getProperty(chave);
+  if (id) { try { const f = DriveApp.getFileById(id); if (!f.isTrashed()) return f; } catch (e) {} p.deleteProperty(chave); }
+  const it = pasta_().getFilesByName(nome);
+  const f = it.hasNext() ? it.next() : null;
+  if (f) p.setProperty(chave, f.getId());
+  return f;
 }
 function lerJson_(k) {
   const f = arquivo_(k);
@@ -70,7 +77,7 @@ function lerJson_(k) {
 function salvarJson_(k, obj) {
   const txt = JSON.stringify(obj);
   const f = arquivo_(k);
-  if (f) f.setContent(txt); else pasta_().createFile(nomeArquivo_(k), txt, 'application/json');
+  if (f) f.setContent(txt); else { const n = pasta_().createFile(nomeArquivo_(k), txt, 'application/json'); props_().setProperty('F_' + nomeArquivo_(k), n.getId()); }
 }
 function indice_() { return lerJson_('_indice'); }
 function salvarIndice_(idx) { salvarJson_('_indice', idx); }
@@ -84,6 +91,13 @@ function quadrasValidas_(faces) {
     }
   }
   return true;
+}
+/* Mapa da cidade: centro, tamanho do tabuleiro e até 30 bairros com nome e posição dentro do Brasil. */
+function geoValido_(g) {
+  if (!g || typeof g !== 'object' || JSON.stringify(g).length > 20000) return false;
+  if (!isFinite(g.lat) || !isFinite(g.lon) || !(g.side >= 500 && g.side <= 60000)) return false;
+  if (!Array.isArray(g.bairros) || g.bairros.length < 1 || g.bairros.length > 30) return false;
+  return g.bairros.every(function (b) { return b && typeof b.name === 'string' && b.name.length <= 80 && b.lat >= -35 && b.lat <= 6 && b.lon >= -75 && b.lon <= -28; });
 }
 function loginSupabaseOk_(token) {
   const p = props_(), url = p.getProperty('SUPABASE_URL'), key = p.getProperty('SUPABASE_ANON_KEY');
@@ -119,7 +133,7 @@ function doGet(e) {
     if (!f && chaveOk_(q.nome)) { const k2 = indice_()[q.nome]; if (k2) f = arquivo_(k2); }
     if (!f) return json_({ ok: false, erro: 'cidade ainda não está no banco' });
     const d = JSON.parse(f.getBlob().getDataAsString());
-    return json_({ ok: true, cidade: d.city_key, nome: d.name, uf: d.uf, n: d.n, faces: d.faces });
+    return json_({ ok: true, cidade: d.city_key, nome: d.name, uf: d.uf, n: d.n, faces: d.faces, geo: d.geo || null });
   } catch (err) {
     return json_({ ok: false, erro: String(err) });
   }
@@ -143,6 +157,22 @@ function regiao_(d, lock) {
   return json_({ ok: true, regiao: d.city_key });
 }
 
+/* ---------- mapa da cidade ----------
+   corpo: {"acao":"geo","city_key":"3514502","name_key":"duartina|SP","geo":{lat,lon,side,bairros:[...]},"token":"..."}
+   Só completa uma cidade que já tem quadras e ainda não tem mapa (o robô pode trocar). */
+function geo_(d, robo, lock) {
+  if (!geoValido_(d.geo)) return json_({ ok: false, erro: 'mapa da cidade inválido' });
+  lock.waitLock(20000);
+  let f = arquivo_(d.city_key);
+  if (!f && d.name_key) { const k2 = indice_()[d.name_key]; if (k2) f = arquivo_(k2); }
+  if (!f) return json_({ ok: false, erro: 'cidade ainda não está no banco' });
+  const doc = JSON.parse(f.getBlob().getDataAsString());
+  if (doc.geo && !robo) return json_({ ok: true, ja_existia: true });
+  doc.geo = d.geo; doc.updated_at = new Date().toISOString();
+  f.setContent(JSON.stringify(doc));
+  return json_({ ok: true, geo: d.city_key });
+}
+
 /* ---------- gravação ----------
    corpo: {"city_key":"3514304","name_key":"duartina|SP","name":"Duartina","uf":"SP","lat":..,"lon":..,
            "radius":2000,"faces":[...], "token":"<login do Supabase>" }   ou  "senha":"<SENHA_DO_ROBO>" */
@@ -156,6 +186,7 @@ function doPost(e) {
     if (!robo && !loginSupabaseOk_(d.token)) return json_({ ok: false, erro: 'sem permissão: entre na sua conta' });
     if (!chaveOk_(d.city_key) || (d.name_key && !chaveOk_(d.name_key))) return json_({ ok: false, erro: 'chave da cidade inválida' });
     if (d.acao === 'regiao') return regiao_(d, lock);
+    if (d.acao === 'geo') return geo_(d, robo, lock);
     if (!quadrasValidas_(d.faces)) return json_({ ok: false, erro: 'quadras inválidas' });
 
     lock.waitLock(20000);
@@ -164,10 +195,11 @@ function doPost(e) {
     const doc = {
       city_key: d.city_key, name_key: d.name_key || null, name: String(d.name || '').slice(0, 80), uf: String(d.uf || '').slice(0, 2),
       lat: +d.lat || null, lon: +d.lon || null, radius: +d.radius || null, n: d.faces.length, faces: d.faces,
+      geo: geoValido_(d.geo) ? d.geo : ((existe && JSON.parse(existe.getBlob().getDataAsString()).geo) || null),
       source: robo ? 'robo' : 'jogo', updated_at: new Date().toISOString(),
     };
     const txt = JSON.stringify(doc);
-    if (existe) existe.setContent(txt); else pasta_().createFile(nomeArquivo_(d.city_key), txt, 'application/json');
+    if (existe) existe.setContent(txt); else { const n = pasta_().createFile(nomeArquivo_(d.city_key), txt, 'application/json'); props_().setProperty('F_' + nomeArquivo_(d.city_key), n.getId()); }
     if (d.name_key && d.name_key !== d.city_key) {
       const idx = indice_();
       if (idx[d.name_key] !== d.city_key) { idx[d.name_key] = d.city_key; salvarIndice_(idx); }
