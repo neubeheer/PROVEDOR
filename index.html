@@ -1344,6 +1344,9 @@ setInterval(checkSession,20000);
 /* O progresso fica só na conta (Supabase). Cada mudança marca o save como sujo; o envio acontece no máximo a cada
    CLOUD_MIN, em até CLOUD_EVERY depois de uma mudança comum, em poucos segundos depois de uma importante, e ao sair da aba. */
 const CLOUD_EVERY=30000,CLOUD_MIN=12000;
+/* Se o banco falha, espera cada vez mais antes de tentar de novo (30 s, 1, 2, 4 e no máximo 8 min), com um sorteio
+   para os jogadores não baterem juntos: assim o jogo não ajuda a derrubar um banco já sobrecarregado. */
+const cloudBackoff=()=>Math.round(Math.min(480000,CLOUD_EVERY*Math.pow(2,Math.max(0,(cloud.fails||1)-1)))*(0.8+Math.random()*0.4));
 function save(important){
   if(!S)return;
   S.savedAt=Date.now();cloud.dirty=true;
@@ -1356,8 +1359,8 @@ async function flushCloud(){
   if(cloud.busy){scheduleCloud(2000);return;}
   cloud.busy=true;cloud.dirty=false;cloud.lastTry=Date.now();
   try{let json;if(cloud.sync||!cloud.ref.patch)json=saveJson();else{cloud.ser=true;try{json=await saveJsonAsync();}finally{cloud.ser=false;}}cloud.sync=false;
-    await cloud.ref.set({json,savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';try{localStorage.removeItem(SAVE_KEY);}catch(e){}driveRegions();syncRivals();}
-  catch(e){if(e&&e.takeover){cloud.busy=false;takeover();return;}cloud.dirty=true;cloud.status='erro';scheduleCloud(CLOUD_EVERY);}
+    await cloud.ref.set({json,savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';cloud.fails=0;try{localStorage.removeItem(SAVE_KEY);}catch(e){}driveRegions();syncRivals();}
+  catch(e){if(e&&e.takeover){cloud.busy=false;takeover();return;}cloud.dirty=true;cloud.status='erro';cloud.fails=(cloud.fails||0)+1;scheduleCloud(cloudBackoff());}
   cloud.busy=false;renderSaveDot();
 }
 function validSave(d){return !!(d&&d.v===2&&Array.isArray(d.cities)&&d.cities.length>0&&typeof d.money==='number');}
