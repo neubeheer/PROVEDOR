@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v58`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v59`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Só deitado: em celular e tablet em pé (`(orientation:portrait) and (pointer:coarse)`) aparece `#rotateLock` e o relógio para (`portraitLock()` no `loop`); o manifest abre deitado. O layout em pé continua no CSS, mas não é usado.
 - Coluna da direita só com ícones (`.hs-btn`): data (dia no selo) e velocidade abrem um balão ao lado (`HUD_OPEN`, `data-hs`); link muda de cor e mostra a % quando passa de 85%; Nova torre, Onde estou e Atualizar só com o ícone (nome no `title`). Deitado, o Expandir também é só o ícone 🌎, no topo da coluna.
@@ -61,7 +61,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - [x] `supabase/schema.sql` rodado: as tabelas `saves` e `presenca` existem (conferido em 2026-10-02).
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
 - Supabase: em 2026-10-04 o projeto antigo (fatdynkmnbqehxkrovsv, us-east-2, nano) ficou com CPU em 100% pelos saves de ~5 MB a cada 30 s e foi trocado por um projeto novo (wrvsbdtjtwbjutrtwcqk) com o `schema.sql` já rodado; o jogo recomeçou do zero. Falta trocar `SUPABASE_URL` e `SUPABASE_ANON_KEY` nas Propriedades do Apps Script.
-- [ ] Publicar a v58 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v59 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` (v50: mapa da cidade `geo` e busca de arquivo por id) no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 
