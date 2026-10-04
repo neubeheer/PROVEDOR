@@ -2716,18 +2716,29 @@ function mgmtRun(b,id,quiet){return inB(b.fl,()=>{if(!built(id))return null;cons
   const r={hired,fired,prom,ops:o,eff:effOf(id)};
   if(!quiet&&(hired||fired||prom))log(`Consultoria (${b.name} · ${f.name}): ${hired?hired+' contratado(s)':''}${hired&&(fired||prom)?', ':''}${fired?fired+' dispensado(s)':''}${fired&&prom?', ':''}${prom?prom+' promoção(ões)':''}; eficiência ${Math.round(r.eff*100)}%.`);
   return r;});}
-function mgmtMonth(){if(!S.mgmt)return;const m=monthOf(S.day);
+/* Automático: S.mgmt[k].auto renova aquele contrato ao vencer; S.mgmtAuto[prédio] renova todos os contratos do prédio e contrata
+   os setores que forem montados nele. Paga em selos no preço da hora; sem selos, avisa e tenta no mês seguinte. */
+function mgmtAutoMonth(){const m=monthOf(S.day),A=S.mgmtAuto||{};S.mgmt=S.mgmt||{};
+  const buy=(k,label)=>{const price=mgmtPrice();if((S.coins||0)<price){const v=S.mgmt[k];if(!v||v.noCoin!==m){if(v)v.noCoin=m;log(`Renovação automática da consultoria (${label}) pendente: faltam selos (${price.toLocaleString('pt-BR')}).`);}return false;}
+    S.coins-=price;const prev=S.mgmt[k]||{};S.mgmt[k]={since:m,until:m+MGMT_MONTHS-1,paid:price,auto:prev.auto};log(`Consultoria de gestão renovada automaticamente: ${label} (${price.toLocaleString('pt-BR')} selos).`);return true;};
+  for(const b of bldgs()){if(b.key==='out')continue;for(const id of MGMT_SECTORS){if(!bHas(b,id))continue;const k=b.key+':'+id,v=S.mgmt[k],label=b.name+' · '+FLOORS.find(x=>x.id===id).name;
+    if(v&&v.until>=m)continue;if((v&&v.auto)||A[b.key])buy(k,label);}}}
+function mgmtMonth(){if(levelOf(S.xp)>=MGMT_LEVEL)mgmtAutoMonth();if(!S.mgmt)return;const m=monthOf(S.day);
   for(const [k,v] of Object.entries(S.mgmt)){if(v.until<m){if(!v.warned){v.warned=1;log(`Contrato da consultoria de gestão terminou (${k.split(':')[1]}). Renove em Terceirizadas e consultorias.`);}continue;}
     const [bk,id]=k.split(':'),b=bldgs().find(x=>x.key===bk);if(b)mgmtRun(b,id);}}
 function mgmtHtml(){const lvl=levelOf(S.xp);if(lvl<MGMT_LEVEL)return `<h3 style="margin:14px 0 6px">Consultoria de gestão</h3><div class="notice">Libera no nível ${MGMT_LEVEL}: a consultoria administra um setor (contrata, promove e mantém a equipe no tamanho certo), paga em selos.</div>`;
   const m=monthOf(S.day),price=mgmtPrice();
   const rows=bldgs().filter(b=>b.key!=='out').map(b=>{const secs=MGMT_SECTORS.filter(id=>bHas(b,id));if(!secs.length)return '';
-    return `<div class="choice" style="flex-wrap:wrap"><div style="min-width:160px"><b>${esc(b.name)}</b><small>${secs.length} setor(es) montado(s)</small></div><div style="display:flex;flex-wrap:wrap;gap:6px;flex:1;justify-content:flex-end">${secs.map(id=>{const f=FLOORS.find(x=>x.id===id),v=(S.mgmt||{})[b.key+':'+id],on=v&&v.until>=m;
-      return on?`<span class="chip ok" title="Até o mês ${v.until}">✓ ${f.name} · até mês ${v.until}</span>`:`<button class="btn small" data-mgmt="${b.key}:${id}" ${(S.coins||0)<price?'disabled':''}>${f.name}${v?' (renovar)':''}</button>`;}).join('')}</div></div>`;}).join('');
+    const ba=!!(S.mgmtAuto||{})[b.key];
+    return `<div class="choice" style="flex-wrap:wrap"><div style="min-width:160px"><b>${esc(b.name)}</b><small>${secs.length} setor(es) montado(s)</small><button class="btn small ${ba?'primary':'ghost'}" data-mgball="${b.key}" style="margin-top:6px" title="Renova todos os contratos deste prédio e contrata os setores novos">🔁 Automático no prédio: ${ba?'ligado':'desligado'}</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;flex:1;justify-content:flex-end">${secs.map(id=>{const f=FLOORS.find(x=>x.id===id),v=(S.mgmt||{})[b.key+':'+id],on=v&&v.until>=m;
+      return on?`<span style="display:inline-flex;gap:4px;align-items:center"><span class="chip ok" title="Até o mês ${v.until}">✓ ${f.name} · até mês ${v.until}</span><button class="chip ${v.auto||ba?'ok':''}" data-mgauto="${b.key}:${id}" style="cursor:pointer" title="Renovação automática deste setor" ${ba?'disabled':''}>🔁 ${v.auto||ba?'auto':'manual'}</button></span>`:`<button class="btn small" data-mgmt="${b.key}:${id}" ${(S.coins||0)<price?'disabled':''}>${f.name}${v?' (renovar)':''}</button>`;}).join('')}</div></div>`;}).join('');
   return `<h3 style="margin:14px 0 6px">Consultoria de gestão · selos</h3><p class="muted" style="margin:0 0 6px;font-size:13px">Administra um setor de um prédio por ${MGMT_MONTHS} meses: todo mês contrata ou dispensa pela demanda das cidades que o prédio atende, ajusta supervisores e gerente e promove a equipe. Salários e contratações saem do caixa. Próximo contrato: <b>${price.toLocaleString('pt-BR')} selos</b> (você tem ${(S.coins||0).toLocaleString('pt-BR')}); cada contrato ativo encarece o seguinte em ${MGMT_BASE.toLocaleString('pt-BR')}.</p><div class="choice-list">${rows||'<p class="muted">Monte um setor para contratar a consultoria.</p>'}</div>`;}
-document.addEventListener('click',e=>{if(!S)return;const b=e.target.closest('[data-mgmt]');if(!b||b.disabled)return;if(levelOf(S.xp)<MGMT_LEVEL)return;
+document.addEventListener('click',e=>{if(!S)return;
+  const ab=e.target.closest('[data-mgball]');if(ab){S.mgmtAuto=S.mgmtAuto||{};const k=ab.dataset.mgball;S.mgmtAuto[k]=!S.mgmtAuto[k];if(S.mgmtAuto[k])mgmtAutoMonth();save(true);renderAll();openOuts();return;}
+  const au=e.target.closest('[data-mgauto]');if(au&&!au.disabled){const v=(S.mgmt||{})[au.dataset.mgauto];if(v){v.auto=!v.auto;save(true);openOuts();}return;}
+  const b=e.target.closest('[data-mgmt]');if(!b||b.disabled)return;if(levelOf(S.xp)<MGMT_LEVEL)return;
   const price=mgmtPrice();if((S.coins||0)<price){toast(`Faltam selos: precisa de ${price.toLocaleString('pt-BR')}.`);return;}
-  const [bk,id]=b.dataset.mgmt.split(':'),bd=bldgs().find(x=>x.key===bk);if(!bd)return;S.coins-=price;S.mgmt=S.mgmt||{};S.mgmt[bk+':'+id]={since:monthOf(S.day),until:monthOf(S.day)+MGMT_MONTHS-1,paid:price};
+  const [bk,id]=b.dataset.mgmt.split(':'),bd=bldgs().find(x=>x.key===bk);if(!bd)return;S.coins-=price;S.mgmt=S.mgmt||{};S.mgmt[bk+':'+id]={since:monthOf(S.day),until:monthOf(S.day)+MGMT_MONTHS-1,paid:price,auto:true};
   const r=mgmtRun(bd,id,true)||{};log(`Consultoria de gestão contratada para ${bd.name} · ${FLOORS.find(x=>x.id===id).name} (${price.toLocaleString('pt-BR')} selos): ${r.hired||0} contratado(s), ${r.fired||0} dispensado(s), ${r.prom||0} promoção(ões).`);
   addXp(80);sfx('level');save(true);renderAll();openOuts();});
 /* ===================== Regras de negócio =====================
