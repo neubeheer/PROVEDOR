@@ -928,6 +928,15 @@ html body .hs-fly.speed button{padding:calc(var(--ph)*.16) calc(var(--ph)*.3);fo
   html body .hud-side{top:calc(var(--ovTop) + var(--fabH) + var(--gap) + 4px)}
 }
 /* tela de carregamento do mapa */
+/* ocupa a tela inteira, por baixo do topo, da coluna da direita e da barra de painéis */
+html body #map.lockmode{position:fixed;inset:0;z-index:32;width:auto!important;height:auto!important;max-width:none;aspect-ratio:auto;margin:0;border:0;border-radius:0;box-shadow:none;padding:calc(var(--ovTop) + 8px) calc(var(--sideW) + 24px + var(--sR)) calc(var(--dockH) + 30px + var(--sB)) calc(24px + var(--sL));display:grid;place-items:center;overflow:auto;background:radial-gradient(120% 90% at 50% 40%,#fffdf6,#f1e6cc)}
+html body #map.lockmode .qlock{background:transparent;box-shadow:none;border:0;width:min(640px,100%)}
+html body #map.lockmode .ql-title{font-size:clamp(22px,4.5vmin,34px)}
+html body #map.lockmode .ql-tip p{font-size:clamp(14px,2.6vmin,17px)}
+body:has(#map.lockmode) .ov-left{display:none}
+body:has(#map.lockmode) .tabs.dock,body:has(#map.lockmode) .fab-expand{display:none!important}
+html body #map.lockmode{padding-bottom:calc(16px + var(--sB))}
+@media (max-height:500px){html body #map.lockmode .ql-load{gap:6px}html body #map.lockmode .ql-title{font-size:20px}html body #map.lockmode .ql-step small,html body #map.lockmode .ql-note{display:none}html body #map.lockmode .ql-dot{width:24px;height:24px;font-size:13px}html body #map.lockmode .ql-tip{padding:6px 10px}html body #map.lockmode .ql-tip p{font-size:13px;min-height:0}}
 .ql-load{max-width:520px;margin:0 auto;gap:10px;text-align:left;align-items:stretch}
 .ql-title{font-family:var(--display);font-weight:400;font-size:22px;color:var(--navy);text-align:center}
 .ql-steps{list-style:none;margin:4px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
