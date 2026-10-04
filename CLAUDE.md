@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v44`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v45`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Só deitado: em celular e tablet em pé (`(orientation:portrait) and (pointer:coarse)`) aparece `#rotateLock` e o relógio para (`portraitLock()` no `loop`); o manifest abre deitado. O layout em pé continua no CSS, mas não é usado.
 - Coluna da direita só com ícones (`.hs-btn`): data (dia no selo) e velocidade abrem um balão ao lado (`HUD_OPEN`, `data-hs`); link muda de cor e mostra a % quando passa de 85%; Nova torre, Onde estou e Atualizar só com o ícone (nome no `title`). Deitado, o Expandir também é só o ícone 🌎, no topo da coluna.
@@ -19,7 +19,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - Teto de clientes = habitantes: `q.dom` guarda moradores (`POT_PER_HOME` = 2,8 por domicílio); save antigo convertido uma vez (`pot2`). `netSteps` vai até cobrir `cityHomes(c)`. Regiões de outorga convertem de volta para população.
 - Promoções (nível `PROMO_LEVEL` = 100): `S.promo` (oferta de entrada `ENTRY_OFFERS` + `inst`), aplicadas em `chance()` (`promoChance`) e em `activate()` (`applyEntryPromo`, desconto `l.disc` e fidelidade `l.fidUntil`); procura espontânea no fechamento do mês. `S.cpromo` (clube, indica, migra) em `clientCampaignsMonth()`; custo em `promoCost` do relatório.
 - Nível 150 (`OUTS_LEVEL`): terceirizadas em `S.outs` (um "prédio" a mais em `allFloors`, fora das demissões; pacotes `OUT_PACKS`; taxa `OUT_FEE` sobre os salários em `outsFeeNow`; setor sem andar passa a existir) e consultorias em `S.train` (`TRAININGS`, bônus no `effOf` até o mês `until`). Tela `openOuts` (Prédio → Terceirizadas e consultorias).
-- RH: vagas por setor `sectorCap` = 4 + 4 por analista, com teto `sectorMax` (16 até o nível 24, +8 a cada 25 níveis). A equipe do próprio RH também tem plano de carreira.
+- RH é da empresa: `sectorCap` = 4 + 4 por analista de RH de todos os prédios (`rhAll`), com teto `sectorMax` (16 até o nível 24, +8 a cada 25 níveis), e vale em cada prédio; o plano de carreira aparece em qualquer prédio se houver RH em algum (`rhBuilt`). A equipe do próprio RH também tem carreira. `careerOf` dentro de um prédio é a daquele prédio; fora, soma todos (folha e eficiência). A promoção grava no prédio aberto (`BCTX`).
 - Nível 200 (`CORP_LEVEL`): planos corporativos `CORP_PLANS` em `c.corp` (empresas: `corpPot` = pop/45, precisa de fibra e outorga), vendidos por executivos de contas (`S.execs`, `EXEC_VISITS` por mês) em `corpMonth` no `monthEnd`; o tráfego entra em `trafficRaw` (60% do contratado); link ou interligação estourados violam o SLA (20% de desconto e +10% de cancelamento). Seção em Planos (`corpHtml`, preço por `data-cprice`). Relatório: Corporativo, Executivos de contas e Terceirizadas.
 - Botão fixo **Expandir** no topo do mapa (`data-act="city"`): a missão de expansão some depois de concluída, então ele é o acesso permanente à Expansão e à nova operação.
 - Filial de área (`openArea`/`buildArea`/`loadArea`, `c.areas`): numa cidade grande as quadras cobrem só o centro (raio de 2,5 km); tocar fora da área abre a filial (R$ 300 mil × `costMul` + R$ 5 mil/mês, até `AREA_MAX`, exige outorga da cidade inteira). Desenha as quadras pelo Overpass num raio `areaR` em volta do ponto (quadras com `q.ar`, sem repetir as que existem), redistribui os moradores com `blockHomes` e amplia `inArea`. O balcão faz `AREA_SALES` tentativas por mês (`areaSales`). Recarregar o mapa mantém as quadras das áreas.
@@ -56,7 +56,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - [x] `supabase/schema.sql` rodado: as tabelas `saves` e `presenca` existem (conferido em 2026-10-02).
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
 - [ ] Rodar no SQL Editor do Supabase: `alter table public.saves add column if not exists sess text;` (liga o "um aparelho por vez").
-- [ ] Publicar a v44 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v45 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda). Em 2026-10-02 o link ainda respondia a versão antiga (`?regioes=1` dava erro).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 

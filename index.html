@@ -1510,7 +1510,10 @@ function effOf(id){
 const capOf=(id,per)=>Math.floor(opsOf(id)*per*effOf(id)+1e-9);
 /* Vagas por setor: 4 sem RH, +4 por analista de RH; o teto sobe com o nível (16 até o nível 24, +8 a cada 25 níveis). */
 const sectorMax=()=>16+8*Math.floor(levelOf(S.xp)/25);
-function sectorCap(){return built('rh')?Math.min(sectorMax(),4+opsOf('rh')*4):4;}
+/* O RH é da empresa: os analistas de todos os prédios somam, e as vagas valem em cada prédio (sede e regionais). */
+const rhAll=()=>allFloors().reduce((t,f)=>t+(f.rh&&f.rh.built?((f.rh.team||{}).op||0):0),0);
+const rhBuilt=()=>allFloors().some(f=>f.rh&&f.rh.built);
+function sectorCap(){return rhBuilt()?Math.min(sectorMax(),4+rhAll()*4):4;}
 function hireCost(){return Math.round(HIRE_COST*(1+totalStaff()/40)*(built('rh')?0.8:1)/50)*50;}
 function staffPayroll(){let s=0;for(const f of FLOORS){if(!built(f.id)||f.id==='recepcao')continue;const R=rolesOf(f),t=team(f.id);for(const k in t)s+=(t[k]||0)*((R[k]||{}).sal||0);s+=careerExtra(f);}return s+(S.partners||0)*PARTNER_PAY;}
 const fiberPlans=()=>FIBER_TIERS[S.fiberTier].plans;
@@ -1887,13 +1890,15 @@ function openMigSector(){
 }
 
 /* ===================== Plano de carreira (RH) ===================== */
-function careerOf(id){const f=S.floors&&(BCTX||S.floors)[id];return (f&&f.car)||{pl:0,sr:0};}
+/* Carreira (pleno e sênior) de um setor: dentro de um prédio (BCTX) vale a daquele prédio; fora, soma todos os prédios. */
+function careerOf(id){if(!S||!S.floors)return {pl:0,sr:0};if(BCTX){const f=BCTX[id];return (f&&f.car)||{pl:0,sr:0};}
+  const o={pl:0,sr:0};for(const fl of allFloors()){const c=fl[id]&&fl[id].car;if(c){o.pl+=c.pl||0;o.sr+=c.sr||0;}}return o;}
 function normCareer(id){const f=(BCTX||S.floors)[id];if(!f||!f.car)return;const o=opsOf(id);f.car.sr=Math.min(f.car.sr,o);f.car.pl=Math.min(f.car.pl,o-f.car.sr);}
 function opSal(f){const R=rolesOf(f);return (R.op||R.voz||{sal:0}).sal;}
 function careerExtra(f){const cr=careerOf(f.id);return Math.round((cr.pl*0.25+cr.sr*0.5)*opSal(f));}
 function careerHtml(id){
   const f=FLOORS.find(x=>x.id===id);if(!f||id==='recepcao')return '';
-  if(!built('rh'))return '<p class="muted" style="font-size:12.5px;margin-top:10px">Plano de carreira: monte o RH para promover a equipe.</p>';
+  if(!rhBuilt())return '<p class="muted" style="font-size:12.5px;margin-top:10px">Plano de carreira: monte o RH para promover a equipe.</p>';
   const on=S.career&&S.career.on;
   if(id==='rh'&&!on)return `<h3 style="font-size:15px;margin:14px 0 8px">Plano de carreira</h3>${on?'':`<div class="choice"><div><b>Implantar plano de carreira</b><small>${brl0(CAREER_COST)} uma vez. Cargos júnior, pleno e sênior em todos os setores; menos pedidos de demissão.</small></div><button class="btn small primary" id="carOn">Implantar</button></div>`}`;
   if(!on)return '<p class="muted" style="font-size:12.5px;margin-top:10px">Plano de carreira: implante no RH para promover a equipe.</p>';
@@ -3243,7 +3248,7 @@ function openTeamIn(id,hqc){
     m.querySelectorAll('[data-stech]').forEach(b=>b.onclick=()=>{S.salesTech=b.dataset.stech;log(`Comercial passa a vender ${STECH[S.salesTech].toLowerCase()}.`);save(true);openTeam(id);});
     m.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{if(headcount(id)>=sectorCap())return;const k=b.dataset.add;if(!spend(hireCost()))return;t[k]=(t[k]||0)+1;(BCTX||S.floors)[id].team=t;if(id==='retencao'&&k==='op')S.retCap=(S.retCap||0)+5;log(`Contratou ${R[k].t} no ${f.name}.`);event(`Contratou ${R[k].t} (${f.name})`);save(true);openTeam(id);});
     const con=m.querySelector('#carOn');if(con)con.onclick=()=>{if(!spend(CAREER_COST))return;S.career={on:true};log('Plano de carreira implantado no RH.');event('Plano de carreira implantado');checkMissions();save(true);openTeam(id);};
-    m.querySelectorAll('[data-promo]').forEach(b=>b.onclick=()=>{const fl=S.floors[id];fl.car=fl.car||{pl:0,sr:0};const o=opsOf(id),k=b.dataset.promo;
+    m.querySelectorAll('[data-promo]').forEach(b=>b.onclick=()=>{const fl=(BCTX||S.floors)[id];if(!fl)return;fl.car=fl.car||{pl:0,sr:0};const o=opsOf(id),k=b.dataset.promo;
       if(k==='pl'&&o-fl.car.pl-fl.car.sr<=0)return;if(k==='sr'&&(fl.car.pl<=0||fl.car.sr>=Math.ceil(o/3)))return;if(!spend(PROMO_COST))return;
       if(k==='pl')fl.car.pl++;else{fl.car.pl--;fl.car.sr++;}S.cur.promos=(S.cur.promos||0)+1;log(`${f.name}: um operador promovido a ${k==='pl'?'pleno':'sênior'}.`);checkMissions();save(true);openTeam(id);});
     m.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{const k=b.dataset.rm;if(!(t[k]>0))return;t[k]--;normCareer(id);log(`Dispensou ${R[k].t} do ${f.name}.`);save(true);openTeam(id);});
