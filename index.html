@@ -1118,6 +1118,7 @@ const LEVELS=[
   {l:18,items:['Concorrência entre jogadores: disputa por assinantes com quem atende a mesma cidade']},
   {l:100,items:['Promoções de contratação no Comercial (instalação grátis, mensalidades com desconto, fidelidade, plano em oferta)','Campanhas para clientes no Marketing (clube de vantagens, indique um amigo, migração premiada)']},
   {l:150,items:['Empresas terceirizadas assumem setores inteiros (Prédio → Terceirizadas e consultorias)','Consultorias de treinamento sobem a eficiência das equipes']},
+  {l:160,items:['Consultoria de gestão paga em selos: administra qualquer setor da sede, regionais e filiais (contrata, promove e mantém a equipe certa)']},
   {l:200,items:['Planos corporativos com link dedicado para as empresas da cidade (Planos → Corporativo)','Executivos de contas vendem para empresas; SLA: link estourado dá desconto e perde cliente']},
   {l:22,items:['Empresa rende offline: até R$ 10 mil enquanto você está fora','CEO contratado com diamantes administra a empresa quando você sai']},
 ];
@@ -1697,6 +1698,7 @@ function tick(){
 }
 function monthEnd(){
   const m=monthOf(S.day);
+  mgmtMonth();
   let rev=0,clients=0,radioCl=0,fiberCl=0,tv=0,fone=0,over=0,calNow=0,lateUnpaid=0;
   const tcc=team('callcenter'),n2=built('callcenter')?(tcc.n2||0):0,ccE=effOf('callcenter');
   const ccCap=built('callcenter')?((tcc.voz||0)*40+(tcc.texto||0)*50)*ccE:0;
@@ -2674,6 +2676,60 @@ function hqBuildingHtml(ci){const c=S.cities[ci];if(!c||!c.hq)return '';return i
   h+='<div class="door"></div>'+floorHtml(FLOORS.find(x=>x.annex),lvl);
   return h.replace(/data-f="/g,`data-hq="${ci}" data-f="`);});}
 let PANEL_B=null;
+/* ===================== Consultoria de gestão (nível MGMT_LEVEL) =====================
+   Paga em selos, por setor de um prédio, por MGMT_MONTHS meses. O preço sobe a cada contrato ativo (10 mil, 20 mil, 30 mil…).
+   Todo fechamento de mês (e na contratação) a consultoria: dimensiona a equipe pela demanda das cidades que o prédio
+   atende, contrata ou dispensa, ajusta supervisores e gerente e promove (pleno e sênior) se houver plano de carreira.
+   Salários, contratações e promoções saem do caixa, como se fosse o jogador. Contratos em S.mgmt["prédio:setor"]. */
+const MGMT_LEVEL=160,MGMT_BASE=10000,MGMT_MONTHS=12;
+const MGMT_SECTORS=['callcenter','comercial','tecnico','retencao','recuperacao','logistica','ouvidoria','migracao','marketing','noc','rh'];
+const mgmtActive=()=>Object.entries(S.mgmt||{}).filter(([k,v])=>v.until>=monthOf(S.day));
+const mgmtPrice=()=>MGMT_BASE*(mgmtActive().length+1);
+const mgmtOn=(bk,id)=>{const v=(S.mgmt||{})[bk+':'+id];return !!(v&&v.until>=monthOf(S.day));};
+function mgmtServed(b,id){if(RULE_SECTORS.some(x=>x[0]===id))return servesOf(b,id);const set=new Set(b.ci!=null?[b.ci]:[]);if(b.main)for(const c of S.cities)if(!bldgs().some(x=>!x.main&&x.ci===c.idx&&bHas(x,id)))set.add(c.idx);return set;}
+/* Operadores que o setor precisa para dar conta das cidades que o prédio atende (null = manter como está). */
+function mgmtNeed(b,id){const sv=mgmtServed(b,id),cs=S.cities.filter(c=>sv.has(c.idx)),cnt=f=>cs.reduce((t,c)=>t+famsOf(c).filter(f).length,0);
+  if(id==='callcenter')return Math.ceil(cnt(isSub)/40*1.05);
+  if(id==='recuperacao')return Math.ceil(cnt(l=>(l.st==='late'||l.st==='suspended')&&l.debt>0)/3);
+  if(id==='retencao')return Math.ceil(Math.max(cnt(l=>l.st==='cancelReq'),cnt(isSub)*0.02)/5);
+  if(id==='logistica')return Math.ceil(cnt(l=>l.cpe)/6);
+  if(id==='ouvidoria')return S.ouv?Math.ceil((S.ouv.total||0)/60):1;
+  if(id==='tecnico')return Math.max(1,Math.ceil(cnt(isSub)/1500));
+  return null;}
+function mgmtRun(b,id,quiet){return inB(b.fl,()=>{if(!built(id))return null;const f=FLOORS.find(x=>x.id===id),t=team(id),cc=id==='callcenter',opK=cc?'voz':'op';
+  const cap=sectorCap(),need=mgmtNeed(b,id);let hired=0,fired=0,prom=0;
+  const ops=()=>cc?(t.voz||0)+(t.texto||0):(t.op||0);
+  // operadores alvo (cabe na vaga junto com supervisores, gerente e N2)
+  let want=need==null?ops():need;want=Math.max(cc||need!=null?1:0,want);
+  const fit=w=>{const sup=w>3?Math.ceil(w/5):0,n2=cc?Math.ceil(w/10):0,ger=(w+sup+n2)>=8?1:0;return w+sup+n2+ger<=cap;};
+  while(want>1&&!fit(want))want--;
+  while(ops()<want){if(S.money<hireCost())break;S.money-=hireCost();t[opK]=(t[opK]||0)+1;hired++;}
+  while(ops()>want){if(cc&&(t.texto||0)>0)t.texto--;else t[opK]--;fired++;}
+  const o=ops(),supW=o>3?Math.ceil(o/5):0,n2W=cc?Math.ceil(o/10):0;
+  const adj=(k,w)=>{while((t[k]||0)<w&&headcount(id)<cap&&S.money>=hireCost()){S.money-=hireCost();t[k]=(t[k]||0)+1;hired++;}while((t[k]||0)>w){t[k]--;fired++;}};
+  adj('sup',supW);if(cc)adj('n2',n2W);adj('ger',headcount(id)>=8?1:0);
+  b.fl[id].team=t;normCareer(id);
+  // carreira: sênior até 1/3 e o resto pleno
+  if(S.career&&S.career.on&&rhBuilt()){const fl=b.fl[id];fl.car=fl.car||{pl:0,sr:0};const maxSr=Math.ceil(o/3);
+    while(o-fl.car.pl-fl.car.sr>0&&S.money>=PROMO_COST){S.money-=PROMO_COST;fl.car.pl++;prom++;}
+    while(fl.car.pl>0&&fl.car.sr<maxSr&&S.money>=PROMO_COST){S.money-=PROMO_COST;fl.car.pl--;fl.car.sr++;prom++;}}
+  const r={hired,fired,prom,ops:o,eff:effOf(id)};
+  if(!quiet&&(hired||fired||prom))log(`Consultoria (${b.name} · ${f.name}): ${hired?hired+' contratado(s)':''}${hired&&(fired||prom)?', ':''}${fired?fired+' dispensado(s)':''}${fired&&prom?', ':''}${prom?prom+' promoção(ões)':''}; eficiência ${Math.round(r.eff*100)}%.`);
+  return r;});}
+function mgmtMonth(){if(!S.mgmt)return;const m=monthOf(S.day);
+  for(const [k,v] of Object.entries(S.mgmt)){if(v.until<m){if(!v.warned){v.warned=1;log(`Contrato da consultoria de gestão terminou (${k.split(':')[1]}). Renove em Terceirizadas e consultorias.`);}continue;}
+    const [bk,id]=k.split(':'),b=bldgs().find(x=>x.key===bk);if(b)mgmtRun(b,id);}}
+function mgmtHtml(){const lvl=levelOf(S.xp);if(lvl<MGMT_LEVEL)return `<h3 style="margin:14px 0 6px">Consultoria de gestão</h3><div class="notice">Libera no nível ${MGMT_LEVEL}: a consultoria administra um setor (contrata, promove e mantém a equipe no tamanho certo), paga em selos.</div>`;
+  const m=monthOf(S.day),price=mgmtPrice();
+  const rows=bldgs().filter(b=>b.key!=='out').map(b=>{const secs=MGMT_SECTORS.filter(id=>bHas(b,id));if(!secs.length)return '';
+    return `<div class="choice" style="flex-wrap:wrap"><div style="min-width:160px"><b>${esc(b.name)}</b><small>${secs.length} setor(es) montado(s)</small></div><div style="display:flex;flex-wrap:wrap;gap:6px;flex:1;justify-content:flex-end">${secs.map(id=>{const f=FLOORS.find(x=>x.id===id),v=(S.mgmt||{})[b.key+':'+id],on=v&&v.until>=m;
+      return on?`<span class="chip ok" title="Até o mês ${v.until}">✓ ${f.name} · até mês ${v.until}</span>`:`<button class="btn small" data-mgmt="${b.key}:${id}" ${(S.coins||0)<price?'disabled':''}>${f.name}${v?' (renovar)':''}</button>`;}).join('')}</div></div>`;}).join('');
+  return `<h3 style="margin:14px 0 6px">Consultoria de gestão · selos</h3><p class="muted" style="margin:0 0 6px;font-size:13px">Administra um setor de um prédio por ${MGMT_MONTHS} meses: todo mês contrata ou dispensa pela demanda das cidades que o prédio atende, ajusta supervisores e gerente e promove a equipe. Salários e contratações saem do caixa. Próximo contrato: <b>${price.toLocaleString('pt-BR')} selos</b> (você tem ${(S.coins||0).toLocaleString('pt-BR')}); cada contrato ativo encarece o seguinte em ${MGMT_BASE.toLocaleString('pt-BR')}.</p><div class="choice-list">${rows||'<p class="muted">Monte um setor para contratar a consultoria.</p>'}</div>`;}
+document.addEventListener('click',e=>{if(!S)return;const b=e.target.closest('[data-mgmt]');if(!b||b.disabled)return;if(levelOf(S.xp)<MGMT_LEVEL)return;
+  const price=mgmtPrice();if((S.coins||0)<price){toast(`Faltam selos: precisa de ${price.toLocaleString('pt-BR')}.`);return;}
+  const [bk,id]=b.dataset.mgmt.split(':'),bd=bldgs().find(x=>x.key===bk);if(!bd)return;S.coins-=price;S.mgmt=S.mgmt||{};S.mgmt[bk+':'+id]={since:monthOf(S.day),until:monthOf(S.day)+MGMT_MONTHS-1,paid:price};
+  const r=mgmtRun(bd,id,true)||{};log(`Consultoria de gestão contratada para ${bd.name} · ${FLOORS.find(x=>x.id===id).name} (${price.toLocaleString('pt-BR')} selos): ${r.hired||0} contratado(s), ${r.fired||0} dispensado(s), ${r.prom||0} promoção(ões).`);
+  addXp(80);sfx('level');save(true);renderAll();openOuts();});
 /* ===================== Regras de negócio =====================
    Prédios com equipe: sede, sedes regionais, filiais (loja ou filial de área, em c.galpao) e terceirizada.
    Cada prédio atende as cidades da sua regra (S.rules.serve["prédio:setor"]); sem regra, atende a própria cidade e,
@@ -2745,6 +2801,7 @@ function openOuts(){const lvl=levelOf(S.xp);if(lvl<OUTS_LEVEL){toast(`Libera no 
       <div style="display:flex;gap:6px;flex-wrap:wrap">${TRAININGS.map(t=>`<button class="btn small" data-train="${id}" data-t="${t.id}" ${on&&cur.b>=t.bonus?'disabled':''} title="+${Math.round(t.bonus*100)}% de eficiência por ${t.months} meses">${t.name} · ${brl0(t.per*hc)}</button>`).join('')}</div></div>`;}).join('');
   openModal(head('Gestão','Terceirizadas e consultorias')+`<p class="muted" style="margin-top:0">A terceirizada traz a equipe pronta (operadores, supervisores e gerente), soma na capacidade do setor e não pede demissão. Cobra os salários mais ${Math.round(OUT_FEE*100)}% de taxa por mês; a contratação custa um mês adiantado.</p>
     <h3 style="margin:8px 0 6px">Empresas terceirizadas</h3><div class="choice-list">${rows}</div>
+    ${mgmtHtml()}
     <h3 style="margin:14px 0 6px">Consultorias de treinamento</h3><p class="muted" style="margin:0 0 6px;font-size:13px">O preço é por pessoa do setor (equipe própria e terceirizada). Sobe a eficiência enquanto durar.</p><div class="choice-list">${trRows||'<p class="muted">Monte ou terceirize um setor para treinar a equipe.</p>'}</div>
     <div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
 document.addEventListener('click',e=>{if(!S)return;
