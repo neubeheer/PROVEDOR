@@ -76,3 +76,10 @@ alter table public.presenca add constraint presenca_limites check (
 -- Conferência: deve listar as 7 colunas de saves e as 15 de presenca.
 -- select table_name, column_name, data_type from information_schema.columns
 --  where table_schema = 'public' and table_name in ('saves','presenca') order by table_name, ordinal_position;
+
+-- 6) Manutenção (rode sozinho, numa consulta separada, quando o banco estiver lento ou o disco cheio):
+--    os saves antigos eram grandes (vários MB, sem compressão) e cada envio deixava a versão anterior ocupando disco.
+--    O jogo agora envia o save comprimido ({"gz": ...}, ~17× menor). Este comando devolve o espaço:
+-- vacuum full public.saves;
+-- Tamanho atual da tabela:
+-- select pg_size_pretty(pg_total_relation_size('public.saves'));

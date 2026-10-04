@@ -1235,11 +1235,17 @@ async function sbLogin(email,pass,signup){
   sbStore(sbSess(j));return {ok:true};
 }
 async function sbLogout(){try{await sbFetch('/auth/v1/logout',{method:'POST'});}catch(e){}sbStore(null);cloud.ref=null;cloud.status='local';renderSaveDot();}
+/* O save vai comprimido (gzip em base64, {"gz":...}): ~17× menor (4,7 MB viram ~0,3 MB com 30 mil clientes), o que
+   poupa o disco do Supabase. Saves antigos, sem compressão, continuam abrindo. Sem CompressionStream, vai como antes. */
+function b64Of(buf){const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
+function bytesOf(b64){const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+async function packSave(json){if(!window.CompressionStream)return json;try{const buf=await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();return '{"gz":"'+b64Of(buf)+'"}';}catch(e){return json;}}
+async function unpackSave(data){if(data&&typeof data.gz==='string')return await new Response(new Blob([bytesOf(data.gz)]).stream().pipeThrough(new DecompressionStream('gzip'))).text();return JSON.stringify(data);}
 function sbSaveRef(){
   const uid=SB.session.user.id;
   return {
-    async get(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=data,saved_at`);if(!r.ok)throw new Error('http '+r.status);const rows=await r.json();return {exists:rows.length>0,data:()=>({json:JSON.stringify(rows[0].data)})};},
-    async set(o){const meta=`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${o.json}`;
+    async get(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=data,saved_at`);if(!r.ok)throw new Error('http '+r.status);const rows=await r.json();const json=rows.length?await unpackSave(rows[0].data):null;return {exists:rows.length>0,data:()=>({json})};},
+    async set(o){const meta=`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${await packSave(o.json)}`;
       // com a trava ligada e a linha criada, só grava se a sessão ainda for deste aparelho (senão outro aparelho assumiu)
       if(cloud.lock==='on'&&cloud.hasRow){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&sess=eq.${MYSESS}&select=user_id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:'{'+meta+'}'},true,30000);
         if(!r.ok)throw new Error('http '+r.status);const rows=await r.json().catch(()=>null);if(Array.isArray(rows)&&!rows.length){const e=new Error('outro aparelho');e.takeover=true;throw e;}return;}
