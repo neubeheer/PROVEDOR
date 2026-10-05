@@ -1176,6 +1176,7 @@ const RETAIN={
 };
 /* Capacidade de cada função por mês (administrador pode mudar): clientes por atendente, visitas por vendedor (a cada 4 dias)… */
 let CAP_VOZ=40,CAP_TEXTO=50,CAP_COM=3,CAP_RET=5,CAP_REC=3,CAP_LOG=6,CAP_OUV=60,CAP_MIG=30,CAP_TEC=1500,SUP_SAL=700,GER_SAL=1200,SUP_PER=5;
+let LOGIN_DIAMONDS=100,RIVAL_ONLINE_H=24;
 let COIN_RATE=50,COIN_M3=1,COIN_M6=2,COIN_M12=3,DIA_LEVEL=5,DIA_MISSION=1;
 /* Milissegundos reais por dia de jogo em 1× (30 dias = 1 mês). O administrador define em minutos por mês. */
 let DAY_MS=1000;
@@ -1383,13 +1384,14 @@ function openLogin(fromStart){
   const logged=SB.session&&SB.session.user;
   if(logged){openModal(head('Conta','Salvamento online')+`<div class="notice ok">Conectado como <b>${esc(SB.session.user.email||'')}</b>. O jogo salva neste aparelho e na sua conta: dá para continuar em outro celular ou computador.</div>
     <div class="foot"><button class="btn" data-close>Fechar</button><button class="btn" id="lgOut">Sair da conta</button></div>`,m=>{m.querySelector('#lgOut').onclick=async()=>{if(S&&cloud.ref){cloud.dirty=true;await flushCloud();}await sbLogout();location.reload();};});return;}
-  openModal(head('Conta','Entrar no Provedor Tycoon',!fromStart)+`<p>O Provedor Tycoon salva o progresso na sua conta: entre para jogar de qualquer aparelho. O jogo precisa de internet.</p>
+  openModal(head('Conta','Entrar no Provedor Tycoon',!fromStart)+`<p>Com uma conta o progresso fica salvo online, dá para jogar de qualquer aparelho, disputar a concorrência e aparecer no ranking. <b>Entrando você ganha 💎 ${LOGIN_DIAMONDS} diamantes.</b></p>
     <form id="lgForm" autocomplete="on" onsubmit="return false"><div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" name="username" type="email" autocomplete="username" maxlength="120"></div>
     <div class="field"><label for="lgPass">Senha</label><div class="pw-wrap"><input class="input" id="lgPass" name="password" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"><button type="button" class="pw-eye" id="lgEye" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path class="pw-slash" d="M4 20L20 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:700;margin:4px 0 2px;cursor:pointer"><input type="checkbox" id="lgRem" style="width:20px;height:20px"> Lembrar meus dados neste aparelho</label><button type="submit" hidden></button></form>
     <p class="geo-note" id="lgNote" aria-live="polite"></p>
-    <div class="foot" style="flex-wrap:wrap;gap:8px"><span></span><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
+    <div class="foot" style="flex-wrap:wrap;gap:8px">${fromStart&&!S?'<button class="btn ghost" id="lgGuest">Jogar sem conta</button>':'<span></span>'}<span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
     const note=m.querySelector('#lgNote'),rem=m.querySelector('#lgRem');
+    const lg=m.querySelector('#lgGuest');if(lg)lg.onclick=()=>{closeModal();guestBoot();};
     try{rem.checked=remembers();const e0=localStorage.getItem('pt-email');if(e0)m.querySelector('#lgEmail').value=e0;}catch(e){rem.checked=true;}
     const eye=m.querySelector('#lgEye'),pwI=m.querySelector('#lgPass');eye.onclick=()=>{const show=pwI.type==='password';pwI.type=show?'text':'password';eye.setAttribute('aria-pressed',String(show));eye.setAttribute('aria-label',show?'Esconder senha':'Mostrar senha');pwI.focus();};
     m.querySelector('#lgForm').onsubmit=e=>{e.preventDefault();run(false);return false;};
@@ -1401,6 +1403,7 @@ function openLogin(fromStart){
       try{const r=await sbLogin(em,pw,signup);
         if(r.confirm){note.innerHTML='Conta criada! Abra o e-mail de confirmação que enviamos e depois toque em <b>Entrar</b>.';m.querySelectorAll('button').forEach(b=>b.disabled=false);return;}
         if(rem.checked&&window.PasswordCredential&&navigator.credentials){try{await navigator.credentials.store(new PasswordCredential({id:em,password:pw,name:em}));}catch(e){}}
+        if(cloud.guest&&S){clearTimeout(cloud.t);cloud.t=null;try{await guestRef().set({json:saveJson()});}catch(e){}}
         toast('Conectado!');bootCloud();
       }catch(e){note.textContent=e.message;m.querySelectorAll('button').forEach(b=>b.disabled=false);}};
     m.querySelector('#lgGo').onclick=()=>run(false);m.querySelector('#lgNew').onclick=()=>run(true);
@@ -1438,6 +1441,20 @@ async function flushCloud(){
   cloud.busy=false;renderSaveDot();
 }
 function validSave(d){return !!(d&&d.v===2&&Array.isArray(d.cities)&&d.cities.length>0&&typeof d.money==='number');}
+/* Jogo sem conta: o progresso fica no IndexedDB deste aparelho (comprimido como o da nuvem). Ao entrar numa conta,
+   um progresso de convidado mais novo que o da conta sobe para ela e sai do aparelho. */
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('pt-guest',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function idbDo(mode,fn){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction('kv',mode),q=fn(tx.objectStore('kv'));tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);});}
+function guestRef(){return {guest:true,patch:true,
+  async get(){const v=await idbDo('readonly',st=>st.get('save'));if(!v)return {exists:false,data:()=>({json:null})};const json=await unpackSave(JSON.parse(v));return {exists:true,data:()=>({json})};},
+  async set(o){const packed=await packSave(o.json);await idbDo('readwrite',st=>st.put(packed,'save'));},
+  async clear(){try{await idbDo('readwrite',st=>st.delete('save'));}catch(e){}}};}
+const isGuest=()=>!!cloud.guest;
+async function guestBoot(){cloud.guest=true;cloud.lock='off';try{localStorage.setItem('pt-guest','1');}catch(e){}
+  openModal(head('Jogo','Carregando sua empresa…',false)+'<div style="display:flex;justify-content:center;padding:18px"><span class="spin" aria-hidden="true"></span></div>');
+  await cfgLoad();cloud.ref=guestRef();cloud.status='local';let st=null;try{const g=await cloud.ref.get();if(g.exists)st=JSON.parse(g.data().json);}catch(e){}
+  S=validSave(st)?migrate(st):null;renderSaveDot();if(!S){showStart();return;}
+  closeModal();renderAll();setTimeout(checkOffline,1500);setTimeout(autoGeo,2500);}
 function loadLocal(){try{const raw=localStorage.getItem(SAVE_KEY);if(raw){const d=JSON.parse(raw);if(validSave(d))return d;}}catch(e){}return null;}
 /* Comandos do administrador chegam pela tabela grants: selos, diamantes, dinheiro ou zerar a conta. */
 async function grantsCheck(){if(!cloud.ref||!sbOn()||!SB.session||!SB.session.user)return null;try{const r=await sbFetch(`/rest/v1/grants?user_id=eq.${SB.session.user.id}&applied_at=is.null&select=id,coins,diamonds,money,reset,note&order=id`);if(!r.ok)return null;return await r.json();}catch(e){return null;}}
@@ -1447,9 +1464,12 @@ async function grantsApply(){const L=await grantsCheck();if(!L||!L.length||!S)re
     const parts=[c?`${c.toLocaleString('pt-BR')} selos`:'',d?`${d.toLocaleString('pt-BR')} diamantes`:'',m?brl0(m):''].filter(Boolean).join(', ');if(parts){log(`Administração: você recebeu ${parts}${g.note?' ('+g.note+')':''}.`);toast(`🎁 Administração: ${parts}${g.note?' · '+g.note:''}`);sfx('level');}}
   await grantsMark(L.map(g=>g.id));if(reset){log('Administração zerou a conta.');S=null;cloud.dirty=false;showStart();toast('Sua conta foi zerada pela administração. Comece uma nova empresa.');return true;}save(true);renderAll();return true;}
 setInterval(()=>{if(S)grantsApply();},120000);
+function acctBonus(){if(!S||cloud.guest||!cloud.ref||!SB.session||!SB.session.user)return;const u=SB.session.user.id;if(S.acctBonus===u)return;
+  S.acctBonus=u;S.diamonds=(S.diamonds||0)+LOGIN_DIAMONDS;log(`Conta conectada: +${LOGIN_DIAMONDS} diamantes de boas-vindas.`);toast(`💎 +${LOGIN_DIAMONDS} diamantes por entrar na conta!`);sfx('level');save(true);renderAll();}
+setInterval(acctBonus,3000);
 async function initCloud(){
   try{
-    if(sbOn()&&SB.session&&SB.session.user){cloud.ref=sbSaveRef();}
+    if(sbOn()&&SB.session&&SB.session.user){cloud.ref=sbSaveRef();cloud.guest=false;}
     else{
       if(!window.claude||!window.claude.use)return;
       const [db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);
@@ -1494,9 +1514,14 @@ function provScore(x){const n=Math.max(1,(+x.radio||0)+(+x.fiber||0));
   return (+x.rep||50)/100*0.35+clamp(+x.support||0,0,1)*0.25+((+x.fiber||0)/n)*0.2+Math.min(0.25,+x.mkt||0)*0.8+clamp((130-(+x.price||100))/100,0,1)*0.2;}
 const rivalsOn=()=>!!S&&levelOf(S.xp)>=RIVAL_LEVEL;
 function rivalsOf(c){return (rivalsOn()&&c&&c.ibgeCode&&RIVAL.rows.get(c.ibgeCode))||[];}
+/* Online: a presença é enviada a cada ~2 min enquanto o jogador joga. Só disputa clientes quem jogou nas últimas RIVAL_ONLINE_H horas. */
+const rivalAgo=r=>Date.now()-new Date(r.updated_at||0).getTime();
+const rivalOnline=r=>rivalAgo(r)<10*60000;
+const rivalActive=r=>rivalAgo(r)<RIVAL_ONLINE_H*36e5;
+function seenTxt(r){const m=Math.round(rivalAgo(r)/60000);return rivalOnline(r)?'🟢 online agora':m<60?`⚪ visto há ${m} min`:m<1440?`⚪ visto há ${Math.round(m/60)} h`:`⚪ visto há ${Math.round(m/1440)} dia(s)`;}
 /* occ: fatia da cidade que já é dos rivais · edge: quanto os rivais são melhores que você (negativo = você é melhor) */
 function rivalPressure(c){
-  const rs=rivalsOf(c);if(!rs.length)return {occ:0,edge:0,rs,me:null};
+  const rs=rivalsOf(c).filter(rivalActive);if(!rs.length)return {occ:0,edge:0,rs,me:null};
   const key=S.day+'|'+c.idx+'|'+RIVAL.at,hit=RIVAL.memo.get(key);if(hit)return hit;
   const homes=Math.max(1,cityHomes(c)),me=provScore(myCityStats(c));let occ=0,edge=0;
   for(const r of rs){const sh=Math.min(1,(+r.clients||0)/homes);occ+=sh;edge+=sh*(provScore(r)-me);}
@@ -1538,6 +1563,24 @@ function rivalMonth(){
   if(lost)event(`${lost} cliente(s) pediram para ir para a concorrência`);
   if(won)event(`${won} cliente(s) vieram da concorrência`);
 }
+/* Ranking: soma a presença de cada jogador (assinantes por cidade). Geral e da cidade atual; mostra quem está online. */
+let RANK_TAB='geral',RANK=null;
+async function rankLoad(){try{const r=await sbFetch('/rest/v1/presenca?select=user_id,company,city_code,city_name,uf,clients,fiber,rep,updated_at&order=updated_at.desc&limit=5000');if(!r.ok)throw new Error('Erro '+r.status);RANK={at:Date.now(),rows:await r.json()};}catch(e){RANK={at:Date.now(),rows:[],err:e.message};}}
+function openRanking(){const logged=sbOn()&&SB.session&&SB.session.user;
+  if(!logged){openModal(head('Concorrência','Ranking')+'<div class="notice warn">Entre na sua conta para ver o ranking dos provedores.</div><div class="foot"><span></span><button class="btn primary" data-act="login">Entrar</button></div>');return;}
+  const me=SB.session.user.id,c=city();
+  const body=()=>{if(!RANK)return '<p class="muted">Carregando o ranking…</p>';if(RANK.err)return `<div class="notice bad">${esc(RANK.err)}</div>`;
+    let list;if(RANK_TAB==='cidade'){list=RANK.rows.filter(r=>r.city_code===c.ibgeCode).map(r=>({uid:r.user_id,company:r.company,clients:+r.clients||0,sub:`${Math.round(((+r.fiber||0)/Math.max(1,+r.clients||0))*100)}% fibra · reputação ${Math.round(+r.rep||0)}`,updated_at:r.updated_at}));}
+    else{const by=new Map();for(const r of RANK.rows){const x=by.get(r.user_id)||{uid:r.user_id,company:r.company,clients:0,cities:0,updated_at:r.updated_at};x.clients+=+r.clients||0;x.cities++;if(r.updated_at>x.updated_at){x.updated_at=r.updated_at;x.company=r.company;}by.set(r.user_id,x);}
+      list=[...by.values()].map(x=>({...x,sub:`${x.cities} cidade(s)`}));}
+    list.sort((a,b)=>b.clients-a.clients);const online=list.filter(rivalOnline).length;
+    const medal=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'º';
+    return `<p class="muted" style="margin:0 0 8px;font-size:13px">${list.length} provedor(es) · 🟢 ${online} online agora${RANK_TAB==='cidade'?' em '+esc(c.name):''}. Entram no ranking os jogadores a partir do nível ${RIVAL_LEVEL}, com outorga paga.</p>
+      <div class="choice-list">${list.slice(0,100).map((x,i)=>`<div class="choice" style="${x.uid===me?'border-color:var(--signal);background:#e6fcf5':''}"><div style="display:flex;gap:10px;align-items:center"><b style="min-width:34px;font-size:18px;text-align:center">${medal(i)}</b><div><b>${esc(x.company||'Provedor sem nome')}${x.uid===me?' (você)':''}</b><small>${x.sub} · ${seenTxt(x)}</small></div></div><b>${x.clients.toLocaleString('pt-BR')} assinantes</b></div>`).join('')||'<p class="muted">Ninguém ainda.</p>'}</div>`;};
+  openModal(head('Concorrência','🏆 Ranking dos provedores')+`<div class="seg" style="margin-bottom:10px"><button data-rk="geral" aria-pressed="${RANK_TAB==='geral'}">Geral</button><button data-rk="cidade" aria-pressed="${RANK_TAB==='cidade'}">${esc(c.name)}</button></div><div id="rkBody">${body()}</div><div class="foot"><span class="muted" style="font-size:12px">${RANK?'Atualizado às '+new Date(RANK.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''}</span><button class="btn small" id="rkRef">Atualizar</button></div>`,m=>{
+    m.querySelectorAll('[data-rk]').forEach(b=>b.onclick=()=>{RANK_TAB=b.dataset.rk;openRanking();});
+    const go=async()=>{RANK=null;const el=m.querySelector('#rkBody');if(el)el.innerHTML=body();await rankLoad();if(document.getElementById('rkBody'))openRanking();};m.querySelector('#rkRef').onclick=go;
+    if(!RANK||Date.now()-RANK.at>120000)go();});}
 function openRivals(){
   if(!rivalsOn()){openModal(head('Concorrência','Libera no nível '+RIVAL_LEVEL)+`<p>A partir do nível ${RIVAL_LEVEL}, você passa a disputar assinantes com outros jogadores que atendem a mesma cidade: quem tem a melhor nota (reputação, atendimento, fibra, campanhas e preço) ganha os clientes do outro.</p>`);return;}
   const c=city(),rp=rivalPressure(c),meS=myCityStats(c),me=provScore(meS),homes=Math.max(1,cityHomes(c));
@@ -1548,10 +1591,12 @@ function openRivals(){
   openModal(head('Concorrência',esc(c.name))+(!logged?'<div class="notice warn">Entre na sua conta para ver e disputar com outros jogadores. A concorrência só existe entre jogadores logados.</div>':'')+
     (RIVAL.err?`<div class="notice bad">Não deu para atualizar a concorrência: ${esc(RIVAL.err)}.</div>`:'')+
     `<p class="muted" style="font-size:13px">Quem atende a mesma cidade divide os mesmos moradores. Os clientes dão uma nota para cada empresa (reputação, atendimento, fibra, campanhas e preço). Com nota menor que a do rival, parte dos seus clientes pede para trocar todo mês; com nota maior, você ganha clientes dele.</p>`+
-    row(S.company,meS,me,true)+(rp.rs.length?rp.rs.map(r=>row(r.company||'Provedor sem nome',r,provScore(r),false)).join(''):'<div class="notice">Nenhum outro jogador atende esta cidade agora.</div>')+
+    row(S.company,meS,me,true)+(rivalsOf(c).length?rivalsOf(c).map(r=>row((r.company||'Provedor sem nome')+' · '+seenTxt(r)+(rivalActive(r)?'':' · sem disputa'),r,provScore(r),false)).join(''):'<div class="notice">Nenhum outro jogador atende esta cidade agora.</div>')+
+    `<p class="muted" style="font-size:12px;margin:6px 0 0">Só disputa clientes quem jogou nas últimas ${RIVAL_ONLINE_H} h.</p>`+
     (tips.length?`<div class="notice warn"><b>Para ganhar a disputa:</b> ${tips.join('; ')}.</div>`:rp.rs.length?'<div class="notice ok">Você está na frente na nota dos clientes.</div>':'')+
-    `<div class="foot"><span class="muted" style="font-size:12.5px">${RIVAL.at?'Atualizado às '+new Date(RIVAL.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Ainda não atualizado'} · este mês: ${S.cur.paraConc||0} saíram, ${S.cur.daConc||0} chegaram</span>${logged?'<button class="btn small" id="rvSync">Atualizar agora</button>':'<button class="btn small primary" data-act="login">Entrar</button>'}</div>`,m=>{
+    `<div class="foot"><span class="muted" style="font-size:12.5px">${RIVAL.at?'Atualizado às '+new Date(RIVAL.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Ainda não atualizado'} · este mês: ${S.cur.paraConc||0} saíram, ${S.cur.daConc||0} chegaram</span>${logged?'<span style="display:flex;gap:6px"><button class="btn small primary" id="rvRank">🏆 Ranking</button><button class="btn small" id="rvSync">Atualizar agora</button></span>':'<button class="btn small primary" data-act="login">Entrar</button>'}</div>`,m=>{
     const b=m.querySelector('#rvSync');if(b)b.onclick=async()=>{b.disabled=true;b.textContent='Atualizando…';await syncRivals(true);openRivals();};
+    const rk=m.querySelector('#rvRank');if(rk)rk.onclick=()=>openRanking();
   });
 }
 
@@ -2293,7 +2338,7 @@ function renderTop(){
     <div class="pill" title="Reputação"><span class="pill-ico">${HUD_ICO.heart}</span><b>${Math.round(S.rep)}</b><span class="pill-bar"><i style="width:${S.rep}%"></i></span></div>
     <div class="pill coin" title="${(S.coins||0).toLocaleString('pt-BR')} selos de fidelidade"><span class="pill-ico">${HUD_ICO.coin}</span><b>${shortN(S.coins||0)}</b>${plus('coins','Selos de fidelidade')}</div>
     <div class="pill dia" title="${(S.diamonds||0).toLocaleString('pt-BR')} diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${shortN(S.diamonds||0)}</b>${plus('diamonds','Diamantes')}</div>
-    ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta">Entrar</button>':''}
+    ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta e ganhar diamantes">Entrar 💎</button>':''}
     ${isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Instalar o app ou tela cheia" title="Instalar o app / tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
   const ht=$('#hudTime'),lkp=Math.round(lu*100);if(ht)ht.innerHTML=`
@@ -3068,12 +3113,13 @@ function showStart(){
   });
 }
 function openMenu(){
-  const st=cloud.status==='cloud'?`Salvo online na sua conta${cloud.last?` às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}. Você continua de onde parou em qualquer aparelho.`:cloud.status==='erro'?'Não deu para salvar na sua conta agora. O progresso segue salvo neste navegador.':'Salvo na sua conta a cada 30 segundos e ao sair do jogo.';
+  const st=cloud.guest?`Jogando sem conta: o progresso fica só neste aparelho. Entre ou crie uma conta para salvar online, disputar a concorrência e ganhar 💎 ${LOGIN_DIAMONDS} diamantes.`:cloud.status==='cloud'?`Salvo online na sua conta${cloud.last?` às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}. Você continua de onde parou em qualquer aparelho.`:cloud.status==='erro'?'Não deu para salvar na sua conta agora. O progresso segue salvo neste navegador.':'Salvo na sua conta a cada 30 segundos e ao sair do jogo.';
   openModal(head('Jogo','Menu')+`<div class="notice ${cloud.status==='cloud'?'ok':'warn'}">${st}</div>
     <div class="choice-list">
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
       ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
       ${isAdmin()?'<div class="choice" style="border-color:var(--accent)"><div><b>Administração</b><small>Valores, níveis, durações e tempo do jogo para todos os jogadores.</small></div><button class="btn small primary" data-act="admin">Abrir</button></div>':''}
+      <div class="choice"><div><b>🏆 Ranking dos provedores</b><small>Quem tem mais assinantes, no geral e na sua cidade, e quem está online.</small></div><button class="btn small" data-act="ranking">Ver</button></div>
       <div class="choice"><div><b>Tutorial guiado</b><small>Ligar, desligar ou rever os tutoriais de cada nível.</small></div><button class="btn small" data-act="tours">Abrir</button></div>
       <div class="choice"><div><b>Som e animações</b><small>Música, efeitos sonoros e carros e pessoas no mapa.</small></div><button class="btn small" data-act="fx">Ajustar</button></div>
       <div class="choice"><div><b>Relatório de desempenho</b><small>Mostra onde o jogo demora e quando a tela travou, para mandar ao suporte.</small></div><button class="btn small" data-act="perf">Abrir</button></div>
@@ -4038,6 +4084,7 @@ document.addEventListener('click',e=>{
   else if(act==='fx')openFx();
   else if(act==='tours')openTours();
   else if(act==='admin')openAdmin();
+  else if(act==='ranking')openRanking();
   else if(act==='outs')openOuts();
   else if(act==='execAdd'){if(levelOf(S.xp)<CORP_LEVEL||!spend(EXEC_HIRE))return;S.execs=(S.execs||0)+1;log('Executivo de contas contratado.');save(true);refreshPanel();}
   else if(act==='execDel'){if(!S.execs)return;S.execs--;log('Executivo de contas desligado.');save(true);refreshPanel();}
@@ -4778,6 +4825,7 @@ const CFGS=[
   ['COIN_M3','Selos e diamantes','Selos por cliente com 3 meses (por mês)'],['COIN_M6','Selos e diamantes','Selos por cliente com 6 meses (por mês)'],['COIN_M12','Selos e diamantes','Selos por cliente com 12 meses (por mês)'],['COIN_RATE','Selos e diamantes','R$ por selo convertido'],
   ['START_DIAMONDS','Selos e diamantes','Diamantes no começo'],['DIA_LEVEL','Selos e diamantes','Diamantes por nível'],['DIA_MISSION','Selos e diamantes','Diamantes por missão'],['DIA_TO_COINS','Selos e diamantes','Selos por diamante'],['DIA_TO_MONEY','Selos e diamantes','R$ por diamante'],
   ['IPV6_LEVEL','Níveis','IPv6'],['IPV6_COST','Preços','IPv6: implantação (R$)'],['IPV6_OFF','Links','IPv6: fração do tráfego por peering (0,2 = 20%)'],
+  ['LOGIN_DIAMONDS','Selos e diamantes','Diamantes por entrar na conta (uma vez)'],['RIVAL_ONLINE_H','Níveis','Concorrência: horas sem jogar até parar de disputar'],
   ['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
   ['DOCS#contrato.days','Duração','Contrato social (dias)'],['DOCS#cnpj.days','Duração','CNPJ (dias)'],['DOCS#alvara.days','Duração','Alvará (dias)'],['DOCS#contrato.cost','Preços','Contrato social (R$)'],['DOCS#alvara.cost','Preços','Alvará (R$)'],
   ['TRAININGS#b.months','Duração','Treinamento básico (meses)'],['TRAININGS#a.months','Duração','Treinamento avançado (meses)'],['TRAININGS#l.months','Duração','Liderança e gestão (meses)'],['CEO_MAX_H','Duração','CEO: horas máximas'],
@@ -4867,9 +4915,9 @@ window.addEventListener('error',e=>{if(e&&e.error)reportErr(e.error,'tela');});
 function autoGeo(){if(!S)return;const c=city();if(c.geo&&hasBlocks(c))for(const a of c.areas||[])if((!a.n||(a.n>0&&a.v!==2))&&!AREA_BUSY.has(a)&&!(a.tryAt>Date.now()-60000)){a.tryAt=Date.now();loadArea(c,a);}if(!c.geo&&!geoBusy.has(c)&&navigator.onLine&&!c.geoError)geoLoad(c,{rename:c.namesAuto!==false&&!S.sede});else if(c.geo&&needsBlocks(c)&&!geoBusy.has(c)&&!blockBusy.has(c)&&navigator.onLine)loadBlocks(c);}
 function start(data){
   document.body.classList.add('booting');setTab('map');sbInit();S=null;
-  if(!sbOn()){openModal(head('Configuração','Salvamento online desligado',false)+'<p>O jogo salva só na conta. Preencha <code>supabaseUrl</code> e <code>supabaseAnonKey</code> no <code>config.js</code>.</p>');return;}
   loop();setTimeout(autoGeo,600);setOnline();
-  if(!SB.session||!SB.session.user){openLogin(true);return;}
+  if(!sbOn()){guestBoot();return;}
+  if(!SB.session||!SB.session.user){let g=false;try{g=localStorage.getItem('pt-guest')==='1';}catch(e){}if(g)guestBoot();else openLogin(true);return;}
   bootCloud();
 }
 /* Carrega a empresa da conta. Um progresso antigo guardado neste navegador é enviado para a conta uma vez (se for mais novo) e depois apagado. */
@@ -4877,8 +4925,11 @@ async function bootCloud(){
   openModal(head('Conta','Carregando sua empresa…',false)+'<div style="display:flex;justify-content:center;padding:18px"><span class="spin" aria-hidden="true"></span></div>');
   if(!navigator.onLine){bootFail('Sem internet. O jogo precisa de conexão para carregar a sua empresa.');return;}
   await cfgLoad();
-  const legacy=loadLocal();S=legacy?migrate(legacy):null;
+  let legacy=loadLocal(),guestAt=null;try{const g=await guestRef().get();if(g.exists){const st=JSON.parse(g.data().json);if(validSave(st)&&(!legacy||(st.savedAt||0)>(legacy.savedAt||0))){legacy=st;guestAt=st.savedAt||0;}}}catch(e){}
+  S=legacy?migrate(legacy):null;cloud.guest=false;
   const ok=await initCloud();
+  if(ok&&guestAt!=null&&S&&(S.savedAt||0)===guestAt){await guestRef().clear();toast('Seu progresso deste aparelho foi para a sua conta.');}
+  if(ok){try{localStorage.removeItem('pt-guest');}catch(e){}}
   if(!ok){S=null;bootFail('Não deu para carregar a sua conta agora.');return;}
   try{const q=await sbFetch('/rest/v1/saves?select=level&limit=1');cloud.meta2=q.ok;}catch(e){}
   if(S){const L=await grantsCheck();if(L&&L.some(g=>g.reset)){await grantsMark(L.filter(g=>g.reset).map(g=>g.id));log('Administração zerou a conta.');S=null;}}
