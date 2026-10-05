@@ -298,6 +298,15 @@ div.lot{cursor:default}
 .notice.ok{background:var(--signal-soft);color:#075a52}
 .notice.warn{background:var(--gold-soft);color:#6b4906}
 .choice-list{display:flex;flex-direction:column;gap:8px}
+.m-sec{margin-top:14px}
+.m-sec h3{margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#5a6a88}
+.m-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.m-tile{display:flex;align-items:center;gap:10px;min-width:0;text-align:left;padding:10px 12px;border:2px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);font:inherit;cursor:pointer;box-shadow:0 2px 0 var(--line);touch-action:manipulation}
+.m-tile:hover{border-color:#c9b07a}.m-tile:active{transform:translateY(1px);box-shadow:none}
+.m-tile.hl{border-color:var(--signal);background:#effaf6}.m-tile.adm{border-color:var(--accent);background:#fff4e8}.m-tile.danger{border-color:#e9b4ad;background:#fff5f3}.m-tile.danger b{color:#a61e2d}
+.m-ico{flex:0 0 auto;width:36px;height:36px;display:grid;place-items:center;font-size:20px;border-radius:10px;background:#f6e9cc}
+@media (max-height:520px){.m-sec{margin-top:10px}.m-grid{gap:6px}.m-tile{padding:7px 10px;gap:8px}.m-ico{width:30px;height:30px;font-size:17px}.m-txt b{font-size:14px}.m-txt small{font-size:11px}}
+.m-txt{display:flex;flex-direction:column;min-width:0}.m-txt b{font-size:15px}.m-txt small{font-size:12px;color:#5a6a88;overflow:hidden;text-overflow:ellipsis}
 .choice{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px}
 .choice div{min-width:0}
 .choice b{display:block}
@@ -1199,7 +1208,8 @@ const RETAIN={
 };
 /* Capacidade de cada função por mês (administrador pode mudar): clientes por atendente, visitas por vendedor (a cada 4 dias)… */
 let CAP_VOZ=40,CAP_TEXTO=50,CAP_COM=3,CAP_RET=5,CAP_REC=3,CAP_LOG=6,CAP_OUV=60,CAP_MIG=30,CAP_TEC=1500,SUP_SAL=700,GER_SAL=1200,SUP_PER=5;
-let LOGIN_DIAMONDS=100,RIVAL_ONLINE_H=24,RULES_MIN_CITIES=2;
+let LOGIN_DIAMONDS=100,RIVAL_ONLINE_H=24,RULES_MIN_CITIES=2,MENU_CONN=0;
+const connOn=()=>isAdmin()||MENU_CONN>=1;
 const rulesOn=()=>!!S&&S.cities.length>=RULES_MIN_CITIES;
 let COIN_RATE=50,COIN_M3=1,COIN_M6=2,COIN_M12=3,DIA_LEVEL=5,DIA_MISSION=1;
 /* Milissegundos reais por dia de jogo em 1× (30 dias = 1 mês). O administrador define em minutos por mês. */
@@ -3251,23 +3261,18 @@ function showStart(){
   });
 }
 function openMenu(){
-  const st=cloud.guest?`Jogando sem conta: o progresso fica só neste aparelho. Entre ou crie uma conta para salvar online, disputar a concorrência e ganhar 💎 ${LOGIN_DIAMONDS} diamantes.`:cloud.status==='cloud'?`Salvo online na sua conta${cloud.last?` às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}. Você continua de onde parou em qualquer aparelho.`:cloud.status==='erro'?'Não deu para salvar na sua conta agora. O progresso segue salvo neste navegador.':'Salvo na sua conta a cada 30 segundos e ao sair do jogo.';
-  openModal(head('Jogo','Menu')+`<div class="notice ${cloud.status==='cloud'?'ok':'warn'}">${st}</div>
-    <div class="choice-list">
-      ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
-      ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
-      ${isAdmin()?'<div class="choice" style="border-color:var(--accent)"><div><b>Administração</b><small>Valores, níveis, durações e tempo do jogo para todos os jogadores.</small></div><button class="btn small primary" data-act="admin">Abrir</button></div>':''}
-      <div class="choice"><div><b>Seu avatar</b><small>Aparece no topo e no ranking.</small></div><button class="btn small" data-act="avatar">Trocar</button></div>
-      <div class="choice"><div><b>Política do jogo</b><small>Dados guardados, convivência e seus direitos.</small></div><button class="btn small" data-act="policy">Ler</button></div>
-      <div class="choice"><div><b>🏆 Ranking dos provedores</b><small>Quem tem mais assinantes, no geral e na sua cidade, e quem está online.</small></div><button class="btn small" data-act="ranking">Ver</button></div>
-      <div class="choice"><div><b>Tutorial guiado</b><small>Ligar, desligar ou rever os tutoriais de cada nível.</small></div><button class="btn small" data-act="tours">Abrir</button></div>
-      <div class="choice"><div><b>Som e animações</b><small>Música, efeitos sonoros e carros e pessoas no mapa.</small></div><button class="btn small" data-act="fx">Ajustar</button></div>
-      <div class="choice"><div><b>Relatório de desempenho</b><small>Mostra onde o jogo demora e quando a tela travou, para mandar ao suporte.</small></div><button class="btn small" data-act="perf">Abrir</button></div>
-      <div class="choice"><div><b>Testar conexões</b><small>Confere o Supabase (login) e o banco de quadras no Drive.</small></div><button class="btn small" data-act="connTest">Testar</button></div>
-      ${document.fullscreenEnabled?`<div class="choice"><div><b>Tela cheia na horizontal</b><small>Esconde a barra do navegador e deita a tela (Android).</small></div><button class="btn small" data-act="fullscreen">Tela cheia</button></div>`:''}
-      <div class="choice"><div><b>Níveis e XP</b><small>O que cada nível libera.</small></div><button class="btn small" data-act="levels">Ver níveis</button></div>
-      <div class="choice"><div><b>Recomeçar do zero</b><small>Apaga o progresso salvo.</small></div><button class="btn small" id="mReset">Recomeçar</button></div>
-    </div><div id="mConfirm"></div>`,m=>{
+  const st=cloud.guest?`Jogando sem conta: o progresso fica só neste aparelho. Entre ou crie uma conta para salvar online, disputar a concorrência e ganhar 💎 ${LOGIN_DIAMONDS} diamantes.`:cloud.status==='cloud'?`Salvo online na sua conta${cloud.last?` às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}. Você continua de onde parou em qualquer aparelho.`:cloud.status==='erro'?'Não deu para salvar na sua conta agora. O progresso segue salvo neste navegador.':'Salvo na sua conta a cada minuto e ao sair do jogo.';
+  const T=(act,ico,t,sub,cls)=>`<button type="button" class="m-tile${cls?' '+cls:''}" ${act[0]==='#'?'id="'+act.slice(1)+'"':'data-act="'+act+'"'}><span class="m-ico" aria-hidden="true">${ico}</span><span class="m-txt"><b>${t}</b><small>${sub}</small></span></button>`;
+  const sec=(t,tiles)=>{tiles=tiles.filter(Boolean);return tiles.length?`<section class="m-sec"><h3>${t}</h3><div class="m-grid">${tiles.join('')}</div></section>`:'';};
+  const logged=!!(SB.session&&SB.session.user);
+  openModal(head('Jogo','Menu')+`<div class="notice ${cloud.status==='cloud'?'ok':'warn'}" style="margin-bottom:4px">${st}</div>
+    ${sec('Jogo',[T('ranking','🏆','Ranking','Provedores com mais assinantes e quem está online.'),T('levels','⭐','Níveis e XP','O que cada nível libera.'),T('tours','👆','Tutorial guiado','Ligar, desligar ou rever.')])}
+    ${sec('Conta',[sbOn()?T('login',logged?'👤':'🔑',logged?'Minha conta':'Entrar',logged?esc(SB.session.user.email||''):'Salve online e jogue em outro aparelho.',logged?'':'hl'):'',T('avatar','🙂','Avatar','Aparece no topo e no ranking.'),T('policy','📜','Política do jogo','Dados, convivência e seus direitos.')])}
+    ${sec('Aparelho',[T('fx','🔊','Som e animações','Música, efeitos e movimento no mapa.'),deferredInstall?T('#mInstall','📲','Instalar como app','Abre em tela cheia.','hl'):'',document.fullscreenEnabled?T('fullscreen','⛶','Tela cheia','Esconde a barra do navegador (Android).'):''])}
+    ${sec('Suporte',[T('perf','📊','Relatório de desempenho','Onde o jogo demora, para mandar ao suporte.'),connOn()?T('connTest','🔌','Testar conexões','Login e banco de quadras.'):''])}
+    ${isAdmin()?sec('Administrador',[T('admin','🛠️','Administração','Regras, valores e jogadores.','adm')]):''}
+    <section class="m-sec"><h3>Progresso</h3><div class="m-grid">${T('#mReset','🗑️','Recomeçar do zero','Apaga a empresa salva.','danger')}</div></section>
+    <div id="mConfirm"></div>`,m=>{
     const mi=m.querySelector('#mInstall');if(mi)mi.onclick=async()=>{const ev=deferredInstall;deferredInstall=null;closeModal();if(ev){ev.prompt();try{await ev.userChoice;}catch(e){}}};
     m.querySelector('#mReset').onclick=()=>{m.querySelector('#mConfirm').innerHTML=`<div class="notice bad" style="margin-top:12px">Tem certeza? O progresso deste navegador e da sua conta será apagado.<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn small primary" id="mYes">Sim, recomeçar</button><button class="btn small" data-close>Cancelar</button></div></div>`;
       m.querySelector('#mYes').onclick=async()=>{try{localStorage.removeItem(SAVE_KEY);}catch(e){}clearTimeout(cloud.t);cloud.dirty=false;if(cloud.ref){try{await cloud.ref.delete();}catch(e){}}S=null;$('#modalWrap').hidden=true;modalOpen=false;showStart();};};
@@ -4240,7 +4245,7 @@ document.addEventListener('click',e=>{
   else if(act==='pending')openPending();
   else if(act==='policy')openPolicy();
   else if(act==='avatar')openAvatar();
-  else if(act==='connTest')connTest();
+  else if(act==='connTest'){if(connOn())connTest();}
   else if(act==='perf')openPerf();
   else if(act==='diamonds')openDiamonds();
   else if(act==='ouvidoria')openOuvidoria();
@@ -4981,7 +4986,7 @@ const CFGS=[
   ['START_DIAMONDS','Selos e diamantes','Diamantes no começo'],['DIA_LEVEL','Selos e diamantes','Diamantes por nível'],['DIA_MISSION','Selos e diamantes','Diamantes por missão'],['DIA_TO_COINS','Selos e diamantes','Selos por diamante'],['DIA_TO_MONEY','Selos e diamantes','R$ por diamante'],
   ['IPV6_LEVEL','Níveis','IPv6'],['IPV6_COST','Preços','IPv6: implantação (R$)'],['IPV6_OFF','Links','IPv6: fração do tráfego por peering (0,2 = 20%)'],
   ['LOGIN_DIAMONDS','Selos e diamantes','Diamantes por entrar na conta (uma vez)'],['RIVAL_ONLINE_H','Níveis','Concorrência: horas sem jogar até parar de disputar'],
-  ['RULES_MIN_CITIES','Níveis','Regras de negócio: cidades mínimas (1 = sempre)'],['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
+  ['RULES_MIN_CITIES','Níveis','Regras de negócio: cidades mínimas (1 = sempre)'],['MENU_CONN','Menu','Mostrar "Testar conexões" para os jogadores (1 = sim, 0 = só administrador)'],['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
   ['DOCS#contrato.days','Duração','Contrato social (dias)'],['DOCS#cnpj.days','Duração','CNPJ (dias)'],['DOCS#alvara.days','Duração','Alvará (dias)'],['DOCS#contrato.cost','Preços','Contrato social (R$)'],['DOCS#alvara.cost','Preços','Alvará (R$)'],
   ['TRAININGS#b.months','Duração','Treinamento básico (meses)'],['TRAININGS#a.months','Duração','Treinamento avançado (meses)'],['TRAININGS#l.months','Duração','Liderança e gestão (meses)'],['CEO_MAX_H','Duração','CEO: horas máximas'],
   ['BONUS_PER_LEVEL','Economia','Bônus por nível (R$ × nível)'],['BONUS_CAP','Economia','Bônus máximo por nível (R$)'],['OFFLINE_CAP','Economia','Ganho offline máximo (R$)'],['OFFLINE_RATE','Economia','Ganho offline por hora (fração do saldo)'],

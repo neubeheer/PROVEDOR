@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v77`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v78`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Só deitado: em celular e tablet em pé (`(orientation:portrait) and (pointer:coarse)`) aparece `#rotateLock` e o relógio para (`portraitLock()` no `loop`); o manifest abre deitado. O layout em pé continua no CSS, mas não é usado.
 - Topo: caixa, clientes, selos e diamantes abreviados por `shortN` (mil, mi, bi, tri, qua a partir de 100 mil; valor exato no `title`).
@@ -43,6 +43,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - Nova operação: `openIndep`/`indepConfirm`, liberada com `indepReq()` (5 mil × (1 + operações abertas)). A cidade tem `c.indep` e `c.costMul` (5): multiplica estudo, outorga (inclusive regiões e `cityPopulation`/`geoLoad`) e `netSteps`; só aceita o link `CITY_LINKS` com `indep:true` (R$ 10 mi).
 - Campanha de meses grátis (Recuperação): `graceHtml`, `GRACE`, uma por mês (`S.graceM`); o cliente ganha `l.disc` 100% e `l.grace` (não atrasa até lá).
 - O laço do jogo (`loop`) pega erros de `tick()` e mostra na tela (`reportErr`): um erro nunca mais para o relógio. Os painéis da barra não pausam o jogo; os outros modais pausam.
+- Menu (`openMenu`) em seções de blocos (`.m-sec`, `.m-tile`): Jogo, Conta, Aparelho, Suporte, Administrador (só admin) e Progresso. "Testar conexões" só aparece para o admin ou com `MENU_CONN` = 1 (Administração → Menu; `connOn()`).
 - Não há mais exportar/importar JSON nem save no navegador.
 - Desempenho: `renderAll` só monta as colunas escondidas do painel aberto (`renderPanelSrc`); o mapa real redesenha no máximo a cada 1,5 s (`LDrawAt`). Com ~5 mil clientes, um dia de jogo leva ~10 ms. O relógio não desenha a tela direto: `renderSoon` desenha no máximo a cada 0,8 s, e o mapa redesenha a cada 5 s quando o pedido vem do relógio (`TICKR`) ou 1,5 s quando vem de uma ação. O tamanho do mapa é medido por `ResizeObserver`. Os vendedores calculam as quadras vendáveis uma vez por rodada (`vendorAttempt(V)`), e `RC` lembra a contagem de clientes durante um desenho.
 - Relatório de desempenho (`PERF`, Menu → Relatório de desempenho, `openPerf`): `perfWrap` cronometra tick, monthEnd, renderAll/Top/Map/Real, drawReal, drawQuadras, qnRefresh, checkMissions, saveJson, openPanel, refreshPanel, renderBuilding e openModal; um relógio de 250 ms registra travadas acima de 0,5 s com a função que estava rodando e o contexto (dia, velocidade, painel, zoom, quadras, clientes). Fica só no aparelho (`pt-perf`); o jogador copia ou baixa o texto e manda.
@@ -75,7 +76,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - [ ] Rodar o `supabase/schema.sql` de novo (seção 8: colunas de resumo em `saves`, leitura do admin e tabela `grants`; seção 9: visão `ranking`; seção 10: coluna `avatar` e visão com avatar).
 - Supabase: em 2026-10-05 o jogo foi zerado de novo e passou para o projeto utwdnogihsfxxcuofoqi (`config.js` atualizado); `schema.sql` inteiro rodado e conferido (tabelas, visão `ranking` e RLS bloqueando escrita anônima). Conferir no painel: Auth (Site URL, Redirect URLs, SMTP, templates de `templates email/`) e as Propriedades do Apps Script.
 - Supabase: em 2026-10-04 o projeto antigo (fatdynkmnbqehxkrovsv, us-east-2, nano) ficou com CPU em 100% pelos saves de ~5 MB a cada 30 s e foi trocado por um projeto novo (wrvsbdtjtwbjutrtwcqk) com o `schema.sql` já rodado; o jogo recomeçou do zero. Falta trocar `SUPABASE_URL` e `SUPABASE_ANON_KEY` nas Propriedades do Apps Script.
-- [ ] Publicar a v77 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v78 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` (v50: mapa da cidade `geo` e busca de arquivo por id) no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 
