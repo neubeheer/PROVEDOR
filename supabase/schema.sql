@@ -157,14 +157,16 @@ create policy grants_own_upd on public.grants for update to authenticated using 
 
 -- 9) Ranking com todos os jogadores (online ou não, com ou sem outorga).
 --    A visão mostra só o resumo público de cada empresa (nunca o progresso nem o e-mail) e todos os logados leem.
-create or replace view public.ranking as
+drop view if exists public.ranking;
+create view public.ranking as
   select user_id, company, level, clients, cities, month, updated_at
   from public.saves;
 grant select on public.ranking to anon, authenticated;
 
 -- 10) Avatar do jogador (o jogo envia junto do resumo) e no ranking.
 alter table public.saves add column if not exists avatar int;
-create or replace view public.ranking as
+drop view if exists public.ranking;
+create view public.ranking as
   select user_id, company, level, clients, cities, month, updated_at, avatar
   from public.saves;
 grant select on public.ranking to anon, authenticated;
