@@ -168,3 +168,25 @@ create or replace view public.ranking as
   select user_id, company, level, clients, cities, month, updated_at, avatar
   from public.saves;
 grant select on public.ranking to anon, authenticated;
+
+-- 11) Minha conta: nome do jogador e preferências de e-mail no resumo, e a lista de acessos de cada conta.
+--     news = quer receber novidades por e-mail; login_alert = quer o aviso de acesso (enviado pelo Apps Script).
+alter table public.saves add column if not exists player text;
+alter table public.saves add column if not exists news boolean default false;
+alter table public.saves add column if not exists login_alert boolean default true;
+create table if not exists public.acessos (
+  id bigserial primary key,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  at timestamptz not null default now(),
+  device text check (char_length(device) <= 80),
+  method text check (method in ('senha','facebook','link','codigo'))
+);
+create index if not exists acessos_user_at on public.acessos (user_id, at desc);
+alter table public.acessos enable row level security;
+drop policy if exists acessos_own_ins on public.acessos;
+drop policy if exists acessos_own_sel on public.acessos;
+drop policy if exists acessos_admin_sel on public.acessos;
+create policy acessos_own_ins on public.acessos for insert to authenticated with check (auth.uid() = user_id);
+create policy acessos_own_sel on public.acessos for select to authenticated using (auth.uid() = user_id);
+create policy acessos_admin_sel on public.acessos for select to authenticated
+  using (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');

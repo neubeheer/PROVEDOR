@@ -11,6 +11,8 @@
  *   Região:  POST .../exec   {"acao":"regiao", ...}    o jogo avisa uma cidade que o jogador atende
  *   Mapa:    POST .../exec   {"acao":"geo", ...}       o jogo guarda o mapa da cidade (centro, tamanho e bairros) junto das quadras,
  *                                                       para a próxima abertura não precisar do OpenStreetMap nem dos Correios
+ *   Acesso:  POST .../exec   {"acao":"acesso", ...}    aviso por e-mail quando alguém entra na conta (se o jogador deixou ligado);
+ *                                                       sai do Gmail de quem publicou o script (MailApp, até 100 por dia na conta grátis)
  *
  * Quem pode gravar:
  *   - jogador logado no Supabase: só cria cidade nova (não sobrescreve);
@@ -99,17 +101,69 @@ function geoValido_(g) {
   if (!Array.isArray(g.bairros) || g.bairros.length < 1 || g.bairros.length > 30) return false;
   return g.bairros.every(function (b) { return b && typeof b.name === 'string' && b.name.length <= 80 && b.lat >= -35 && b.lat <= 6 && b.lon >= -75 && b.lon <= -28; });
 }
-function loginSupabaseOk_(token) {
+function usuarioSupabase_(token) {
   const p = props_(), url = p.getProperty('SUPABASE_URL'), key = p.getProperty('SUPABASE_ANON_KEY');
-  if (!url || !key || !token) return false;
+  if (!url || !key || !token) return null;
   try {
     const r = UrlFetchApp.fetch(url.replace(/\/+$/, '') + '/auth/v1/user', {
       headers: { apikey: key, Authorization: 'Bearer ' + token }, muteHttpExceptions: true,
     });
-    if (r.getResponseCode() !== 200) return false;
+    if (r.getResponseCode() !== 200) return null;
     const u = JSON.parse(r.getContentText());
-    return !!(u && u.id);
-  } catch (e) { return false; }
+    return u && u.id ? u : null;
+  } catch (e) { return null; }
+}
+function loginSupabaseOk_(token) { return !!usuarioSupabase_(token); }
+
+/* ---------- aviso de acesso ----------
+   corpo: {"acao":"acesso","token":"<login do Supabase>","device":"Chrome no Android","method":"senha","site":"https://..."}
+   Só manda para o e-mail da própria conta, se user_metadata.loginAlert não for false, no máximo 1 a cada 10 min por conta. */
+function esc_(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function acesso_(d) {
+  const u = usuarioSupabase_(d.token);
+  if (!u || !u.email) return json_({ ok: false, erro: 'sem permissão: entre na sua conta' });
+  const meta = u.user_metadata || {};
+  if (meta.loginAlert === false) return json_({ ok: true, enviado: false, motivo: 'desligado' });
+  const cache = CacheService.getScriptCache(), ck = 'acesso_' + u.id;
+  if (cache.get(ck)) return json_({ ok: true, enviado: false, motivo: 'aviso recente' });
+  cache.put(ck, '1', 600);
+  const metodos = { senha: 'e-mail e senha', facebook: 'Facebook', link: 'link do e-mail', codigo: 'código do e-mail' };
+  const dev = esc_(String(d.device || 'aparelho').slice(0, 80));
+  const met = esc_(metodos[d.method] || 'e-mail e senha');
+  const site = /^https:\/\/[^\s"'<>]{4,200}$/.test(String(d.site || '')) ? String(d.site).replace(/\/+$/, '') : '';
+  const quando = Utilities.formatDate(new Date(), 'America/Sao_Paulo', "dd/MM/yyyy 'às' HH:mm");
+  const nome = esc_(String(meta.name || '').slice(0, 40));
+  const fundo = site ? site + '/templates%20email/cidade.jpg' : '';
+  const titulo = "font-family:'Lilita One','Arial Black',Arial,sans-serif;";
+  const html =
+    '<div style="margin:0;padding:24px 12px;background:#2a83d8;font-family:Arial,sans-serif">' +
+    '<div style="max-width:560px;margin:0 auto">' +
+    '<div style="height:120px;border:3px solid #1b2a4a;border-bottom:0;border-radius:18px 18px 0 0;background:#2a83d8' +
+      (fundo ? " url('" + fundo + "') center/cover no-repeat" : '') + ';padding:0 22px;position:relative">' +
+      '<div style="' + titulo + 'position:absolute;left:22px;bottom:14px;font-size:28px;color:#fff;text-shadow:0 2px 0 #1b2a4a,2px 0 0 #1b2a4a,-2px 0 0 #1b2a4a,0 -2px 0 #1b2a4a">Provedor Tycoon</div></div>' +
+    '<div style="background:#fff8ea;border:3px solid #1b2a4a;border-radius:0 0 18px 18px;padding:22px 24px;color:#1b2a4a">' +
+      '<div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#5a6a88">CONTA</div>' +
+      '<div style="' + titulo + 'font-size:24px;color:#8a5a2b;margin:4px 0 12px">Novo acesso à sua conta</div>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 14px">' + (nome ? 'Oi, ' + nome + '! ' : 'Oi! ') +
+        'Alguém acabou de entrar na conta <b>' + esc_(u.email) + '</b>.</p>' +
+      '<div style="background:#d4f1ea;border:2px solid #0f9a8d;border-radius:14px;padding:12px 14px;font-size:15px;line-height:1.6;margin:0 0 16px">' +
+        '📱 <b>' + dev + '</b><br>🔑 Entrou com ' + met + '<br>🕒 ' + quando + ' (horário de Brasília)</div>' +
+      '<p style="font-size:15px;line-height:1.5;margin:0 0 8px">Foi você? Então está tudo certo, não precisa fazer nada.</p>' +
+      '<p style="font-size:15px;line-height:1.5;margin:0 0 16px"><b>Não foi você?</b> Abra o jogo, vá em <b>Menu → Minha conta → Trocar a senha</b> e peça o código.</p>' +
+      (site ? '<p style="text-align:center;margin:0 0 6px"><a href="' + site + '" style="display:inline-block;background:#52cc3a;border:3px solid #1b2a4a;border-radius:14px;padding:12px 26px;color:#fff;font-weight:800;font-size:17px;text-decoration:none">Abrir o jogo</a></p>' : '') +
+      '<p style="font-size:12px;color:#5a6a88;margin:14px 0 0">Para não receber mais este aviso: Menu → Minha conta → E-mails → Aviso de acesso à conta.</p>' +
+    '</div></div></div>';
+  try {
+    MailApp.sendEmail({ to: u.email, subject: 'Novo acesso à sua conta do Provedor Tycoon', htmlBody: html, name: 'Provedor Tycoon' });
+  } catch (e) {
+    cache.remove(ck);
+    return json_({ ok: false, erro: 'não deu para enviar: ' + e });
+  }
+  return json_({ ok: true, enviado: true });
 }
 
 /* ---------- leitura ---------- */
@@ -182,6 +236,7 @@ function doPost(e) {
     const raw = e && e.postData && e.postData.contents || '';
     if (raw.length > MAX_BYTES) return json_({ ok: false, erro: 'arquivo grande demais' });
     const d = JSON.parse(raw);
+    if (d.acao === 'acesso') return acesso_(d);
     const robo = !!d.senha && d.senha === props_().getProperty('SENHA_DO_ROBO');
     if (!robo && !loginSupabaseOk_(d.token)) return json_({ ok: false, erro: 'sem permissão: entre na sua conta' });
     if (!chaveOk_(d.city_key) || (d.name_key && !chaveOk_(d.name_key))) return json_({ ok: false, erro: 'chave da cidade inválida' });

@@ -299,6 +299,21 @@ div.lot{cursor:default}
 .notice.warn{background:var(--gold-soft);color:#6b4906}
 .choice-list{display:flex;flex-direction:column;gap:8px}
 .m-sec{margin-top:14px}
+.acc-card{display:flex;align-items:center;gap:14px;padding:12px;border:2px solid var(--line);border-radius:16px;background:#fff}
+.acc-ava{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;cursor:pointer;font:inherit;font-size:12px;font-weight:800;color:#1f6cc0;padding:0}
+.acc-ava svg{width:64px;height:64px;border:3px solid var(--navy);border-radius:16px;background:#f6e9cc}
+.acc-id{display:flex;flex-direction:column;min-width:0}.acc-id b{font-size:18px}.acc-id small{color:#5a6a88;overflow:hidden;text-overflow:ellipsis}
+.acc-row{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.acc-row>span{flex:1;min-width:180px;display:flex;flex-direction:column}.acc-row>span small{color:#5a6a88}
+.acc-box{padding:10px 12px;border:2px solid var(--line);border-radius:14px;background:#fff;margin-bottom:8px}.acc-box .acc-row{align-items:center}
+.acc-ok{font-weight:800;color:var(--signal)}
+.acc-sw{display:flex;align-items:center;gap:12px;padding:10px 12px;border:2px solid var(--line);border-radius:14px;background:#fff;margin-bottom:8px;cursor:pointer}
+.acc-sw>span{flex:1;display:flex;flex-direction:column}.acc-sw small{color:#5a6a88}
+.acc-sw input{position:absolute;opacity:0;pointer-events:none}.acc-sw i{flex:0 0 auto;width:46px;height:26px;border-radius:99px;background:#cfd6e2;border:2px solid var(--navy);position:relative;transition:background .15s}
+.acc-sw i::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--navy);transition:left .15s}
+.acc-sw input:checked+i{background:var(--go)}.acc-sw input:checked+i::after{left:20px}.acc-sw input:focus-visible+i{outline:3px solid #1f6cc0;outline-offset:2px}
+.acc-acc{display:flex;flex-direction:column;gap:4px}.acc-a{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:6px 10px;border-radius:10px;background:#fff;border:1.5px solid var(--line);font-size:14px}.acc-a small{color:#5a6a88}
+.btn.fb-btn{background:#1877f2;color:#fff;display:inline-flex;align-items:center;gap:8px;justify-content:center}.btn.fb-btn.wide{width:100%;margin:4px 0 2px}
+.or-sep{display:flex;align-items:center;gap:10px;color:#5a6a88;font-size:13px;font-weight:700;margin:10px 0 2px}.or-sep::before,.or-sep::after{content:'';flex:1;height:2px;background:var(--line)}
 .m-sec h3{margin:0 0 6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#5a6a88}
 .m-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
 .m-tile{display:flex;align-items:center;gap:10px;min-width:0;text-align:left;padding:10px 12px;border:2px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);font:inherit;cursor:pointer;box-shadow:0 2px 0 var(--line);touch-action:manipulation}
@@ -1372,9 +1387,10 @@ function mailNotice(){let m=null;try{m=JSON.parse(localStorage.getItem('pt-mail'
 async function sbRecover(email){const r=await fetch(SB.url+'/auth/v1/recover?redirect_to='+encodeURIComponent(backUrl()),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email})});if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(/rate|seconds/i.test(j.msg||j.message||'')?'Aguarde um minuto antes de pedir outro e-mail.':'Não deu para enviar agora.');}}
 /* Volta do link do e-mail: o Supabase manda #access_token=…&type=signup|recovery (ou #error=…). */
 async function authReturn(){const h=new URLSearchParams(location.hash.slice(1));if(!h.has('access_token')&&!h.has('error'))return null;history.replaceState(null,'',backUrl());
+  let oe=null;try{oe=localStorage.getItem('pt-oauth');}catch(e){}if(h.has('error')&&oe){try{localStorage.removeItem('pt-oauth');}catch(e){}return {err:/already|exists|linked/i.test(h.get('error_description')||'')?'Esse Facebook já está ligado a outra conta.':'Não deu para entrar com o Facebook. Tente de novo ou use e-mail e senha.'};}
   if(h.has('error'))return {err:/expired/i.test(h.get('error_code')||h.get('error_description')||'')?'O link do e-mail expirou. Peça outro na tela de login.':'O link do e-mail não é mais válido. Peça outro na tela de login.'};
   const tok=h.get('access_token');try{const r=await fetch(SB.url+'/auth/v1/user',{headers:{apikey:SB.key,Authorization:'Bearer '+tok}});const u=await r.json();if(!r.ok||!u.id)throw 0;
-    sbStore({access_token:tok,refresh_token:h.get('refresh_token'),expires_at:+h.get('expires_at')||Math.floor(Date.now()/1000)+(+h.get('expires_in')||3600),user:{id:u.id,email:u.email}});try{localStorage.removeItem('pt-mail');}catch(e){}return {type:h.get('type')||'signup'};}
+    sbStore({access_token:tok,refresh_token:h.get('refresh_token'),expires_at:+h.get('expires_at')||Math.floor(Date.now()/1000)+(+h.get('expires_in')||3600),user:{id:u.id,email:u.email}});try{localStorage.removeItem('pt-mail');}catch(e){}let oa=null;try{oa=localStorage.getItem('pt-oauth');localStorage.removeItem('pt-oauth');}catch(e){}return {type:h.get('type')||(oa?'oauth':'signup'),link:oa==='facebook-link'};}
   catch(e){return {err:'Não deu para confirmar agora. Tente entrar com e-mail e senha.'};}}
 const pwField=(id,lab,ph)=>`<div class="field"><label for="${id}">${lab}</label><div class="pw-wrap"><input class="input" id="${id}" type="password" autocomplete="new-password" maxlength="72"${ph?` placeholder="${ph}"`:''}><button type="button" class="pw-eye" data-eye="${id}" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path class="pw-slash" d="M4 20L20 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div></div>`;
 document.addEventListener('click',e=>{const b=e.target.closest('[data-eye]');if(!b)return;const i=document.getElementById(b.dataset.eye);if(!i)return;const show=i.type==='password';i.type=show?'text':'password';b.setAttribute('aria-pressed',String(show));b.setAttribute('aria-label',show?'Esconder senha':'Mostrar senha');i.focus();});
@@ -1382,6 +1398,78 @@ function openNewPass(){openModal(head('Conta','Criar uma senha nova',false)+`<p>
   m.querySelector('#npGo').onclick=async()=>{const pw=m.querySelector('#npPass').value,note=m.querySelector('#npNote');if(pw.length<6){note.textContent='A senha precisa de pelo menos 6 caracteres.';return;}if(pw!==m.querySelector('#npPass2').value){note.textContent='As senhas não são iguais.';return;}
     const r=await sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:pw})});if(!r.ok){note.textContent='Não deu para salvar agora. Tente de novo.';return;}toast('Senha nova salva!');bootCloud();};});}
 async function sbLogout(){try{await sbFetch('/auth/v1/logout',{method:'POST'});}catch(e){}sbStore(null);cloud.ref=null;cloud.status='local';renderSaveDot();}
+/* ===================== Minha conta =====================
+   Nome do jogador, avatar, troca de senha por código no e-mail, Facebook, preferências de e-mail e últimos acessos.
+   Preferências ficam no user_metadata do Supabase (name, news, loginAlert) e no resumo da tabela saves (player, news, login_alert).
+   O aviso de acesso por e-mail sai pelo Apps Script (acao "acesso"), que confere o login e a preferência antes de enviar. */
+const meOf=()=>(SB.session&&SB.session.user&&SB.session.user.meta)||{};
+const prefNews=()=>meOf().news===true,prefAlert=()=>meOf().loginAlert!==false;
+const playerName=()=>String(meOf().name||'').slice(0,40);
+async function sbMe(){if(!SB.session)return null;try{const r=await sbFetch('/auth/v1/user');if(!r.ok)return null;const u=await r.json();SB.session.user.meta=u.user_metadata||{};SB.session.user.ids=(u.identities||[]).map(i=>i.provider);SB.session.user.created=u.created_at;sbStore(SB.session);return u;}catch(e){return null;}}
+async function sbMeta(data){const r=await sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({data})});if(!r.ok)throw new Error('Não deu para salvar agora.');const u=await r.json().catch(()=>null);if(u&&u.user_metadata)SB.session.user.meta=u.user_metadata;else Object.assign(SB.session.user.meta=SB.session.user.meta||{},data);sbStore(SB.session);if(S&&cloud.ref){cloud.dirty=true;scheduleCloud(2000);}}
+/* Provedores de login ligados no Supabase (Facebook só aparece se estiver ligado lá). */
+let SB_PROV=null;async function sbProviders(){if(SB_PROV)return SB_PROV;try{const r=await fetch(SB.url+'/auth/v1/settings',{headers:{apikey:SB.key}});SB_PROV=((await r.json())||{}).external||{};}catch(e){SB_PROV={};}return SB_PROV;}
+async function fbLogin(){if(cloud.guest&&S){clearTimeout(cloud.t);cloud.t=null;try{await guestRef().set({json:saveJson()});}catch(e){}}
+  try{localStorage.setItem('pt-oauth','facebook');}catch(e){}location.href=SB.url+'/auth/v1/authorize?provider=facebook&redirect_to='+encodeURIComponent(backUrl());}
+async function fbLink(){if(S&&cloud.ref){cloud.dirty=true;try{await flushCloud();}catch(e){}}
+  const r=await sbFetch('/auth/v1/user/identities/authorize?provider=facebook&skip_http_redirect=true&redirect_to='+encodeURIComponent(backUrl()));const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.url)throw new Error(/manual linking/i.test(j.msg||j.message||'')?'Ligue "Manual linking" no Supabase (Authentication → Sign In / Providers).':'Não deu para conectar o Facebook agora.');
+  try{localStorage.setItem('pt-oauth','facebook-link');}catch(e){}location.href=j.url;}
+const FB_ICO='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#fff" d="M13.5 21v-7.5H16l.4-3h-2.9V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.8 1.4-3.8 3.9v2.3H8v3h2.5V21h3z"/></svg>';
+/* Aparelho e navegador, para a lista de acessos e o e-mail de aviso. */
+function devName(){const u=navigator.userAgent||'';const os=/iPhone/.test(u)?'iPhone':/iPad/.test(u)?'iPad':/Android/.test(u)?'Android':/Windows/.test(u)?'Windows':/Mac OS X/.test(u)?'Mac':/Linux/.test(u)?'Linux':'aparelho';
+  const br=/SamsungBrowser/.test(u)?'Samsung Internet':/Edg\//.test(u)?'Edge':/OPR\//.test(u)?'Opera':/Firefox\//.test(u)?'Firefox':/CriOS|Chrome\//.test(u)?'Chrome':/Safari\//.test(u)?'Safari':'navegador';return br+' no '+os;}
+/* Registra um acesso novo (login com senha, Facebook ou link do e-mail) e pede o aviso por e-mail. */
+async function loginEvent(method){if(!SB.session||!SB.session.user)return;await sbMe();const dev=devName();
+  try{await sbFetch('/rest/v1/acessos',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({user_id:SB.session.user.id,device:dev,method})});}catch(e){}
+  const u=quadrasUrl();if(!u||!prefAlert())return;
+  try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({acao:'acesso',token:SB.session.access_token,device:dev,method,site:backUrl(),at:new Date().toISOString()})});}catch(e){}}
+const METHOD_TXT={senha:'e-mail e senha',facebook:'Facebook',link:'link do e-mail',codigo:'código do e-mail'};
+async function myAccess(){try{const r=await sbFetch('/rest/v1/acessos?select=at,device,method&order=at.desc&limit=6');if(!r.ok)return null;return await r.json();}catch(e){return null;}}
+function openAccount(){const u=SB.session.user,ids=u.ids||[],fbOn=SB_PROV&&SB_PROV.facebook,fbHas=ids.includes('facebook');
+  const sw=(id,on,t,sub)=>`<label class="acc-sw"><span><b>${t}</b><small>${sub}</small></span><input type="checkbox" id="${id}" ${on?'checked':''}><i aria-hidden="true"></i></label>`;
+  openModal(head('Conta','Minha conta')+`
+    <div class="acc-card"><button type="button" class="acc-ava" data-act="avatar" title="Trocar avatar">${avatarSvg(myAvatar())}<span>Trocar</span></button>
+      <div class="acc-id"><b>${esc(playerName()||'Jogador sem nome')}</b><small>${esc(u.email||'')}</small><small>${cloud.status==='cloud'&&cloud.last?`Salvo online às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'Progresso salvo na sua conta'}</small></div></div>
+    <section class="m-sec"><h3>Perfil</h3><div class="acc-row"><div class="field" style="flex:1;margin:0"><label for="acName">Nome do jogador</label><input class="input" id="acName" maxlength="40" placeholder="Como quer ser chamado" value="${esc(playerName())}"></div><button class="btn" id="acNameGo" type="button">Salvar</button></div></section>
+    <section class="m-sec"><h3>Segurança</h3>
+      <div class="acc-box" id="acPw"><div class="acc-row"><span><b>Trocar a senha</b><small>Mandamos um código de 6 números para ${esc(u.email||'')}.</small></span><button class="btn" id="acCode" type="button">Enviar código</button></div></div>
+      ${fbOn||fbHas?`<div class="acc-box"><div class="acc-row"><span><b>Facebook</b><small>${fbHas?'Conectado: dá para entrar com o Facebook.':'Conecte para entrar com um toque.'}</small></span>${fbHas?'<span class="acc-ok">✓ Conectado</span>':`<button class="btn fb-btn" id="acFb" type="button">${FB_ICO} Conectar</button>`}</div></div>`:''}
+    </section>
+    <section class="m-sec"><h3>E-mails</h3>
+      ${sw('acNews',prefNews(),'Novidades e atualizações','Avisos de versões novas, eventos e dicas. Pouca coisa, prometido.')}
+      ${sw('acAlert',prefAlert(),'Aviso de acesso à conta','Um e-mail toda vez que alguém entrar na sua conta.')}
+    </section>
+    <section class="m-sec"><h3>Últimos acessos</h3><div id="acAcc" class="acc-acc"><p class="muted" style="margin:0">Carregando…</p></div></section>
+    <div class="foot"><p class="lg-note" id="acNote" aria-live="polite"></p><button class="btn" data-close>Fechar</button><button class="btn" id="lgOut">Sair da conta</button></div>`,m=>{
+    const note=t=>{const n=m.querySelector('#acNote');if(n)n.textContent=t||'';},q=x=>m.querySelector(x);
+    q('#lgOut').onclick=async()=>{if(S&&cloud.ref){cloud.dirty=true;await flushCloud();}await sbLogout();location.reload();};
+    q('#acNameGo').onclick=async()=>{const v=q('#acName').value.trim().slice(0,40);try{await sbMeta({name:v});toast(v?'Nome salvo!':'Nome apagado.');openAccount();}catch(e){note(e.message);}};
+    q('#acName').onkeydown=e=>{if(e.key==='Enter')q('#acNameGo').click();};
+    const pref=(id,key)=>{q(id).onchange=async e=>{const v=e.target.checked;try{await sbMeta({[key]:v});toast(v?'Ligado.':'Desligado.');}catch(err){e.target.checked=!v;note(err.message);}};};
+    pref('#acNews','news');pref('#acAlert','loginAlert');
+    const fb=q('#acFb');if(fb)fb.onclick=async()=>{fb.disabled=true;try{await fbLink();}catch(e){note(e.message);fb.disabled=false;}};
+    q('#acCode').onclick=async()=>{const b=q('#acCode');b.disabled=true;note('Enviando…');
+      try{await sbRecover(u.email);}catch(e){note(e.message);b.disabled=false;return;}note('');
+      q('#acPw').innerHTML=`<p style="margin:0 0 8px"><b>Código enviado</b> para ${esc(u.email)}. Veja também o spam. Ele vale por pouco tempo.</p>
+        <div class="field"><label for="acTok">Código do e-mail</label><input class="input" id="acTok" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="6 números"></div>
+        ${pwField('acPass','Senha nova','mínimo 6 caracteres')}${pwField('acPass2','Confirme a senha nova')}
+        <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn primary" id="acPwGo" type="button">Trocar a senha</button></div>`;
+      q('#acTok').focus();
+      q('#acPwGo').onclick=async()=>{const tok=q('#acTok').value.replace(/\D/g,''),pw=q('#acPass').value;
+        if(tok.length<6){note('Digite o código que chegou no e-mail.');return;}if(pw.length<6){note('A senha precisa de pelo menos 6 caracteres.');return;}if(pw!==q('#acPass2').value){note('As senhas não são iguais.');return;}
+        const go=q('#acPwGo');go.disabled=true;note('Conferindo o código…');
+        try{const r=await fetch(SB.url+'/auth/v1/verify',{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({type:'recovery',email:u.email,token:tok})});const j=await r.json().catch(()=>({}));
+          if(!r.ok||!j.access_token)throw new Error(/expired|invalid/i.test(j.msg||j.error_description||j.error_code||'')?'Código errado ou vencido. Peça outro.':'Não deu para conferir o código.');
+          const keep=SB.session.user;sbStore(sbSess(j));SB.session.user.meta=SB.session.user.meta||keep.meta;SB.session.user.ids=keep.ids;
+          const r2=await sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:pw})});const j2=await r2.json().catch(()=>({}));
+          if(!r2.ok)throw new Error(/different|same/i.test(j2.msg||j2.error_code||'')?'A senha nova precisa ser diferente da atual.':'Não deu para trocar a senha agora.');
+          toast('🔒 Senha trocada!');openAccount();}catch(e){note(e.message);go.disabled=false;}};};
+    myAccess().then(L=>{const el=document.getElementById('acAcc');if(!el)return;
+      el.innerHTML=L===null?'<p class="muted" style="margin:0">A lista aparece depois que o administrador rodar a seção 11 do schema.sql.</p>':!L.length?'<p class="muted" style="margin:0">Nenhum acesso registrado ainda.</p>':
+        L.map((a,i)=>`<div class="acc-a"><span>${i===0?'🟢':'⚪'} <b>${esc(a.device||'aparelho')}</b> · ${esc(METHOD_TXT[a.method]||a.method||'')}</span><small>${new Date(a.at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</small></div>`).join('')+'<p class="muted" style="margin:6px 0 0;font-size:12px">Não reconhece algum? Troque a senha acima.</p>';});
+  });}
+
 /* O save vai comprimido (gzip em base64, {"gz":...}): ~17× menor (4,7 MB viram ~0,3 MB com 30 mil clientes), o que
    poupa o disco do Supabase. Saves antigos, sem compressão, continuam abrindo. Sem CompressionStream, vai como antes. */
 function b64Of(buf){const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
@@ -1392,7 +1480,7 @@ function sbSaveRef(){
   const uid=SB.session.user.id;
   return {
     async get(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=data,saved_at`);if(!r.ok)throw new Error('http '+r.status);const rows=await r.json();const json=rows.length?await unpackSave(rows[0].data):null;return {exists:rows.length>0,data:()=>({json})};},
-    async set(o){const meta=(cloud.meta2&&S?`${cloud.meta3?`"avatar":${myAvatar()|0},`:''}"email":${JSON.stringify((SB.session.user||{}).email||'')},"level":${levelOf(S.xp)},"clients":${allClients()},"coins":${S.coins|0},"diamonds":${S.diamonds|0},"cities":${S.cities.length},`:'')+`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${await packSave(o.json)}`;
+    async set(o){const meta=(cloud.meta2&&S?`${cloud.meta3?`"avatar":${myAvatar()|0},`:''}${cloud.meta4?`"player":${JSON.stringify(playerName())},"news":${prefNews()},"login_alert":${prefAlert()},`:''}"email":${JSON.stringify((SB.session.user||{}).email||'')},"level":${levelOf(S.xp)},"clients":${allClients()},"coins":${S.coins|0},"diamonds":${S.diamonds|0},"cities":${S.cities.length},`:'')+`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${await packSave(o.json)}`;
       // com a trava ligada e a linha criada, só grava se a sessão ainda for deste aparelho (senão outro aparelho assumiu)
       if(cloud.lock==='on'&&cloud.hasRow){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&sess=eq.${MYSESS}&select=user_id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:'{'+meta+'}'},true,30000);
         if(!r.ok)throw new Error('http '+r.status);const rows=await r.json().catch(()=>null);if(Array.isArray(rows)&&!rows.length){const e=new Error('outro aparelho');e.takeover=true;throw e;}return;}
@@ -1514,15 +1602,15 @@ function openPending(){const p=pendingMail();if(!p){openLogin(false);return;}ope
 function openLogin(fromStart){
   if(!sbOn()){toast('Salvamento online não configurado.');return;}
   const logged=SB.session&&SB.session.user;
-  if(logged){openModal(head('Conta','Salvamento online')+`<div class="notice ok">Conectado como <b>${esc(SB.session.user.email||'')}</b>. O jogo salva neste aparelho e na sua conta: dá para continuar em outro celular ou computador.</div>
-    <div class="foot"><button class="btn" data-close>Fechar</button><button class="btn" id="lgOut">Sair da conta</button></div>`,m=>{m.querySelector('#lgOut').onclick=async()=>{if(S&&cloud.ref){cloud.dirty=true;await flushCloud();}await sbLogout();location.reload();};});return;}
+  if(logged){openAccount();Promise.all([sbProviders(),sbMe()]).then(()=>{const h=document.querySelector('#modal .mhead h2');if(h&&/Minha conta/.test(h.textContent)&&!document.querySelector('#acTok')&&document.activeElement.id!=='acName')openAccount();});return;}
   openModal(head('Conta','Entrar no Provedor Tycoon',!fromStart)+mailNotice()+`<p>Com uma conta o progresso fica salvo online, dá para jogar de qualquer aparelho, disputar a concorrência e aparecer no ranking. <b>Entrando você ganha 💎 ${LOGIN_DIAMONDS} diamantes.</b></p>
-    <form id="lgForm" autocomplete="on" onsubmit="return false"><div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" name="username" type="email" autocomplete="username" maxlength="120"></div>
+    <div id="lgFb"></div><form id="lgForm" autocomplete="on" onsubmit="return false"><div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" name="username" type="email" autocomplete="username" maxlength="120"></div>
     <div class="field"><label for="lgPass">Senha</label><div class="pw-wrap"><input class="input" id="lgPass" name="password" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"><button type="button" class="pw-eye" id="lgEye" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path class="pw-slash" d="M4 20L20 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:700;margin:4px 0 2px;cursor:pointer"><input type="checkbox" id="lgRem" style="width:20px;height:20px"> Lembrar meus dados neste aparelho</label><button type="submit" hidden></button></form>
 
     <div class="foot" style="flex-wrap:wrap;gap:8px"><p class="lg-note" id="lgNote" aria-live="polite"></p>${fromStart&&!S?'<button class="btn ghost" id="lgGuest">Jogar sem conta</button>':'<span></span>'}<span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="lgForgot" type="button">Esqueci a senha</button><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
     const note=m.querySelector('#lgNote'),rem=m.querySelector('#lgRem');
+    sbProviders().then(p=>{const el=m.querySelector('#lgFb');if(!el||!p.facebook)return;el.innerHTML=`<button type="button" class="btn fb-btn wide" id="lgFbGo">${FB_ICO} Entrar com o Facebook</button><div class="or-sep"><span>ou com e-mail</span></div>`;el.querySelector('#lgFbGo').onclick=()=>fbLogin();});
     const fg=m.querySelector('#lgForgot');if(fg)fg.onclick=async ev=>{ev.preventDefault();const em=m.querySelector('#lgEmail').value.trim();if(!/^\S+@\S+\.\S+$/.test(em)){note.textContent='Digite o seu e-mail acima e toque de novo em Esqueci a senha.';m.querySelector('#lgEmail').focus();return;}
       note.textContent='Enviando…';try{await sbRecover(em);mailSent('recover',em);openLogin(fromStart);}catch(e){note.textContent=e.message;}};
     const lg=m.querySelector('#lgGuest');if(lg)lg.onclick=()=>{closeModal();guestBoot();};
@@ -1538,7 +1626,7 @@ function openLogin(fromStart){
         if(r.confirm){mailSent('signup',em);openLogin(fromStart);return;}
         if(rem.checked&&window.PasswordCredential&&navigator.credentials){try{await navigator.credentials.store(new PasswordCredential({id:em,password:pw,name:em}));}catch(e){}}
         if(cloud.guest&&S){clearTimeout(cloud.t);cloud.t=null;try{await guestRef().set({json:saveJson()});}catch(e){}}
-        toast('Conectado!');bootCloud();
+        toast('Conectado!');loginEvent('senha');bootCloud();
       }catch(e){note.textContent=e.message;toast('⚠️ '+e.message);{const g1=m.querySelector('#lgGo'),g2=m.querySelector('#lgNew');if(g1)g1.textContent='Entrar';if(g2)g2.textContent='Criar conta';}m.querySelectorAll('button').forEach(b=>b.disabled=false);}};
     m.querySelector('#lgGo').onclick=()=>run(false);m.querySelector('#lgNew').onclick=()=>openSignup(fromStart,m.querySelector('#lgEmail').value.trim());
     m.querySelector('#lgPass').onkeydown=e=>{if(e.key==='Enter')run(false);};
@@ -5084,7 +5172,7 @@ function start(data){
   document.body.classList.add('booting');setTab('map');sbInit();S=null;
   loop();setTimeout(autoGeo,600);setOnline();
   if(!sbOn()){guestBoot();return;}
-  if(/access_token=|error=/.test(location.hash)){authReturn().then(a=>{if(a&&a.err){openLogin(true);toast(a.err);return;}if(a&&a.type==='recovery'){openNewPass();return;}if(a){bootCloud().then(()=>toast('✅ E-mail confirmado! Você já está conectado e o progresso fica salvo online.'));return;}openLogin(true);});return;}
+  if(/access_token=|error=/.test(location.hash)){authReturn().then(a=>{if(a&&a.err){openLogin(true);toast(a.err);return;}if(a&&a.type==='recovery'){loginEvent('link');openNewPass();return;}if(a&&a.type==='oauth'){if(!a.link)loginEvent('facebook');bootCloud().then(()=>toast(a.link?'✅ Facebook conectado à sua conta!':'✅ Conectado com o Facebook!'));return;}if(a){loginEvent('link');bootCloud().then(()=>toast('✅ E-mail confirmado! Você já está conectado e o progresso fica salvo online.'));return;}openLogin(true);});return;}
   if(!SB.session||!SB.session.user){let g=false;try{g=localStorage.getItem('pt-guest')==='1';}catch(e){}if(g)guestBoot();else openLogin(true);return;}
   bootCloud();
 }
@@ -5099,7 +5187,7 @@ async function bootCloud(){
   if(ok&&guestAt!=null&&S&&(S.savedAt||0)===guestAt){await guestRef().clear();toast('Seu progresso deste aparelho foi para a sua conta.');}
   if(ok){try{localStorage.removeItem('pt-guest');}catch(e){}}
   if(!ok){S=null;bootFail('Não deu para carregar a sua conta agora.');return;}
-  try{const q=await sbFetch('/rest/v1/saves?select=level&limit=1');cloud.meta2=q.ok;const q3=await sbFetch('/rest/v1/saves?select=avatar&limit=1');cloud.meta3=q3.ok;}catch(e){}
+  try{const q=await sbFetch('/rest/v1/saves?select=level&limit=1');cloud.meta2=q.ok;const q3=await sbFetch('/rest/v1/saves?select=avatar&limit=1');cloud.meta3=q3.ok;const q4=await sbFetch('/rest/v1/saves?select=player,news,login_alert&limit=1');cloud.meta4=q4.ok;}catch(e){}
   if(S){const L=await grantsCheck();if(L&&L.some(g=>g.reset)){await grantsMark(L.filter(g=>g.reset).map(g=>g.id));log('Administração zerou a conta.');S=null;}}
   if(!S){showStart();return;}
   setTimeout(grantsApply,3000);
