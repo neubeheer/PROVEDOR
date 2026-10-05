@@ -73,7 +73,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - [x] `supabase/schema.sql` rodado: as tabelas `saves` e `presenca` existem (conferido em 2026-10-02).
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
 - [ ] Rodar o `supabase/schema.sql` de novo (seção 8: colunas de resumo em `saves`, leitura do admin e tabela `grants`; seção 9: visão `ranking`; seção 10: coluna `avatar` e visão com avatar).
-- Supabase: em 2026-10-05 o jogo foi zerado de novo e passou para o projeto utwdnogihsfxxcuofoqi (`config.js` atualizado); faltam rodar o `supabase/schema.sql` inteiro nele, Auth (Site URL, Redirect URLs, SMTP, templates de `templates email/`) e as Propriedades do Apps Script.
+- Supabase: em 2026-10-05 o jogo foi zerado de novo e passou para o projeto utwdnogihsfxxcuofoqi (`config.js` atualizado); `schema.sql` inteiro rodado e conferido (tabelas, visão `ranking` e RLS bloqueando escrita anônima). Conferir no painel: Auth (Site URL, Redirect URLs, SMTP, templates de `templates email/`) e as Propriedades do Apps Script.
 - Supabase: em 2026-10-04 o projeto antigo (fatdynkmnbqehxkrovsv, us-east-2, nano) ficou com CPU em 100% pelos saves de ~5 MB a cada 30 s e foi trocado por um projeto novo (wrvsbdtjtwbjutrtwcqk) com o `schema.sql` já rodado; o jogo recomeçou do zero. Falta trocar `SUPABASE_URL` e `SUPABASE_ANON_KEY` nas Propriedades do Apps Script.
 - [ ] Publicar a v77 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` (v50: mapa da cidade `geo` e busca de arquivo por id) no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda).
