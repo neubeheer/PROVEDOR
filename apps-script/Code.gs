@@ -20,7 +20,8 @@
  *   - o robô do GitHub, com a SENHA_DO_ROBO: cria e atualiza.
  *
  * Instalação: veja o README do projeto (seção "Banco de quadras no Google Drive").
- * Depois de colar este código, rode uma vez a função  configurar  (menu Executar).
+ * Depois de colar este código, rode uma vez a função  configurar  (menu Executar) e, para o código de senha e o
+ * aviso de acesso, a função  autorizarEmail  (o Google pede a permissão de enviar e-mail).
  */
 
 const PASTA_PADRAO = 'Provedor Tycoon - quadras';
@@ -55,6 +56,14 @@ function configurar() {
 function trocarSenhaDoRobo() {
   props_().setProperty('SENHA_DO_ROBO', Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8));
   Logger.log('Nova SENHA_DO_ROBO: ' + props_().getProperty('SENHA_DO_ROBO'));
+}
+/* Rode uma vez pelo editor (menu Executar) depois de colar uma versão nova: o Google pede a permissão de enviar
+   e-mail (código de senha e aviso de acesso) e o registro mostra a cota do dia e o projeto Supabase configurado. */
+function autorizarEmail() {
+  const p = props_();
+  Logger.log('E-mails que ainda dá para mandar hoje: ' + MailApp.getRemainingDailyQuota());
+  Logger.log('SUPABASE_URL: ' + (p.getProperty('SUPABASE_URL') || '(vazia)'));
+  Logger.log('SUPABASE_ANON_KEY: ' + (p.getProperty('SUPABASE_ANON_KEY') ? p.getProperty('SUPABASE_ANON_KEY').slice(0, 18) + '…' : '(vazia)'));
 }
 
 /* ---------- utilidades ---------- */
