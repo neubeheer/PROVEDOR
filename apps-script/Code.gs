@@ -188,9 +188,9 @@ function acesso_(d) {
     MailApp.sendEmail({ to: u.email, subject: 'Novo acesso à sua conta do Provedor Tycoon', htmlBody: html, name: 'Provedor Tycoon' });
   } catch (e) {
     cache.remove(ck);
-    return json_({ ok: false, erro: 'não deu para enviar: ' + e });
+    return json_({ ok: false, erro: 'Não deu para enviar o aviso de acesso.', detalhe: String(e).slice(0, 300), cota: cotaEmail_() });
   }
-  return json_({ ok: true, enviado: true });
+  return json_({ ok: true, enviado: true, cota: cotaEmail_() });
 }
 
 /* ---------- código para trocar a senha ----------
@@ -210,6 +210,7 @@ function cartaHtml_(site, titulo, corpo) {
       '<div style="' + fonte + 'font-size:24px;color:#8a5a2b;margin:4px 0 12px">' + titulo + '</div>' + corpo +
     '</div></div></div>';
 }
+function cotaEmail_() { try { return MailApp.getRemainingDailyQuota(); } catch (e) { return null; } }
 function siteOk_(s) { return /^https:\/\/[^\s"'<>]{4,200}$/.test(String(s || '')) ? String(s).replace(/\/+$/, '') : ''; }
 function codigo_(d) {
   const u = usuarioSupabase_(d.token);
@@ -230,7 +231,7 @@ function codigo_(d) {
     MailApp.sendEmail({ to: u.email, subject: 'Seu código: ' + cod + ' · Provedor Tycoon', htmlBody: cartaHtml_(siteOk_(d.site), 'Código para trocar a senha', corpo), name: 'Provedor Tycoon' });
   } catch (e) {
     cache.remove(ck);
-    return json_({ ok: false, erro: 'Não deu para enviar o e-mail agora.' });
+    return json_({ ok: false, erro: 'Não deu para enviar o e-mail agora.', detalhe: String(e).slice(0, 300), cota: cotaEmail_() });
   }
   return json_({ ok: true });
 }

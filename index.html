@@ -1423,12 +1423,14 @@ function devName(){const u=navigator.userAgent||'';const os=/iPhone/.test(u)?'iP
 async function loginEvent(method){if(!SB.session||!SB.session.user)return;await sbMe();const dev=devName();
   try{await sbFetch('/rest/v1/acessos',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({user_id:SB.session.user.id,device:dev,method})});}catch(e){}
   const u=quadrasUrl();if(!u||!prefAlert())return;
-  try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({acao:'acesso',token:SB.session.access_token,device:dev,method,site:backUrl(),at:new Date().toISOString()})});}catch(e){}}
+  try{const r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({acao:'acesso',token:SB.session.access_token,device:dev,method,site:backUrl(),at:new Date().toISOString()})});const j=await r.json().catch(()=>null);perfNet('acesso',!!(j&&j.ok),j?(j.ok?(j.enviado?'aviso enviado':j.motivo||''):j.erro):'resposta não é JSON',j&&j.detalhe,j&&j.cota);}catch(e){perfNet('acesso',false,'sem conexão',String(e));}}
 /* Pedidos ao Apps Script que esperam resposta (código de senha). */
 async function gsPost(body){const u=quadrasUrl();if(!u)throw new Error('O banco de quadras (Apps Script) não está configurado.');if(!SB.session)throw new Error('Entre na sua conta de novo.');
   if(SB.session.expires_at*1000<Date.now()+60000)await sbRefresh();
   let r;try{r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...body,token:SB.session.access_token,site:backUrl()})});}catch(e){throw new Error('Sem conexão com o servidor de e-mail. Tente de novo.');}
-  const j=await r.json().catch(()=>null);if(!j)throw new Error('O servidor de e-mail não respondeu. Publique a versão nova do Code.gs.');if(!j.ok)throw new Error(/informe .cidade|chave da cidade/.test(j.erro||'')?'O Apps Script publicado ainda é o antigo: em Implantar → Gerenciar implantações, edite e escolha Nova versão.':j.erro||'Não deu agora.');return j;}
+  const j=await r.json().catch(()=>null);if(!j){perfNet(body.acao,false,'resposta não é JSON (status '+r.status+')');throw new Error('O servidor de e-mail não respondeu. Publique a versão nova do Code.gs.');}
+  perfNet(body.acao,!!j.ok,j.ok?(j.email||''):j.erro,j.detalhe,j.cota);
+  if(!j.ok&&j.detalhe){const d=j.detalhe;throw new Error(/permiss|authoriz|autoriza|scope/i.test(d)?'O Apps Script ainda não pode enviar e-mail: no editor, rode a função autorizarEmail e aceite a permissão.':/quota|limit|too many|cota/i.test(d)?'O limite diário de e-mails do Google acabou. Tente amanhã.':j.erro+' Motivo no Relatório de desempenho.');}if(!j.ok)throw new Error(/informe .cidade|chave da cidade/.test(j.erro||'')?'O Apps Script publicado ainda é o antigo: em Implantar → Gerenciar implantações, edite e escolha Nova versão.':j.erro||'Não deu agora.');return j;}
 const METHOD_TXT={senha:'e-mail e senha',facebook:'Facebook',link:'link do e-mail',codigo:'código do e-mail'};
 async function myAccess(){try{const r=await sbFetch('/rest/v1/acessos?select=at,device,method&order=at.desc&limit=6');if(!r.ok)return null;return await r.json();}catch(e){return null;}}
 function openAccount(){const u=SB.session.user,ids=u.ids||[],fbOn=SB_PROV&&SB_PROV.facebook,fbHas=ids.includes('facebook');
@@ -4838,7 +4840,10 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mais de 0,5 s com a aba visível (PERF.ev). Fica só neste aparelho (localStorage pt-perf); Menu → Relatório de desempenho
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
-try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}catch(e){}
+PERF.net=[];
+try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.net=o.net||[];PERF.since=o.since||Date.now();}}catch(e){}
+/* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
+function perfNet(a,ok,msg,det,cota){PERF.net.push({t:Date.now(),a,ok,m:String(msg||'').slice(0,160),d:String(det||'').slice(0,300),q:cota});if(PERF.net.length>30)PERF.net.shift();perfSave();}
 function perfCtx(){if(!S)return {};const c=city();return {d:S.day,sp:S.speed,ci:S.ci,q:c&&c.blocks?c.blocks.length:0,cl:HUDC?HUDC.cl:0,p:PANEL||(modalOpen?'janela':''),z:LM&&LM._loaded?LM.getZoom():null};}
 function perfWrap(name,fn){return function(){const t0=performance.now();PERF.stack.push(name);try{return fn.apply(this,arguments);}finally{PERF.stack.pop();const ms=performance.now()-t0;
   const st=PERF.stats[name]||(PERF.stats[name]={n:0,sum:0,max:0,slow:0});st.n++;st.sum+=ms;if(ms>st.max)st.max=ms;if(ms>100)st.slow++;
@@ -4849,7 +4854,7 @@ setInterval(()=>{const now=performance.now(),gap=now-PERF.last-250;PERF.last=now
   const from=now-gap-250,during=PERF.calls.filter(x=>x.end>=from&&!x.in).map(x=>x.n+' '+x.ms+' ms');
   PERF.ev.push({t:Date.now(),ms:Math.round(gap),f:during.join(', ')||'navegador (desenho da página, memória ou mapa)',...perfCtx()});if(PERF.ev.length>200)PERF.ev.shift();},250);
 document.addEventListener('visibilitychange',()=>{PERF.last=performance.now();});
-function perfSave(){try{localStorage.setItem('pt-perf',JSON.stringify({stats:PERF.stats,ev:PERF.ev.slice(-200),since:PERF.since}));}catch(e){}}
+function perfSave(){try{localStorage.setItem('pt-perf',JSON.stringify({stats:PERF.stats,ev:PERF.ev.slice(-200),net:PERF.net.slice(-30),since:PERF.since}));}catch(e){}}
 setInterval(perfSave,20000);window.addEventListener('pagehide',perfSave);
 function perfText(){const n=navigator,sc=screen,c=S&&city(),h=x=>new Date(x).toLocaleString('pt-BR');
   const ua=(n.userAgent.match(/(iPhone|iPad|Android[^;)]*|Windows NT [\d.]+|Mac OS X [\d_]+)/)||[''])[0]+' · '+((n.userAgent.match(/(CriOS|Chrome|Firefox|Version)\/[\d.]+/)||[''])[0]);
@@ -4864,13 +4869,15 @@ Travadas: ${PERF.ev.length} acima de 0,5 s · ${big} acima de 1 s · maior ${(wo
 Funções (vezes · média · máximo · acima de 100 ms · tempo total):
 ${fn||'  (ainda sem medidas)'}
 Últimas travadas (mais recente primeiro):
-${ev||'  nenhuma'}`;}
+${ev||'  nenhuma'}
+Servidor de e-mail (Apps Script), últimos pedidos:
+${PERF.net.slice().reverse().map(x=>`  ${h(x.t)} · ${x.a} · ${x.ok?'ok':'FALHOU'}${x.m?' · '+x.m:''}${x.d?' · motivo: '+x.d:''}${x.q!=null?' · e-mails restantes hoje: '+x.q:''}`).join('\n')||'  nenhum'}`;}
 function openPerf(){const txt=perfText();openModal(head('Suporte','Relatório de desempenho')+`<p class="muted" style="margin-top:0">O jogo anota onde demora e quando a tela trava. Toque em <b>Copiar</b> e cole na conversa com o suporte.</p>
   <textarea class="input" readonly style="width:100%;height:46vh;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre">${esc(txt)}</textarea>
   <div class="foot"><button class="btn ghost" id="pfClear">Zerar</button><span style="display:flex;gap:8px"><button class="btn" id="pfDown">Baixar</button><button class="btn primary" id="pfCopy">Copiar</button></span></div>`,m=>{
   m.querySelector('#pfCopy').onclick=async()=>{try{await navigator.clipboard.writeText(txt);toast('Relatório copiado. Cole na conversa com o suporte.');}catch(e){const ta=m.querySelector('textarea');ta.focus();ta.select();try{document.execCommand('copy');toast('Relatório copiado.');}catch(e2){toast('Selecione o texto e copie.');}}};
   m.querySelector('#pfDown').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download='provedor-desempenho.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);};
-  m.querySelector('#pfClear').onclick=()=>{PERF.stats={};PERF.ev=[];PERF.calls=[];PERF.since=Date.now();perfSave();openPerf();};});}
+  m.querySelector('#pfClear').onclick=()=>{PERF.stats={};PERF.ev=[];PERF.calls=[];PERF.net=[];PERF.since=Date.now();perfSave();openPerf();};});}
 /* ===================== Som e animações =====================
    Preferências do aparelho em localStorage (pt-fx). Música: faixas CC0 do OpenGameArt em /audio, tocadas em sequência.
    Efeitos: sintetizados (Web Audio), com intervalo mínimo por tipo. O navegador só libera som depois do primeiro toque.
