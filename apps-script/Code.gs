@@ -102,17 +102,34 @@ function geoValido_(g) {
   if (!Array.isArray(g.bairros) || g.bairros.length < 1 || g.bairros.length > 30) return false;
   return g.bairros.every(function (b) { return b && typeof b.name === 'string' && b.name.length <= 80 && b.lat >= -35 && b.lat <= 6 && b.lon >= -75 && b.lon <= -28; });
 }
+/* Motivo da última recusa de login (vai na resposta, para o jogo mostrar o que corrigir). */
+let MOTIVO_ = '';
 function usuarioSupabase_(token) {
   const p = props_(), url = p.getProperty('SUPABASE_URL'), key = p.getProperty('SUPABASE_ANON_KEY');
-  if (!url || !key || !token) return null;
+  MOTIVO_ = '';
+  if (!url || !key) { MOTIVO_ = 'Faltam SUPABASE_URL e SUPABASE_ANON_KEY nas Propriedades do script.'; return null; }
+  if (!token) { MOTIVO_ = 'Entre na sua conta de novo.'; return null; }
   try {
     const r = UrlFetchApp.fetch(url.replace(/\/+$/, '') + '/auth/v1/user', {
       headers: { apikey: key, Authorization: 'Bearer ' + token }, muteHttpExceptions: true,
     });
-    if (r.getResponseCode() !== 200) return null;
+    const st = r.getResponseCode();
+    if (st !== 200) {
+      // login de outro projeto ou chave errada: o Supabase do script não reconhece a conta
+      MOTIVO_ = st === 401 || st === 403
+        ? 'O Supabase das Propriedades do script (' + url.replace(/^https:\/\//, '').split('.')[0] + ') não reconheceu o login: confira SUPABASE_URL e SUPABASE_ANON_KEY.'
+        : 'O Supabase respondeu ' + st + ' ao conferir o login.';
+      return null;
+    }
     const u = JSON.parse(r.getContentText());
     return u && u.id ? u : null;
-  } catch (e) { return null; }
+  } catch (e) { MOTIVO_ = 'Não deu para falar com o Supabase: ' + e; return null; }
+}
+/* Diagnóstico: {"acao":"quem","token":"..."} responde o e-mail da conta ou o motivo da recusa. */
+function quem_(d) {
+  const u = usuarioSupabase_(d.token);
+  const p = props_().getProperty('SUPABASE_URL') || '';
+  return json_(u ? { ok: true, email: u.email, projeto: p.replace(/^https:\/\//, '').split('.')[0] } : { ok: false, erro: MOTIVO_ });
 }
 function loginSupabaseOk_(token) { return !!usuarioSupabase_(token); }
 
@@ -126,7 +143,7 @@ function esc_(t) {
 }
 function acesso_(d) {
   const u = usuarioSupabase_(d.token);
-  if (!u || !u.email) return json_({ ok: false, erro: 'sem permissão: entre na sua conta' });
+  if (!u || !u.email) return json_({ ok: false, erro: MOTIVO_ || 'sem permissão: entre na sua conta' });
   const meta = u.user_metadata || {};
   if (meta.loginAlert === false) return json_({ ok: true, enviado: false, motivo: 'desligado' });
   const cache = CacheService.getScriptCache(), ck = 'acesso_' + u.id;
@@ -187,7 +204,7 @@ function cartaHtml_(site, titulo, corpo) {
 function siteOk_(s) { return /^https:\/\/[^\s"'<>]{4,200}$/.test(String(s || '')) ? String(s).replace(/\/+$/, '') : ''; }
 function codigo_(d) {
   const u = usuarioSupabase_(d.token);
-  if (!u || !u.email) return json_({ ok: false, erro: 'Entre na sua conta de novo.' });
+  if (!u || !u.email) return json_({ ok: false, erro: MOTIVO_ || 'Entre na sua conta de novo.' });
   const cache = CacheService.getScriptCache(), ck = 'cod_' + u.id;
   const velho = JSON.parse(cache.get(ck) || 'null');
   if (velho && Date.now() - velho.t < 60000) return json_({ ok: false, erro: 'Aguarde um minuto para pedir outro código.' });
@@ -210,7 +227,7 @@ function codigo_(d) {
 }
 function conferir_(d) {
   const u = usuarioSupabase_(d.token);
-  if (!u) return json_({ ok: false, erro: 'Entre na sua conta de novo.' });
+  if (!u) return json_({ ok: false, erro: MOTIVO_ || 'Entre na sua conta de novo.' });
   const cache = CacheService.getScriptCache(), ck = 'cod_' + u.id, v = JSON.parse(cache.get(ck) || 'null');
   if (!v) return json_({ ok: false, erro: 'Código vencido. Peça outro.' });
   if (String(d.codigo || '').replace(/\D/g, '') !== v.c) {
@@ -293,6 +310,7 @@ function doPost(e) {
     const raw = e && e.postData && e.postData.contents || '';
     if (raw.length > MAX_BYTES) return json_({ ok: false, erro: 'arquivo grande demais' });
     const d = JSON.parse(raw);
+    if (d.acao === 'quem') return quem_(d);
     if (d.acao === 'acesso') return acesso_(d);
     if (d.acao === 'codigo') return codigo_(d);
     if (d.acao === 'conferir') return conferir_(d);

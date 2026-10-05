@@ -1539,6 +1539,9 @@ async function connTest(){
   if(!u){r[3]=row(false,'Banco de quadras (Drive)','quadrasUrl vazio no config.js.');draw(r);return;}
   try{const j=await fetchJson(u+(u.includes('?')?'&':'?')+'lista=1',{},15000);r[3]=row(!!(j&&j.ok),'Banco de quadras (Drive)',j&&j.ok?`Link respondendo: ${(j.chaves||[]).length} cidade(s) no Drive.`:'O link respondeu, mas com erro: '+esc(JSON.stringify(j).slice(0,120)));}
   catch(e){r[3]=row(false,'Banco de quadras (Drive)','O link não respondeu. Confira se a implantação é "Qualquer pessoa" e se está na versão mais nova.');}
+  if(SB.session&&SB.session.user&&u){const i=r.length;r.push(row(null,'Apps Script confere o login','Testando…'));draw(r);
+    try{const j=await gsPost({acao:'quem'});r[i]=row(true,'Apps Script confere o login',`Reconheceu ${esc(j.email||'')} no projeto <b>${esc(j.projeto||'?')}</b>: código de senha e aviso de acesso funcionam.`);}
+    catch(e){r[i]=row(false,'Apps Script confere o login',esc(e.message)+' Em Configurações do projeto → Propriedades do script, use a URL e a chave do config.js.');}}
   if(SB.session&&SB.session.user){
     // confere as tabelas e cada coluna que o jogo usa (coluna faltando responde 400)
     for(const [t,label,cols] of [['saves','Tabela saves (progresso)','user_id,data,company,month,saved_at,updated_at,sess'],['presenca','Tabela presenca (concorrência)','user_id,city_code,city_name,uf,company,clients,homes,radio,fiber,price,rep,support,mkt,infra,updated_at']]){
