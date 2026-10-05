@@ -20,8 +20,8 @@
  *   - o robô do GitHub, com a SENHA_DO_ROBO: cria e atualiza.
  *
  * Instalação: veja o README do projeto (seção "Banco de quadras no Google Drive").
- * Depois de colar este código, rode uma vez a função  configurar  (menu Executar) e, para o código de senha e o
- * aviso de acesso, a função  autorizarEmail  (o Google pede a permissão de enviar e-mail).
+ * Depois de colar este código, rode a função  configurar  (menu Executar): o Google pede as permissões (Drive,
+ * Supabase e enviar e-mail) e o registro mostra o que está pronto. Cole também o appsscript.json desta pasta.
  */
 
 const PASTA_PADRAO = 'Provedor Tycoon - quadras';
@@ -41,15 +41,27 @@ function pasta_() {
 }
 
 /** Rode uma vez depois de colar o código. Cria a pasta, gera a senha do robô e mostra o que falta. */
+/* Rode pelo editor (menu Executar) depois de colar uma versão nova. Na primeira vez o Google pede as permissões
+   (Drive, conexão com o Supabase e "Enviar e-mail como você"): toque em Revisar permissões, escolha a conta,
+   Avançado → Acessar (não seguro) e Permitir. O registro mostra o que está pronto e o que falta. */
 function configurar() {
   const p = props_();
   const f = pasta_();
   if (!p.getProperty('SENHA_DO_ROBO')) p.setProperty('SENHA_DO_ROBO', Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8));
-  const faltam = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'].filter(k => !p.getProperty(k));
-  Logger.log('Pasta das quadras: ' + f.getName() + ' (' + f.getUrl() + ')');
+  Logger.log('✔ Drive: pasta das quadras ' + f.getName() + ' (' + f.getUrl() + ')');
   Logger.log('SENHA_DO_ROBO (copie para o segredo QUADRAS_SENHA no GitHub): ' + p.getProperty('SENHA_DO_ROBO'));
-  if (faltam.length) Logger.log('Falta preencher nas Propriedades do script: ' + faltam.join(', '));
-  else Logger.log('Tudo pronto. Publique em Implantar → Nova implantação → App da Web.');
+  // e-mail: pedir a cota já exige a permissão de enviar e-mail
+  Logger.log('✔ E-mail: dá para mandar mais ' + MailApp.getRemainingDailyQuota() + ' e-mail(s) hoje');
+  // Supabase: confere se a URL e a chave das Propriedades respondem
+  const url = (p.getProperty('SUPABASE_URL') || '').replace(/\/+$/, ''), key = p.getProperty('SUPABASE_ANON_KEY') || '';
+  if (!url || !key) Logger.log('✖ Supabase: falta preencher SUPABASE_URL e/ou SUPABASE_ANON_KEY nas Propriedades do script');
+  else {
+    try {
+      const r = UrlFetchApp.fetch(url + '/auth/v1/settings', { headers: { apikey: key }, muteHttpExceptions: true });
+      Logger.log((r.getResponseCode() === 200 ? '✔' : '✖') + ' Supabase: ' + url + ' respondeu ' + r.getResponseCode() + (r.getResponseCode() === 200 ? '' : ' (confira a URL e a chave)'));
+    } catch (e) { Logger.log('✖ Supabase: ' + url + ' não respondeu (' + e + '). Confira a SUPABASE_URL.'); }
+  }
+  Logger.log('Pronto. Se mudou o código, publique em Implantar → Gerenciar implantações → editar → Nova versão.');
 }
 
 /** Gera uma senha nova para o robô (a antiga para de funcionar). */
@@ -57,14 +69,8 @@ function trocarSenhaDoRobo() {
   props_().setProperty('SENHA_DO_ROBO', Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8));
   Logger.log('Nova SENHA_DO_ROBO: ' + props_().getProperty('SENHA_DO_ROBO'));
 }
-/* Rode uma vez pelo editor (menu Executar) depois de colar uma versão nova: o Google pede a permissão de enviar
-   e-mail (código de senha e aviso de acesso) e o registro mostra a cota do dia e o projeto Supabase configurado. */
-function autorizarEmail() {
-  const p = props_();
-  Logger.log('E-mails que ainda dá para mandar hoje: ' + MailApp.getRemainingDailyQuota());
-  Logger.log('SUPABASE_URL: ' + (p.getProperty('SUPABASE_URL') || '(vazia)'));
-  Logger.log('SUPABASE_ANON_KEY: ' + (p.getProperty('SUPABASE_ANON_KEY') ? p.getProperty('SUPABASE_ANON_KEY').slice(0, 18) + '…' : '(vazia)'));
-}
+/* Mesmo que configurar (nome antigo). */
+function autorizarEmail() { configurar(); }
 
 /* ---------- utilidades ---------- */
 function json_(obj) {
