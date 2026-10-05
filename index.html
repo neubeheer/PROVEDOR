@@ -3223,8 +3223,8 @@ function showStart(){
    <div class="field"><label for="stCompany">Nome do provedor</label><input class="input" id="stCompany" maxlength="28" value="SinalBom Telecom"></div>
    <div class="row2"><div class="field"><label for="stCity">Cidade</label><input class="input" id="stCity" maxlength="40" placeholder="Ex.: Duartina" list="stCities" autocomplete="off"><datalist id="stCities"></datalist></div>
    <div class="field"><label for="stUf">Estado</label><select class="input" id="stUf">${UFS.map(u=>`<option ${u==='SP'?'selected':''}>${u}</option>`).join('')}</select></div></div>
-   <button class="btn small ghost" id="stGps" type="button">📍 Usar minha localização</button><p class="geo-note" id="stGeoNote">A cidade precisa existir: o jogo confere na lista de municípios do IBGE e depois carrega o mapa real.</p>
-   ${sbOn()?`<p class="geo-note">${SB.session&&SB.session.user?`Conectado como <b>${esc(SB.session.user.email||'')}</b>: o progresso fica salvo online.`:'Jogando sem conta: o progresso fica só neste aparelho. <button class="btn small ghost" type="button" id="stLogin">Entrar</button>'}</p>`:''}
+   <button class="btn small ghost" id="stGps" type="button">📍 Usar minha localização</button><p class="geo-note" id="stGeoNote">Use o nome real do município: o jogo carrega o mapa da cidade.</p>
+   ${sbOn()?`<p class="geo-note">${SB.session&&SB.session.user?`Conectado como <b>${esc(SB.session.user.email||'')}</b>: o progresso fica salvo online.`:pendingMail()?`📧 Pode jogar enquanto confirma o e-mail <b>${esc(pendingMail().email||'')}</b>. Ao tocar no link, o progresso passa para a sua conta.`:'Jogando sem conta: o progresso fica só neste aparelho. <button class="btn small ghost" type="button" id="stLogin">Entrar</button>'}</p>`:''}
    <div class="foot"><span></span><button class="btn primary" id="stGo">Começar</button></div>`,m=>{
     const sl=m.querySelector('#stLogin');if(sl)sl.onclick=()=>openLogin(true);
     m.querySelector('#stGps').onclick=async()=>{
