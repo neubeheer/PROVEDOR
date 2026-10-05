@@ -983,6 +983,9 @@ html body .tabs.dock button.dock-locked::after{background:var(--navy)!important}
 @keyframes ctap{0%,100%{transform:scale(1)}50%{transform:scale(.82)}}
 @media (prefers-reduced-motion:reduce){#coach .c-ring,#coach .c-hand{animation:none}}
 .adm-ch{border-color:var(--accent)!important;background:#fff4e6!important}
+html body .modal>.foot{position:sticky;bottom:calc(-1*var(--mp));z-index:5;margin:10px calc(-1*var(--mp)) calc(-1*var(--mp));padding:10px var(--mp) var(--mp);background:var(--cream);border-top:2px solid var(--line)}
+.lg-note{flex-basis:100%;margin:0;font-weight:800;color:#a61e2d;font-size:14px}
+.lg-note:empty{display:none}
 .mail-sent{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#e6fcf5;border:2.5px solid var(--signal);color:var(--navy)}
 .mail-sent>span{font-size:30px;line-height:1}
 .mail-sent p{margin:4px 0 0;font-size:13.5px}
@@ -1414,8 +1417,8 @@ function openLogin(fromStart){
     <form id="lgForm" autocomplete="on" onsubmit="return false"><div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" name="username" type="email" autocomplete="username" maxlength="120"></div>
     <div class="field"><label for="lgPass">Senha</label><div class="pw-wrap"><input class="input" id="lgPass" name="password" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"><button type="button" class="pw-eye" id="lgEye" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path class="pw-slash" d="M4 20L20 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:700;margin:4px 0 2px;cursor:pointer"><input type="checkbox" id="lgRem" style="width:20px;height:20px"> Lembrar meus dados neste aparelho</label><button type="submit" hidden></button></form>
-    <p class="geo-note" id="lgNote" aria-live="polite"></p>
-    <div class="foot" style="flex-wrap:wrap;gap:8px">${fromStart&&!S?'<button class="btn ghost" id="lgGuest">Jogar sem conta</button>':'<span></span>'}<span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="lgForgot" type="button">Esqueci a senha</button><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
+
+    <div class="foot" style="flex-wrap:wrap;gap:8px"><p class="lg-note" id="lgNote" aria-live="polite"></p>${fromStart&&!S?'<button class="btn ghost" id="lgGuest">Jogar sem conta</button>':'<span></span>'}<span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="lgForgot" type="button">Esqueci a senha</button><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
     const note=m.querySelector('#lgNote'),rem=m.querySelector('#lgRem');
     const fg=m.querySelector('#lgForgot');if(fg)fg.onclick=async ev=>{ev.preventDefault();const em=m.querySelector('#lgEmail').value.trim();if(!/^\S+@\S+\.\S+$/.test(em)){note.textContent='Digite o seu e-mail acima e toque de novo em Esqueci a senha.';m.querySelector('#lgEmail').focus();return;}
       note.textContent='Enviando…';try{await sbRecover(em);mailSent('recover',em);openLogin(fromStart);}catch(e){note.textContent=e.message;}};
@@ -1427,13 +1430,13 @@ function openLogin(fromStart){
       try{localStorage.setItem('pt-remember',rem.checked?'1':'0');rem.checked?localStorage.setItem('pt-email',em):localStorage.removeItem('pt-email');}catch(e){}
       if(!/^\S+@\S+\.\S+$/.test(em)){note.textContent='Digite um e-mail válido.';return;}if(pw.length<6){note.textContent='A senha precisa de pelo menos 6 caracteres.';return;}
       if(!navigator.onLine){note.textContent='Sem internet agora. O jogo precisa de conexão.';return;}
-      m.querySelectorAll('button').forEach(b=>b.disabled=true);note.textContent=signup?'Criando a conta…':'Entrando…';
+      m.querySelectorAll('button').forEach(b=>b.disabled=true);note.textContent=signup?'Criando a conta…':'Entrando…';const go=m.querySelector(signup?'#lgNew':'#lgGo');if(go)go.textContent=signup?'Criando…':'Entrando…';
       try{const r=await sbLogin(em,pw,signup);
         if(r.confirm){mailSent('signup',em);openLogin(fromStart);return;}
         if(rem.checked&&window.PasswordCredential&&navigator.credentials){try{await navigator.credentials.store(new PasswordCredential({id:em,password:pw,name:em}));}catch(e){}}
         if(cloud.guest&&S){clearTimeout(cloud.t);cloud.t=null;try{await guestRef().set({json:saveJson()});}catch(e){}}
         toast('Conectado!');bootCloud();
-      }catch(e){note.textContent=e.message;m.querySelectorAll('button').forEach(b=>b.disabled=false);}};
+      }catch(e){note.textContent=e.message;toast('⚠️ '+e.message);{const g1=m.querySelector('#lgGo'),g2=m.querySelector('#lgNew');if(g1)g1.textContent='Entrar';if(g2)g2.textContent='Criar conta';}m.querySelectorAll('button').forEach(b=>b.disabled=false);}};
     m.querySelector('#lgGo').onclick=()=>run(false);m.querySelector('#lgNew').onclick=()=>run(true);
     m.querySelector('#lgPass').onkeydown=e=>{if(e.key==='Enter')run(false);};
   });
@@ -1472,7 +1475,8 @@ function validSave(d){return !!(d&&d.v===2&&Array.isArray(d.cities)&&d.cities.le
 /* Jogo sem conta: o progresso fica no IndexedDB deste aparelho (comprimido como o da nuvem). Ao entrar numa conta,
    um progresso de convidado mais novo que o da conta sobe para ela e sai do aparelho. */
 function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('pt-guest',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
-async function idbDo(mode,fn){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction('kv',mode),q=fn(tx.objectStore('kv'));tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);});}
+// o IndexedDB pode não responder (ex.: navegação privada no iPhone): desiste em 3 s para não travar login nem abertura
+async function idbDo(mode,fn){const db=await Promise.race([idb(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('idb sem resposta')),3000))]);return new Promise((res,rej)=>{setTimeout(()=>rej(new Error('idb sem resposta')),3000);const tx=db.transaction('kv',mode),q=fn(tx.objectStore('kv'));tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);});}
 function guestRef(){return {guest:true,patch:true,
   async get(){const v=await idbDo('readonly',st=>st.get('save'));if(!v)return {exists:false,data:()=>({json:null})};const json=await unpackSave(JSON.parse(v));return {exists:true,data:()=>({json})};},
   async set(o){const packed=await packSave(o.json);await idbDo('readwrite',st=>st.put(packed,'save'));},
