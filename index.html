@@ -4875,6 +4875,7 @@ const cBuild=(id,name,why)=>({sel:`#panelBody [data-act="build"][data-f="${id}"]
 const cTeam=(id,name)=>({sel:`#panelBody [data-act="team"][data-f="${id}"]:not([data-hq])`,text:`Toque em <b>Equipe</b> no andar do <b>${name}</b>.`,done:()=>!!document.querySelector('#modal [data-add]')&&!PANEL,skip:()=>opsOf(id)>0});
 const cHire=(id,why)=>({sel:'#modal [data-add]',text:`Toque no <b>+</b> para contratar. ${why}`,done:()=>opsOf(id)>0,skip:()=>opsOf(id)>0});
 const cClose=txt=>({sel:'#modal .x',text:txt||'Pronto! Feche esta janela no <b>×</b>.',done:()=>!modalOpen});
+const cNet=(id,text)=>{const ok=()=>/^\d{1,3}(\.\d{1,3}){3}$/.test(((document.querySelector('#'+id)||{}).value||'').trim());return {sel:'#modal #'+id,text,done:ok,skip:()=>S.towersBuilt>=1||ok()};};
 const cInfo=(sel,text)=>({sel,text,info:true,free:!sel});
 const RULES_TOUR={id:'rules',title:'Regras de negócio',steps:[cInfo(null,'Agora você tem mais de uma cidade: liberou as <b>Regras de negócio</b>. Elas definem qual prédio atende cada cidade e se a equipe que sobra ajuda as outras (transbordo).'),cP('building','Prédio'),{sel:'#panelBody [data-act="rules"]',text:'Toque em <b>Abrir</b> nas Regras de negócio.',done:()=>!!document.querySelector('#modal [data-rserve], #modal .rules-tbl')||(modalOpen&&/Regras de neg/.test((document.querySelector('#modal h2')||{}).textContent||''))},cInfo(null,'Para cada prédio e setor marque as cidades atendidas. Sem mexer, a sede atende as cidades que não têm prédio com aquele setor.'),cClose()]};
 const TOURS={
@@ -4923,7 +4924,9 @@ function introTour(){const c0=()=>S.cities[0],dn=d=>!!(S.docs[d]&&S.docs[d].done
     {sel:'[data-act="buyDraft"]',text:'Toque em <b>comprar</b> a torre. Depois você configura o rádio.',done:()=>!!document.querySelector('#modal #dvApply'),skip:()=>S.towersBuilt>=1},
     {sel:'#modal #dvMode',text:'Configure o rádio. No <b>Modo de operação</b>, escolha <b>Access Point (AP)</b>: a torre distribui sinal para os clientes.',done:()=>{const e=document.querySelector('#dvMode');return !!(e&&e.value==='ap');},skip:()=>S.towersBuilt>=1},
     {sel:'#modal #dvSsid',text:'Dê um <b>nome à rede (SSID)</b>, por exemplo TORRE-CENTRO.',done:()=>{const e=document.querySelector('#dvSsid');return !!(e&&e.value.trim().length>=3);},skip:()=>S.towersBuilt>=1},
-    {sel:'#modal #dvIp',text:'Preencha o <b>IP</b>, a <b>máscara</b> e o <b>gateway</b> usando a folha da rede ao lado (ex.: IP 10.1.0.2, máscara 255.255.255.0, gateway 10.1.0.1).',done:()=>{const v=id=>(document.querySelector('#'+id)||{}).value||'';return v('dvIp')&&v('dvMask')&&v('dvGw');},skip:()=>S.towersBuilt>=1},
+    cNet('dvIp','Digite o <b>IP do rádio</b> usando a folha da rede ao lado (ex.: <b>10.1.0.2</b>).'),
+    cNet('dvMask','Agora a <b>máscara de rede</b> (ex.: <b>255.255.255.0</b>).'),
+    cNet('dvGw','Por fim o <b>gateway</b> (ex.: <b>10.1.0.1</b>).'),
     {sel:'#modal #dvApply',text:'Toque em <b>Aplicar configuração</b>. Se algo estiver errado, o rádio avisa o que corrigir.',done:()=>S.towersBuilt>=1,skip:()=>S.towersBuilt>=1},
     {sel:'#realMap',text:'Torre no ar! Agora toque numa <b>quadra com sinal</b> (verde-água) perto da torre.',free:true,done:()=>!!document.querySelector('#modal #qKnock'),skip:()=>S.signed>=1},
     {sel:'#modal #qKnock',text:'Toque em <b>Bater na próxima porta</b>: você conversa com uma família da quadra.',done:()=>!!document.querySelector('#modal #papGo'),skip:()=>S.signed>=1},
