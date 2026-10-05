@@ -7,7 +7,7 @@
    quadrasUrl → link do banco de quadras no Google Drive (o "App da Web" do Apps Script).
      Termina em /exec. Veja o README, seção "Banco de quadras no Google Drive". */
 window.PT_CONFIG = {
-  supabaseUrl: 'https://wrvsbdtjtwbjutrtwcqk.supabase.co',
-  supabaseAnonKey: 'sb_publishable_x_Sv2GroDmAfaM1DqnE5rQ_gE7dD2Z8',   // cole aqui a Publishable key (começa com sb_publishable_)
+  supabaseUrl: 'https://utwdnogihsfxxcuofoqi.supabase.co',
+  supabaseAnonKey: 'sb_publishable_I-8kNZxqbjH8JBNTaZWPaA_8fF3SfMA',   // cole aqui a Publishable key (começa com sb_publishable_)
   quadrasUrl: 'https://script.google.com/macros/s/AKfycbzijdrkDFG3wMZn-vj6YyTw32Jdy5jDQT2odjEqYO1bPQoNbpX-_L0HMiwPAuHsRg2rqQ/exec'
 };
