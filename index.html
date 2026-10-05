@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="description" content="Monte seu provedor de internet: torres de rádio, fibra, porta a porta, equipe e expansão por cidades.">
 <meta name="theme-color" content="#2a83d8">
 <meta name="mobile-web-app-capable" content="yes">
@@ -983,6 +983,12 @@ html body .tabs.dock button.dock-locked::after{background:var(--navy)!important}
 @keyframes ctap{0%,100%{transform:scale(1)}50%{transform:scale(.82)}}
 @media (prefers-reduced-motion:reduce){#coach .c-ring,#coach .c-hand{animation:none}}
 .adm-ch{border-color:var(--accent)!important;background:#fff4e6!important}
+.mail-sent{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#e6fcf5;border:2.5px solid var(--signal);color:var(--navy)}
+.mail-sent>span{font-size:30px;line-height:1}
+.mail-sent p{margin:4px 0 0;font-size:13.5px}
+html,body{touch-action:pan-x pan-y}
+#realMap{touch-action:none}
+button,.btn,a,.chip,.hs-btn{touch-action:manipulation}
 </style>
 </head>
 <body class="booting">
@@ -1299,13 +1305,29 @@ async function sbFetch(path,opts={},useUser=true,ms=15000){
     return fetch(SB.url+path,{...opts,signal:ac.signal,headers:{apikey:SB.key,...auth,'Content-Type':'application/json',...(opts.headers||{})}}).finally(()=>clearTimeout(t));};
   let r=await go();if(r.status===401&&useUser&&SB.session&&await sbRefresh())r=await go();return r;
 }
+const backUrl=()=>location.origin+location.pathname;
 async function sbLogin(email,pass,signup){
-  const r=await fetch(SB.url+(signup?'/auth/v1/signup':'/auth/v1/token?grant_type=password'),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+  const r=await fetch(SB.url+(signup?'/auth/v1/signup?redirect_to='+encodeURIComponent(backUrl()):'/auth/v1/token?grant_type=password'),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
   const j=await r.json().catch(()=>({}));
   if(!r.ok){const m=String(j.error_description||j.msg||j.message||j.error||'');throw new Error(/invalid login/i.test(m)?'E-mail ou senha incorretos.':/already/i.test(m)?'Esse e-mail já tem conta. Use Entrar.':/password/i.test(m)?'A senha precisa de pelo menos 6 caracteres.':/confirm/i.test(m)?'Confirme o e-mail antes de entrar (veja sua caixa de entrada).':m||'Não deu para entrar agora.');}
   if(!j.access_token)return {confirm:true};
   sbStore(sbSess(j));return {ok:true};
 }
+/* E-mail enviado (confirmação ou senha): fica guardado e aparece em destaque na tela de login até a pessoa entrar. */
+function mailSent(kind,email){try{localStorage.setItem('pt-mail',JSON.stringify({kind,email,at:Date.now()}));}catch(e){}}
+function mailNotice(){let m=null;try{m=JSON.parse(localStorage.getItem('pt-mail')||'null');}catch(e){}if(!m||Date.now()-m.at>2*864e5)return '';
+  const t=m.kind==='recover'?'Enviamos o link para criar uma senha nova':'Enviamos o e-mail de confirmação da conta';
+  return `<div class="mail-sent" role="status"><span aria-hidden="true">📧</span><div><b>${t}</b><p>Para <b>${esc(m.email)}</b>, às ${new Date(m.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}. Abra o e-mail (veja também o spam) e toque no link: ele volta direto para o jogo.</p></div></div>`;}
+async function sbRecover(email){const r=await fetch(SB.url+'/auth/v1/recover?redirect_to='+encodeURIComponent(backUrl()),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email})});if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(/rate|seconds/i.test(j.msg||j.message||'')?'Aguarde um minuto antes de pedir outro e-mail.':'Não deu para enviar agora.');}}
+/* Volta do link do e-mail: o Supabase manda #access_token=…&type=signup|recovery (ou #error=…). */
+async function authReturn(){const h=new URLSearchParams(location.hash.slice(1));if(!h.has('access_token')&&!h.has('error'))return null;history.replaceState(null,'',backUrl());
+  if(h.has('error'))return {err:/expired/i.test(h.get('error_code')||h.get('error_description')||'')?'O link do e-mail expirou. Peça outro na tela de login.':'O link do e-mail não é mais válido. Peça outro na tela de login.'};
+  const tok=h.get('access_token');try{const r=await fetch(SB.url+'/auth/v1/user',{headers:{apikey:SB.key,Authorization:'Bearer '+tok}});const u=await r.json();if(!r.ok||!u.id)throw 0;
+    sbStore({access_token:tok,refresh_token:h.get('refresh_token'),expires_at:+h.get('expires_at')||Math.floor(Date.now()/1000)+(+h.get('expires_in')||3600),user:{id:u.id,email:u.email}});try{localStorage.removeItem('pt-mail');}catch(e){}return {type:h.get('type')||'signup'};}
+  catch(e){return {err:'Não deu para confirmar agora. Tente entrar com e-mail e senha.'};}}
+function openNewPass(){openModal(head('Conta','Criar uma senha nova',false)+`<p>Você entrou pelo link do e-mail. Escolha a senha nova:</p><div class="field"><label for="npPass">Senha nova</label><input class="input" id="npPass" type="password" autocomplete="new-password" minlength="6" maxlength="72"></div><p class="geo-note" id="npNote"></p><div class="foot"><span></span><button class="btn primary" id="npGo">Salvar senha</button></div>`,m=>{
+  m.querySelector('#npGo').onclick=async()=>{const pw=m.querySelector('#npPass').value,note=m.querySelector('#npNote');if(pw.length<6){note.textContent='A senha precisa de pelo menos 6 caracteres.';return;}
+    const r=await sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:pw})});if(!r.ok){note.textContent='Não deu para salvar agora. Tente de novo.';return;}toast('Senha nova salva!');bootCloud();};});}
 async function sbLogout(){try{await sbFetch('/auth/v1/logout',{method:'POST'});}catch(e){}sbStore(null);cloud.ref=null;cloud.status='local';renderSaveDot();}
 /* O save vai comprimido (gzip em base64, {"gz":...}): ~17× menor (4,7 MB viram ~0,3 MB com 30 mil clientes), o que
    poupa o disco do Supabase. Saves antigos, sem compressão, continuam abrindo. Sem CompressionStream, vai como antes. */
@@ -1388,15 +1410,17 @@ function openLogin(fromStart){
   const logged=SB.session&&SB.session.user;
   if(logged){openModal(head('Conta','Salvamento online')+`<div class="notice ok">Conectado como <b>${esc(SB.session.user.email||'')}</b>. O jogo salva neste aparelho e na sua conta: dá para continuar em outro celular ou computador.</div>
     <div class="foot"><button class="btn" data-close>Fechar</button><button class="btn" id="lgOut">Sair da conta</button></div>`,m=>{m.querySelector('#lgOut').onclick=async()=>{if(S&&cloud.ref){cloud.dirty=true;await flushCloud();}await sbLogout();location.reload();};});return;}
-  openModal(head('Conta','Entrar no Provedor Tycoon',!fromStart)+`<p>Com uma conta o progresso fica salvo online, dá para jogar de qualquer aparelho, disputar a concorrência e aparecer no ranking. <b>Entrando você ganha 💎 ${LOGIN_DIAMONDS} diamantes.</b></p>
+  openModal(head('Conta','Entrar no Provedor Tycoon',!fromStart)+mailNotice()+`<p>Com uma conta o progresso fica salvo online, dá para jogar de qualquer aparelho, disputar a concorrência e aparecer no ranking. <b>Entrando você ganha 💎 ${LOGIN_DIAMONDS} diamantes.</b></p>
     <form id="lgForm" autocomplete="on" onsubmit="return false"><div class="field"><label for="lgEmail">E-mail</label><input class="input" id="lgEmail" name="username" type="email" autocomplete="username" maxlength="120"></div>
     <div class="field"><label for="lgPass">Senha</label><div class="pw-wrap"><input class="input" id="lgPass" name="password" type="password" autocomplete="current-password" maxlength="72" placeholder="mínimo 6 caracteres"><button type="button" class="pw-eye" id="lgEye" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path class="pw-slash" d="M4 20L20 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:700;margin:4px 0 2px;cursor:pointer"><input type="checkbox" id="lgRem" style="width:20px;height:20px"> Lembrar meus dados neste aparelho</label><button type="submit" hidden></button></form>
-    <p class="geo-note" id="lgNote" aria-live="polite"></p>
+    <p class="geo-note" id="lgNote" aria-live="polite"></p><p style="margin:0 0 6px"><a href="#" id="lgForgot">Esqueci a senha</a></p>
     <div class="foot" style="flex-wrap:wrap;gap:8px">${fromStart&&!S?'<button class="btn ghost" id="lgGuest">Jogar sem conta</button>':'<span></span>'}<span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="lgNew">Criar conta</button><button class="btn primary" id="lgGo">Entrar</button></span></div>`,m=>{
     const note=m.querySelector('#lgNote'),rem=m.querySelector('#lgRem');
+    const fg=m.querySelector('#lgForgot');if(fg)fg.onclick=async ev=>{ev.preventDefault();const em=m.querySelector('#lgEmail').value.trim();if(!/^\S+@\S+\.\S+$/.test(em)){note.textContent='Digite o seu e-mail acima e toque de novo em Esqueci a senha.';m.querySelector('#lgEmail').focus();return;}
+      note.textContent='Enviando…';try{await sbRecover(em);mailSent('recover',em);openLogin(fromStart);}catch(e){note.textContent=e.message;}};
     const lg=m.querySelector('#lgGuest');if(lg)lg.onclick=()=>{closeModal();guestBoot();};
-    try{rem.checked=remembers();const e0=localStorage.getItem('pt-email');if(e0)m.querySelector('#lgEmail').value=e0;}catch(e){rem.checked=true;}
+    try{rem.checked=remembers();const mm=JSON.parse(localStorage.getItem('pt-mail')||'null'),e0=(mm&&mm.email)||localStorage.getItem('pt-email');if(e0)m.querySelector('#lgEmail').value=e0;}catch(e){rem.checked=true;}
     const eye=m.querySelector('#lgEye'),pwI=m.querySelector('#lgPass');eye.onclick=()=>{const show=pwI.type==='password';pwI.type=show?'text':'password';eye.setAttribute('aria-pressed',String(show));eye.setAttribute('aria-label',show?'Esconder senha':'Mostrar senha');pwI.focus();};
     m.querySelector('#lgForm').onsubmit=e=>{e.preventDefault();run(false);return false;};
     const run=async signup=>{const em=m.querySelector('#lgEmail').value.trim(),pw=m.querySelector('#lgPass').value;
@@ -1405,7 +1429,7 @@ function openLogin(fromStart){
       if(!navigator.onLine){note.textContent='Sem internet agora. O jogo precisa de conexão.';return;}
       m.querySelectorAll('button').forEach(b=>b.disabled=true);note.textContent=signup?'Criando a conta…':'Entrando…';
       try{const r=await sbLogin(em,pw,signup);
-        if(r.confirm){note.innerHTML='Conta criada! Abra o e-mail de confirmação que enviamos e depois toque em <b>Entrar</b>.';m.querySelectorAll('button').forEach(b=>b.disabled=false);return;}
+        if(r.confirm){mailSent('signup',em);openLogin(fromStart);return;}
         if(rem.checked&&window.PasswordCredential&&navigator.credentials){try{await navigator.credentials.store(new PasswordCredential({id:em,password:pw,name:em}));}catch(e){}}
         if(cloud.guest&&S){clearTimeout(cloud.t);cloud.t=null;try{await guestRef().set({json:saveJson()});}catch(e){}}
         toast('Conectado!');bootCloud();
@@ -2846,12 +2870,17 @@ function mgmtMonth(){if(levelOf(S.xp)>=MGMT_LEVEL)mgmtAutoMonth();if(!S.mgmt)ret
 function mgmtHtml(){const lvl=levelOf(S.xp);if(lvl<MGMT_LEVEL)return `<h3 style="margin:14px 0 6px">Consultoria de gestão</h3><div class="notice">Libera no nível ${MGMT_LEVEL}: a consultoria administra um setor (contrata, promove e mantém a equipe no tamanho certo), paga em selos.</div>`;
   const m=monthOf(S.day),price=mgmtPrice();
   const rows=bldgs().filter(b=>b.key!=='out').map(b=>{const secs=MGMT_SECTORS.filter(id=>bHas(b,id));if(!secs.length)return '';
-    const ba=!!(S.mgmtAuto||{})[b.key];
-    return `<div class="choice" style="flex-wrap:wrap"><div style="min-width:160px"><b>${esc(b.name)}</b><small>${secs.length} setor(es) montado(s)</small><button class="btn small ${ba?'primary':'ghost'}" data-mgball="${b.key}" style="margin-top:6px" title="Renova todos os contratos deste prédio e contrata os setores novos">🔁 Automático no prédio: ${ba?'ligado':'desligado'}</button></div><div style="display:flex;flex-wrap:wrap;gap:6px;flex:1;justify-content:flex-end">${secs.map(id=>{const f=FLOORS.find(x=>x.id===id),v=(S.mgmt||{})[b.key+':'+id],on=v&&v.until>=m;
+    const ba=!!(S.mgmtAuto||{})[b.key],miss=secs.filter(id=>!mgmtOn(b.key,id)),act=mgmtActive().length,allP=miss.reduce((t,_,i)=>t+MGMT_BASE*(act+1+i),0);
+    const allBtn=miss.length>1?`<button class="btn small primary" data-mgall="${b.key}" style="margin-top:6px" ${(S.coins||0)<allP?'disabled':''}>Contratar todos os ${miss.length} setores · ${allP.toLocaleString('pt-BR')} selos</button>`:'';
+    return `<div class="choice" style="flex-wrap:wrap"><div style="min-width:160px"><b>${esc(b.name)}</b><small>${secs.length} setor(es) montado(s)</small><button class="btn small ${ba?'primary':'ghost'}" data-mgball="${b.key}" style="margin-top:6px" title="Renova todos os contratos deste prédio e contrata os setores novos">🔁 Automático no prédio: ${ba?'ligado':'desligado'}</button>${allBtn}</div><div style="display:flex;flex-wrap:wrap;gap:6px;flex:1;justify-content:flex-end">${secs.map(id=>{const f=FLOORS.find(x=>x.id===id),v=(S.mgmt||{})[b.key+':'+id],on=v&&v.until>=m;
       return on?`<span style="display:inline-flex;gap:4px;align-items:center"><span class="chip ok" title="Até o mês ${v.until}">✓ ${f.name} · até mês ${v.until}</span><button class="chip ${v.auto||ba?'ok':''}" data-mgauto="${b.key}:${id}" style="cursor:pointer" title="Renovação automática deste setor" ${ba?'disabled':''}>🔁 ${v.auto||ba?'auto':'manual'}</button></span>`:`<button class="btn small" data-mgmt="${b.key}:${id}" ${(S.coins||0)<price?'disabled':''}>${f.name}${v?' (renovar)':''}</button>`;}).join('')}</div></div>`;}).join('');
   return `<h3 style="margin:14px 0 6px">Consultoria de gestão · selos</h3><p class="muted" style="margin:0 0 6px;font-size:13px">Administra um setor de um prédio por ${MGMT_MONTHS} meses: todo mês contrata ou dispensa pela demanda das cidades que o prédio atende, ajusta supervisores e gerente e promove a equipe. Salários e contratações saem do caixa. Próximo contrato: <b>${price.toLocaleString('pt-BR')} selos</b> (você tem ${(S.coins||0).toLocaleString('pt-BR')}); cada contrato ativo encarece o seguinte em ${MGMT_BASE.toLocaleString('pt-BR')}.</p><div class="choice-list">${rows||'<p class="muted">Monte um setor para contratar a consultoria.</p>'}</div>`;}
 document.addEventListener('click',e=>{if(!S)return;
   const ab=e.target.closest('[data-mgball]');if(ab){S.mgmtAuto=S.mgmtAuto||{};const k=ab.dataset.mgball;S.mgmtAuto[k]=!S.mgmtAuto[k];if(S.mgmtAuto[k])mgmtAutoMonth();save(true);renderAll();openOuts();return;}
+  const ma=e.target.closest('[data-mgall]');if(ma&&!ma.disabled){const b=bldgs().find(x=>x.key===ma.dataset.mgall);if(!b)return;S.mgmt=S.mgmt||{};let n=0,paid=0,hired=0,prom=0;
+    for(const id of MGMT_SECTORS){if(!bHas(b,id)||mgmtOn(b.key,id))continue;const price=mgmtPrice();if((S.coins||0)<price)break;S.coins-=price;paid+=price;
+      S.mgmt[b.key+':'+id]={since:monthOf(S.day),until:monthOf(S.day)+MGMT_MONTHS-1,paid:price,auto:true};const r=mgmtRun(b,id,true)||{};hired+=r.hired||0;prom+=r.prom||0;n++;}
+    if(n){log(`Consultoria de gestão assumiu ${n} setor(es) de ${b.name} (${paid.toLocaleString('pt-BR')} selos): ${hired} contratado(s), ${prom} promoção(ões).`);addXp(80*n);sfx('level');toast(`Consultoria assumiu ${n} setor(es) de ${b.name}.`);save(true);renderAll();}openOuts();return;}
   const au=e.target.closest('[data-mgauto]');if(au&&!au.disabled){const v=(S.mgmt||{})[au.dataset.mgauto];if(v){v.auto=!v.auto;save(true);openOuts();}return;}
   const b=e.target.closest('[data-mgmt]');if(!b||b.disabled)return;if(levelOf(S.xp)<MGMT_LEVEL)return;
   const price=mgmtPrice();if((S.coins||0)<price){toast(`Faltam selos: precisa de ${price.toLocaleString('pt-BR')}.`);return;}
@@ -3083,7 +3112,10 @@ function renderReport(){
 function renderLog(){$('#log').innerHTML=S.log.slice(0,16).map(e=>`<li><time>M${monthOf(e.d)}·${String(dayOf(e.d)).padStart(2,'0')}</time><span>${esc(e.m)}</span></li>`).join('');}
 
 /* ===================== Modais ===================== */
-function openModal(html,onMount){PANEL=null;document.querySelectorAll(".tabs [data-panel]").forEach(b=>b.removeAttribute("aria-pressed"));document.body.classList.add('modal-open');$('#modal').innerHTML=html;$('#modalWrap').hidden=false;modalOpen=true;if(onMount)onMount($('#modal'));const f=$('#modal').querySelector('input:not([readonly]):not([type=range]),select,textarea:not([readonly]),.btn.primary');if(f)f.focus();}
+function openModal(html,onMount){const md=$('#modal'),prevKey=modalOpen?(md.querySelector('.mhead')||{}).textContent:null,prevTop=md.scrollTop;PANEL=null;document.querySelectorAll(".tabs [data-panel]").forEach(b=>b.removeAttribute("aria-pressed"));document.body.classList.add('modal-open');$('#modal').innerHTML=html;$('#modalWrap').hidden=false;modalOpen=true;if(onMount)onMount($('#modal'));
+  // mesma janela redesenhada (ex.: contratar na Equipe): fica no mesmo ponto da rolagem
+  const same=prevKey&&prevKey===((md.querySelector('.mhead')||{}).textContent);if(same){md.scrollTop=prevTop;return;}
+  const f=$('#modal').querySelector('input:not([readonly]):not([type=range]),select,textarea:not([readonly]),.btn.primary');if(f)try{f.focus({preventScroll:true});}catch(e){f.focus();}}
 function closeModal(){PANEL=null;document.querySelectorAll('.tabs [data-panel]').forEach(b=>b.removeAttribute('aria-pressed'));document.body.classList.remove('modal-open');$('#modalWrap').hidden=true;$('#modal').innerHTML='';modalOpen=false;renderAll();}
 const X='<button class="x" data-close aria-label="Fechar">×</button>';
 function head(eyebrow,title,closable=true){return `<div class="mhead"><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div>${closable?X:''}</div>`;}
@@ -4894,6 +4926,13 @@ function openAdmin(){if(!isAdmin())return;const groups=[...new Set(CFGS.map(x=>x
     m.querySelector('#admAll').onclick=async()=>{if(!confirm('Voltar todos os valores ao padrão para todos os jogadores?'))return;try{await cfgSave({});cfgApply({});toast('Tudo de volta ao padrão.');openAdmin();}catch(err){toast(err.message);}};
     m.querySelectorAll('[data-admg]').forEach(b=>b.onclick=()=>{ADM_G=b.dataset.admg;openAdmin();});
     m.querySelectorAll('[data-admreset]').forEach(a=>a.onclick=async ev=>{ev.preventDefault();const d={...CFG_CUR};delete d[a.dataset.admreset];try{await cfgSave(d);cfgApply(d);openAdmin();}catch(err){toast(err.message);}});});}
+/* Zoom só no mapa: a página não aumenta com pinça, toque duplo nem Ctrl + roda/teclas. */
+const inMapEl=t=>!!(t&&t.closest&&t.closest('#realMap'));
+document.addEventListener('gesturestart',e=>{if(!inMapEl(e.target))e.preventDefault();},{passive:false});
+document.addEventListener('gesturechange',e=>{if(!inMapEl(e.target))e.preventDefault();},{passive:false});
+document.addEventListener('touchmove',e=>{if(e.touches&&e.touches.length>1&&!inMapEl(e.target))e.preventDefault();},{passive:false});
+document.addEventListener('wheel',e=>{if(e.ctrlKey&&!inMapEl(e.target))e.preventDefault();},{passive:false});
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','-','=','0'].includes(e.key))e.preventDefault();});
 function showUpdateBar(reg){
   if(document.querySelector('.update-bar'))return;
   const bar=document.createElement('div');bar.className='update-bar';bar.setAttribute('role','status');
@@ -4926,6 +4965,7 @@ function start(data){
   document.body.classList.add('booting');setTab('map');sbInit();S=null;
   loop();setTimeout(autoGeo,600);setOnline();
   if(!sbOn()){guestBoot();return;}
+  if(/access_token=|error=/.test(location.hash)){authReturn().then(a=>{if(a&&a.err){openLogin(true);toast(a.err);return;}if(a&&a.type==='recovery'){openNewPass();return;}if(a){bootCloud().then(()=>toast('✅ E-mail confirmado! Você já está conectado e o progresso fica salvo online.'));return;}openLogin(true);});return;}
   if(!SB.session||!SB.session.user){let g=false;try{g=localStorage.getItem('pt-guest')==='1';}catch(e){}if(g)guestBoot();else openLogin(true);return;}
   bootCloud();
 }
