@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Confirme sua conta</title>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Figtree:wght@400;700;800&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#2a83d8;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Falta só um toque para sua empresa salvar online e ganhar os diamantes.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#2a83d8" style="background:#2a83d8;background-image:linear-gradient(180deg,#63c6f7,#2a83d8 45%,#1f6cc0);">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+
+  <!-- Cabeçalho: mapa de Duartina com as torres, como no jogo -->
+  <tr><td background="{{ .SiteURL }}/templates%20email/cidade.jpg" bgcolor="#2a83d8" height="210" valign="bottom" style="height:210px;background:#2a83d8 url('{{ .SiteURL }}/templates%20email/cidade.jpg') center center / cover no-repeat;border:3px solid #1b2a4a;border-bottom:0;border-radius:18px 18px 0 0;padding:0 22px 18px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td valign="middle" style="padding-right:12px;"><img src="{{ .SiteURL }}/icons/icon-192.png" width="60" height="60" alt="" style="display:block;border:3px solid #1b2a4a;border-radius:14px;"></td>
+      <td valign="middle">
+        <div style="font-family:'Lilita One','Arial Black',Arial,sans-serif;font-size:30px;line-height:1.05;color:#ffffff;text-shadow:0 2px 0 #1b2a4a,2px 0 0 #1b2a4a,-2px 0 0 #1b2a4a,0 -2px 0 #1b2a4a;">Provedor Tycoon</div>
+        <div style="font-family:Figtree,Arial,sans-serif;font-size:14px;font-weight:800;color:#ffffff;text-shadow:0 1px 2px #1b2a4a;">Leve internet para a sua cidade</div>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <!-- Janela creme, igual às do jogo -->
+  <tr><td bgcolor="#fff8ea" style="background:#fff8ea;border:3px solid #1b2a4a;border-top:3px solid #1b2a4a;border-radius:0 0 18px 18px;padding:24px 24px 26px;font-family:Figtree,Arial,sans-serif;color:#1b2a4a;">
+    <div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#5a6a88;">CONTA</div>
+    <div style="font-family:'Lilita One','Arial Black',Arial,sans-serif;font-size:26px;line-height:1.15;color:#8a5a2b;margin:4px 0 14px;">Confirme seu e-mail</div>
+    <p style="margin:0 0 14px;font-size:16px;line-height:1.5;">Oi! Recebemos o cadastro de <b>{{ .Email }}</b>. Toque no botão para confirmar: o jogo abre, entra na sua conta e leva junto o progresso do seu aparelho.</p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;"><tr>
+      <td bgcolor="#d4f1ea" style="background:#d4f1ea;border:2px solid #0f9a8d;border-radius:14px;padding:12px 14px;font-size:15px;line-height:1.45;">
+        <b>💎 100 diamantes</b> na primeira entrada na conta, progresso salvo online e acesso ao ranking e à concorrência.
+      </td>
+    </tr></table>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 20px;"><tr>
+      <td align="center" bgcolor="#52cc3a" style="background:#52cc3a;background-image:linear-gradient(180deg,#86e86f,#52cc3a 60%,#3fb62a);border:3px solid #1b2a4a;border-radius:14px;box-shadow:0 4px 0 #1b2a4a;">
+        <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:14px 30px;font-family:'Lilita One','Arial Black',Arial,sans-serif;font-size:20px;color:#ffffff;text-decoration:none;text-shadow:0 2px 0 #2c8f1f;">Confirmar e jogar</a>
+      </td>
+    </tr></table>
+
+    <p style="margin:0 0 6px;font-size:13px;color:#5a6a88;">Se o botão não abrir, copie este link no navegador:</p>
+    <p style="margin:0 0 18px;font-size:12px;line-height:1.4;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#1f6cc0;">{{ .ConfirmationURL }}</a></p>
+    <p style="margin:0;font-size:13px;line-height:1.45;color:#5a6a88;">Não criou conta no Provedor Tycoon? Pode ignorar este e-mail: nada acontece sem o seu toque.</p>
+  </td></tr>
+
+  <tr><td align="center" style="padding:14px 8px 0;font-family:Figtree,Arial,sans-serif;font-size:11px;line-height:1.5;color:#e6f2ff;">
+    Provedor Tycoon · jogo educativo sobre provedores de internet<br>Mapa de fundo: Duartina/SP © colaboradores do OpenStreetMap
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

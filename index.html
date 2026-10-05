@@ -1345,6 +1345,7 @@ const backUrl=()=>location.origin+location.pathname;
 const POLICY_V='2026-10';
 async function sbSignup(email,pass,data){const r=await fetch(SB.url+'/auth/v1/signup?redirect_to='+encodeURIComponent(backUrl()),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,data})});
   const j=await r.json().catch(()=>({}));if(!r.ok){const m=String(j.error_description||j.msg||j.message||j.error||'');throw new Error(/already/i.test(m)?'Esse e-mail já tem conta. Use Entrar.':/password/i.test(m)?'A senha precisa de pelo menos 6 caracteres.':/rate|seconds/i.test(m)?'Aguarde um minuto e tente de novo.':m||'Não deu para criar a conta agora.');}
+  const u=j.user||j;if(!j.access_token&&Array.isArray(u.identities)&&!u.identities.length)throw new Error('Esse e-mail já tem conta. Use Entrar (ou Esqueci a senha).');
   if(!j.access_token)return {confirm:true};sbStore(sbSess(j));return {ok:true};}
 async function sbLogin(email,pass,signup){
   const r=await fetch(SB.url+(signup?'/auth/v1/signup?redirect_to='+encodeURIComponent(backUrl()):'/auth/v1/token?grant_type=password'),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
@@ -1493,12 +1494,12 @@ function openSignup(fromStart,email){const d=SIGNUP_DRAFT;if(email&&!d.email)d.e
         toast('Conta criada!');bootCloud();
       }catch(e){bad(e.message);go.disabled=false;go.textContent='Criar conta';}};});}
 /* Aviso de e-mail pendente: reenviar e entrar depois de confirmar. */
-async function sbResend(email){const r=await fetch(SB.url+'/auth/v1/resend?redirect_to='+encodeURIComponent(backUrl()),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});if(!r.ok)throw new Error('Aguarde um minuto e tente de novo.');}
+async function sbResend(email){const r=await fetch(SB.url+'/auth/v1/resend?redirect_to='+encodeURIComponent(backUrl()),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});if(!r.ok){const j=await r.json().catch(()=>({}));const m=String(j.error_description||j.msg||j.message||'');throw new Error(r.status===429||/rate|seconds/i.test(m)?'Aguarde um minuto e tente de novo.':/smtp|sending|send/i.test(m)?'O servidor de e-mail recusou o envio. Tente mais tarde.':m||'Não deu para reenviar agora.');}}
 function pendingMail(){if(SB.session&&SB.session.user)return null;try{const m=JSON.parse(localStorage.getItem('pt-mail')||'null');return m&&m.kind==='signup'&&Date.now()-m.at<7*864e5?m:null;}catch(e){return null;}}
 function openPending(){const p=pendingMail();if(!p){openLogin(false);return;}openModal(head('Conta','📧 Confirme seu e-mail')+`<div class="mail-sent"><span aria-hidden="true">📧</span><div><b>Falta confirmar ${esc(p.email)}</b><p>Abra o e-mail que enviamos (veja também o spam) e toque no link. Ele volta para o jogo, entra na sua conta e leva o progresso deste aparelho junto, com os 💎 ${LOGIN_DIAMONDS} diamantes.</p></div></div>
   <p class="muted">Enquanto isso o jogo continua salvando neste aparelho.</p>
   <div class="foot" style="flex-wrap:wrap;gap:8px"><p class="lg-note" id="pdNote"></p><button class="btn ghost" id="pdResend">Reenviar e-mail</button><button class="btn" id="pdLogin">Já confirmei: entrar</button><button class="btn primary" data-close>Continuar jogando</button></div>`,m=>{
-  m.querySelector('#pdResend').onclick=async()=>{const n=m.querySelector('#pdNote');try{await sbResend(p.email);mailSent('signup',p.email);n.style.color='var(--signal)';n.textContent='E-mail reenviado.';}catch(e){n.textContent=e.message;}};
+  m.querySelector('#pdResend').onclick=async()=>{const n=m.querySelector('#pdNote');const b=m.querySelector('#pdResend');b.disabled=true;n.style.color='';n.textContent='Enviando…';try{await sbResend(p.email);mailSent('signup',p.email);n.style.color='var(--signal)';n.innerHTML=`Pedido enviado para <b>${esc(p.email)}</b>. Pode levar alguns minutos: veja também o spam e as promoções. Se a conta já estava confirmada, nenhum e-mail novo sai: toque em <b>Já confirmei: entrar</b>.`;let t=60;const iv=setInterval(()=>{if(!b.isConnected||--t<=0){clearInterval(iv);b.disabled=false;b.textContent='Reenviar e-mail';return;}b.textContent=`Reenviar (${t}s)`;},1000);}catch(e){n.textContent=e.message;b.disabled=false;}};
   m.querySelector('#pdLogin').onclick=()=>openLogin(false);});}
 function openLogin(fromStart){
   if(!sbOn()){toast('Salvamento online não configurado.');return;}

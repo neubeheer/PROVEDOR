@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v75`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v76`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Só deitado: em celular e tablet em pé (`(orientation:portrait) and (pointer:coarse)`) aparece `#rotateLock` e o relógio para (`portraitLock()` no `loop`); o manifest abre deitado. O layout em pé continua no CSS, mas não é usado.
 - Topo: caixa, clientes, selos e diamantes abreviados por `shortN` (mil, mi, bi, tri, qua a partir de 100 mil; valor exato no `title`).
@@ -65,6 +65,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - Ranking (`openRanking`, Menu e Concorrência): a aba Geral lê a visão `public.ranking` (resumo de todas as contas em `saves`: empresa, nível, clientes, cidades; online = salvou há menos de 3 min); a aba da cidade usa a `presenca` (nível 18 com outorga). Sem a visão, cai na presença. Online = presença enviada há menos de 10 min (`rivalOnline`); só disputa clientes quem jogou nas últimas `RIVAL_ONLINE_H` horas (`rivalActive` em `rivalPressure`).
 - **Supabase**: login e-mail/senha e progresso na tabela `saves`. Com conta, o progresso fica na nuvem: `start` → `openLogin` → `bootCloud` (carrega a conta; save antigo do navegador sobe uma vez e é apagado). O relógio só anda com `cloud.ref` e internet. Envio por `scheduleCloud` (a cada 60 s, no mínimo 15 s entre envios, e ao esconder a aba), se falhar, espera cada vez mais (`cloudBackoff`: 1 min até 8 min, com sorteio); comprimido em gzip (`packSave`/`unpackSave`, coluna `data` = `{"gz": base64}`; saves antigos sem compressão continuam abrindo), com `saveJson()` sem `fam` (refeito pela semente `f.fk` em `hydrateFams`) e sem `c.near`. Tabelas e regras em `supabase/schema.sql`. A chave publishable é pública por natureza; quem protege os dados são as regras do schema.
 - **Google Drive + Apps Script** (`apps-script/Code.gs`): banco de quadras, um JSON por cidade, servido por link aberto do script. Jogador logado grava cidades novas (o script confere o login no Supabase). O robô do GitHub (`scripts/quadras_cache.py`, workflow "Banco de quadras") se identifica com a senha do robô. No modo diário (`--regioes`) ele lê as cidades dos jogadores (`?regioes=1`, arquivo `_regioes.json`, alimentado pelo jogo após o save na nuvem) e desenha as vizinhas até 400 km, das mais perto para as mais longe.
+- Templates de e-mail (confirmar conta e redefinir senha) em `templates email/` com `LEIA-ME.md`: colar em Authentication → Emails → Templates; o fundo `cidade.jpg` e o ícone vêm de `{{ .SiteURL }}`. O cadastro com e-mail que já tem conta (Supabase devolve `identities` vazio e não manda nada) avisa "Esse e-mail já tem conta"; o Reenviar mostra o erro real e espera 60 s.
 - `config.js`: URL do Supabase, chave pública e link do Apps Script.
 - **Nunca** colocar a senha do robô no código; ela fica só nos segredos do GitHub e nas Propriedades do script.
 
@@ -73,7 +74,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
 - [ ] Rodar o `supabase/schema.sql` de novo (seção 8: colunas de resumo em `saves`, leitura do admin e tabela `grants`; seção 9: visão `ranking`; seção 10: coluna `avatar` e visão com avatar).
 - Supabase: em 2026-10-04 o projeto antigo (fatdynkmnbqehxkrovsv, us-east-2, nano) ficou com CPU em 100% pelos saves de ~5 MB a cada 30 s e foi trocado por um projeto novo (wrvsbdtjtwbjutrtwcqk) com o `schema.sql` já rodado; o jogo recomeçou do zero. Falta trocar `SUPABASE_URL` e `SUPABASE_ANON_KEY` nas Propriedades do Apps Script.
-- [ ] Publicar a v75 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v76 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` (v50: mapa da cidade `geo` e busca de arquivo por id) no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 
