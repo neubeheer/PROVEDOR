@@ -13,6 +13,7 @@
  *                                                       para a próxima abertura não precisar do OpenStreetMap nem dos Correios
  *   Acesso:  POST .../exec   {"acao":"acesso", ...}    aviso por e-mail quando alguém entra na conta (se o jogador deixou ligado);
  *                                                       sai do Gmail de quem publicou o script (MailApp, até 100 por dia na conta grátis)
+ *   Código:  POST .../exec   {"acao":"codigo"} e {"acao":"conferir"}  código de 6 números para trocar a senha (Minha conta)
  *
  * Quem pode gravar:
  *   - jogador logado no Supabase: só cria cidade nova (não sobrescreve);
@@ -166,6 +167,62 @@ function acesso_(d) {
   return json_({ ok: true, enviado: true });
 }
 
+/* ---------- código para trocar a senha ----------
+   {"acao":"codigo","token":"...","site":"https://..."}            gera 6 números, guarda 10 min e manda para o e-mail da conta
+   {"acao":"conferir","token":"...","codigo":"123456"}             confere (até 5 tentativas); certo, o jogo grava a senha nova
+   O código fica só no cache do script (nunca no Drive) e é apagado ao acertar ou ao estourar as tentativas. */
+function cartaHtml_(site, titulo, corpo) {
+  const fundo = site ? site + '/templates%20email/cidade.jpg' : '';
+  const fonte = "font-family:'Lilita One','Arial Black',Arial,sans-serif;";
+  return '<div style="margin:0;padding:24px 12px;background:#2a83d8;font-family:Arial,sans-serif">' +
+    '<div style="max-width:560px;margin:0 auto">' +
+    '<div style="height:120px;border:3px solid #1b2a4a;border-bottom:0;border-radius:18px 18px 0 0;background:#2a83d8' +
+      (fundo ? " url('" + fundo + "') center/cover no-repeat" : '') + ';position:relative">' +
+      '<div style="' + fonte + 'position:absolute;left:22px;bottom:14px;font-size:28px;color:#fff;text-shadow:0 2px 0 #1b2a4a,2px 0 0 #1b2a4a,-2px 0 0 #1b2a4a,0 -2px 0 #1b2a4a">Provedor Tycoon</div></div>' +
+    '<div style="background:#fff8ea;border:3px solid #1b2a4a;border-radius:0 0 18px 18px;padding:22px 24px;color:#1b2a4a">' +
+      '<div style="font-size:12px;font-weight:800;letter-spacing:.12em;color:#5a6a88">CONTA</div>' +
+      '<div style="' + fonte + 'font-size:24px;color:#8a5a2b;margin:4px 0 12px">' + titulo + '</div>' + corpo +
+    '</div></div></div>';
+}
+function siteOk_(s) { return /^https:\/\/[^\s"'<>]{4,200}$/.test(String(s || '')) ? String(s).replace(/\/+$/, '') : ''; }
+function codigo_(d) {
+  const u = usuarioSupabase_(d.token);
+  if (!u || !u.email) return json_({ ok: false, erro: 'Entre na sua conta de novo.' });
+  const cache = CacheService.getScriptCache(), ck = 'cod_' + u.id;
+  const velho = JSON.parse(cache.get(ck) || 'null');
+  if (velho && Date.now() - velho.t < 60000) return json_({ ok: false, erro: 'Aguarde um minuto para pedir outro código.' });
+  const cod = String(Math.floor(100000 + Math.random() * 900000));
+  cache.put(ck, JSON.stringify({ c: cod, n: 0, t: Date.now() }), 600);
+  const nome = esc_(String((u.user_metadata || {}).name || '').slice(0, 40));
+  const corpo =
+    '<p style="font-size:16px;line-height:1.5;margin:0 0 14px">' + (nome ? 'Oi, ' + nome + '! ' : 'Oi! ') +
+      'Use este código no jogo, em <b>Minha conta → Trocar a senha</b>:</p>' +
+    '<div style="text-align:center;margin:0 0 16px"><span style="display:inline-block;background:#fff;border:3px dashed #1b2a4a;border-radius:14px;padding:12px 26px;font-family:\'Courier New\',monospace;font-size:34px;font-weight:700;letter-spacing:8px;color:#1b2a4a">' + cod + '</span></div>' +
+    '<div style="background:#d4f1ea;border:2px solid #0f9a8d;border-radius:14px;padding:12px 14px;font-size:15px;line-height:1.5;margin:0 0 14px">🔒 Vale por <b>10 minutos</b> e só para a conta <b>' + esc_(u.email) + '</b>. Ninguém do jogo vai pedir este código.</div>' +
+    '<p style="font-size:13px;color:#5a6a88;margin:0">Não pediu para trocar a senha? Ignore este e-mail: a senha atual continua valendo.</p>';
+  try {
+    MailApp.sendEmail({ to: u.email, subject: 'Seu código: ' + cod + ' · Provedor Tycoon', htmlBody: cartaHtml_(siteOk_(d.site), 'Código para trocar a senha', corpo), name: 'Provedor Tycoon' });
+  } catch (e) {
+    cache.remove(ck);
+    return json_({ ok: false, erro: 'Não deu para enviar o e-mail agora.' });
+  }
+  return json_({ ok: true });
+}
+function conferir_(d) {
+  const u = usuarioSupabase_(d.token);
+  if (!u) return json_({ ok: false, erro: 'Entre na sua conta de novo.' });
+  const cache = CacheService.getScriptCache(), ck = 'cod_' + u.id, v = JSON.parse(cache.get(ck) || 'null');
+  if (!v) return json_({ ok: false, erro: 'Código vencido. Peça outro.' });
+  if (String(d.codigo || '').replace(/\D/g, '') !== v.c) {
+    v.n++;
+    if (v.n >= 5) { cache.remove(ck); return json_({ ok: false, erro: 'Muitas tentativas erradas. Peça outro código.' }); }
+    cache.put(ck, JSON.stringify(v), 600);
+    return json_({ ok: false, erro: 'Código errado. Restam ' + (5 - v.n) + ' tentativas.' });
+  }
+  cache.remove(ck);
+  return json_({ ok: true });
+}
+
 /* ---------- leitura ---------- */
 function doGet(e) {
   const q = (e && e.parameter) || {};
@@ -237,6 +294,8 @@ function doPost(e) {
     if (raw.length > MAX_BYTES) return json_({ ok: false, erro: 'arquivo grande demais' });
     const d = JSON.parse(raw);
     if (d.acao === 'acesso') return acesso_(d);
+    if (d.acao === 'codigo') return codigo_(d);
+    if (d.acao === 'conferir') return conferir_(d);
     const robo = !!d.senha && d.senha === props_().getProperty('SENHA_DO_ROBO');
     if (!robo && !loginSupabaseOk_(d.token)) return json_({ ok: false, erro: 'sem permissão: entre na sua conta' });
     if (!chaveOk_(d.city_key) || (d.name_key && !chaveOk_(d.name_key))) return json_({ ok: false, erro: 'chave da cidade inválida' });

@@ -1424,6 +1424,11 @@ async function loginEvent(method){if(!SB.session||!SB.session.user)return;await 
   try{await sbFetch('/rest/v1/acessos',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({user_id:SB.session.user.id,device:dev,method})});}catch(e){}
   const u=quadrasUrl();if(!u||!prefAlert())return;
   try{await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({acao:'acesso',token:SB.session.access_token,device:dev,method,site:backUrl(),at:new Date().toISOString()})});}catch(e){}}
+/* Pedidos ao Apps Script que esperam resposta (código de senha). */
+async function gsPost(body){const u=quadrasUrl();if(!u)throw new Error('O banco de quadras (Apps Script) não está configurado.');if(!SB.session)throw new Error('Entre na sua conta de novo.');
+  if(SB.session.expires_at*1000<Date.now()+60000)await sbRefresh();
+  let r;try{r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...body,token:SB.session.access_token,site:backUrl()})});}catch(e){throw new Error('Sem conexão com o servidor de e-mail. Tente de novo.');}
+  const j=await r.json().catch(()=>null);if(!j)throw new Error('O servidor de e-mail não respondeu. Publique a versão nova do Code.gs.');if(!j.ok)throw new Error(j.erro||'Não deu agora.');return j;}
 const METHOD_TXT={senha:'e-mail e senha',facebook:'Facebook',link:'link do e-mail',codigo:'código do e-mail'};
 async function myAccess(){try{const r=await sbFetch('/rest/v1/acessos?select=at,device,method&order=at.desc&limit=6');if(!r.ok)return null;return await r.json();}catch(e){return null;}}
 function openAccount(){const u=SB.session.user,ids=u.ids||[],fbOn=SB_PROV&&SB_PROV.facebook,fbHas=ids.includes('facebook');
@@ -1433,7 +1438,7 @@ function openAccount(){const u=SB.session.user,ids=u.ids||[],fbOn=SB_PROV&&SB_PR
       <div class="acc-id"><b>${esc(playerName()||'Jogador sem nome')}</b><small>${esc(u.email||'')}</small><small>${cloud.status==='cloud'&&cloud.last?`Salvo online às ${new Date(cloud.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:'Progresso salvo na sua conta'}</small></div></div>
     <section class="m-sec"><h3>Perfil</h3><div class="acc-row"><div class="field" style="flex:1;margin:0"><label for="acName">Nome do jogador</label><input class="input" id="acName" maxlength="40" placeholder="Como quer ser chamado" value="${esc(playerName())}"></div><button class="btn" id="acNameGo" type="button">Salvar</button></div></section>
     <section class="m-sec"><h3>Segurança</h3>
-      <div class="acc-box" id="acPw"><div class="acc-row"><span><b>Trocar a senha</b><small>Mandamos um código de 6 números para ${esc(u.email||'')}.</small></span><button class="btn" id="acCode" type="button">Enviar código</button></div></div>
+      <div class="acc-box" id="acPw"><div class="acc-row"><span><b>Trocar a senha</b><small>Mandamos um código de 6 números para ${esc(u.email||'')}. Ele vale por 10 minutos.</small></span><button class="btn" id="acCode" type="button">Enviar código</button></div></div>
       ${fbOn||fbHas?`<div class="acc-box"><div class="acc-row"><span><b>Facebook</b><small>${fbHas?'Conectado: dá para entrar com o Facebook.':'Conecte para entrar com um toque.'}</small></span>${fbHas?'<span class="acc-ok">✓ Conectado</span>':`<button class="btn fb-btn" id="acFb" type="button">${FB_ICO} Conectar</button>`}</div></div>`:''}
     </section>
     <section class="m-sec"><h3>E-mails</h3>
@@ -1450,8 +1455,8 @@ function openAccount(){const u=SB.session.user,ids=u.ids||[],fbOn=SB_PROV&&SB_PR
     pref('#acNews','news');pref('#acAlert','loginAlert');
     const fb=q('#acFb');if(fb)fb.onclick=async()=>{fb.disabled=true;try{await fbLink();}catch(e){note(e.message);fb.disabled=false;}};
     q('#acCode').onclick=async()=>{const b=q('#acCode');b.disabled=true;note('Enviando…');
-      try{await sbRecover(u.email);}catch(e){note(e.message);b.disabled=false;return;}note('');
-      q('#acPw').innerHTML=`<p style="margin:0 0 8px"><b>Código enviado</b> para ${esc(u.email)}. Veja também o spam. Ele vale por pouco tempo.</p>
+      try{await gsPost({acao:'codigo'});}catch(e){note(e.message);b.disabled=false;return;}note('');
+      q('#acPw').innerHTML=`<p style="margin:0 0 8px"><b>Código enviado</b> para ${esc(u.email)}. Veja também o spam. Vale por 10 minutos.</p>
         <div class="field"><label for="acTok">Código do e-mail</label><input class="input" id="acTok" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="6 números"></div>
         ${pwField('acPass','Senha nova','mínimo 6 caracteres')}${pwField('acPass2','Confirme a senha nova')}
         <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn primary" id="acPwGo" type="button">Trocar a senha</button></div>`;
@@ -1459,11 +1464,9 @@ function openAccount(){const u=SB.session.user,ids=u.ids||[],fbOn=SB_PROV&&SB_PR
       q('#acPwGo').onclick=async()=>{const tok=q('#acTok').value.replace(/\D/g,''),pw=q('#acPass').value;
         if(tok.length<6){note('Digite o código que chegou no e-mail.');return;}if(pw.length<6){note('A senha precisa de pelo menos 6 caracteres.');return;}if(pw!==q('#acPass2').value){note('As senhas não são iguais.');return;}
         const go=q('#acPwGo');go.disabled=true;note('Conferindo o código…');
-        try{const r=await fetch(SB.url+'/auth/v1/verify',{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({type:'recovery',email:u.email,token:tok})});const j=await r.json().catch(()=>({}));
-          if(!r.ok||!j.access_token)throw new Error(/expired|invalid/i.test(j.msg||j.error_description||j.error_code||'')?'Código errado ou vencido. Peça outro.':'Não deu para conferir o código.');
-          const keep=SB.session.user;sbStore(sbSess(j));SB.session.user.meta=SB.session.user.meta||keep.meta;SB.session.user.ids=keep.ids;
+        try{await gsPost({acao:'conferir',codigo:tok});
           const r2=await sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:pw})});const j2=await r2.json().catch(()=>({}));
-          if(!r2.ok)throw new Error(/different|same/i.test(j2.msg||j2.error_code||'')?'A senha nova precisa ser diferente da atual.':'Não deu para trocar a senha agora.');
+          if(!r2.ok)throw new Error(/different|same/i.test(j2.msg||j2.error_code||'')?'A senha nova precisa ser diferente da atual.':/reauth/i.test(j2.msg||j2.error_code||'')?'Saia e entre de novo na conta e troque a senha logo em seguida.':'Não deu para trocar a senha agora.');
           toast('🔒 Senha trocada!');openAccount();}catch(e){note(e.message);go.disabled=false;}};};
     myAccess().then(L=>{const el=document.getElementById('acAcc');if(!el)return;
       el.innerHTML=L===null?'<p class="muted" style="margin:0">A lista aparece depois que o administrador rodar a seção 11 do schema.sql.</p>':!L.length?'<p class="muted" style="margin:0">Nenhum acesso registrado ainda.</p>':
