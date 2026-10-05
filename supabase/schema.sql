@@ -154,3 +154,10 @@ create policy grants_admin_sel on public.grants for select to authenticated
   using (lower(auth.jwt() ->> 'email') = 'neubeheer@gmail.com');
 create policy grants_own_sel on public.grants for select to authenticated using (auth.uid() = user_id);
 create policy grants_own_upd on public.grants for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- 9) Ranking com todos os jogadores (online ou não, com ou sem outorga).
+--    A visão mostra só o resumo público de cada empresa (nunca o progresso nem o e-mail) e todos os logados leem.
+create or replace view public.ranking as
+  select user_id, company, level, clients, cities, month, updated_at
+  from public.saves;
+grant select on public.ranking to anon, authenticated;
