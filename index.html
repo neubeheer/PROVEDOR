@@ -308,6 +308,7 @@ div.lot{cursor:default}
 .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
 .field label{font-weight:700;font-size:13.5px}
 .row2{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:10px}
+.row2.eq{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .input{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;font:inherit;background:#fff;color:var(--ink);width:100%}
 textarea.input{font-family:var(--mono);font-size:12px;min-height:180px;resize:vertical}
 .bairro-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -1198,7 +1199,8 @@ const RETAIN={
 };
 /* Capacidade de cada função por mês (administrador pode mudar): clientes por atendente, visitas por vendedor (a cada 4 dias)… */
 let CAP_VOZ=40,CAP_TEXTO=50,CAP_COM=3,CAP_RET=5,CAP_REC=3,CAP_LOG=6,CAP_OUV=60,CAP_MIG=30,CAP_TEC=1500,SUP_SAL=700,GER_SAL=1200,SUP_PER=5;
-let LOGIN_DIAMONDS=100,RIVAL_ONLINE_H=24;
+let LOGIN_DIAMONDS=100,RIVAL_ONLINE_H=24,RULES_MIN_CITIES=2;
+const rulesOn=()=>!!S&&S.cities.length>=RULES_MIN_CITIES;
 let COIN_RATE=50,COIN_M3=1,COIN_M6=2,COIN_M12=3,DIA_LEVEL=5,DIA_MISSION=1;
 /* Milissegundos reais por dia de jogo em 1× (30 dias = 1 mês). O administrador define em minutos por mês. */
 let DAY_MS=1000;
@@ -1363,8 +1365,10 @@ async function authReturn(){const h=new URLSearchParams(location.hash.slice(1));
   const tok=h.get('access_token');try{const r=await fetch(SB.url+'/auth/v1/user',{headers:{apikey:SB.key,Authorization:'Bearer '+tok}});const u=await r.json();if(!r.ok||!u.id)throw 0;
     sbStore({access_token:tok,refresh_token:h.get('refresh_token'),expires_at:+h.get('expires_at')||Math.floor(Date.now()/1000)+(+h.get('expires_in')||3600),user:{id:u.id,email:u.email}});try{localStorage.removeItem('pt-mail');}catch(e){}return {type:h.get('type')||'signup'};}
   catch(e){return {err:'Não deu para confirmar agora. Tente entrar com e-mail e senha.'};}}
-function openNewPass(){openModal(head('Conta','Criar uma senha nova',false)+`<p>Você entrou pelo link do e-mail. Escolha a senha nova:</p><div class="field"><label for="npPass">Senha nova</label><input class="input" id="npPass" type="password" autocomplete="new-password" minlength="6" maxlength="72"></div><p class="geo-note" id="npNote"></p><div class="foot"><span></span><button class="btn primary" id="npGo">Salvar senha</button></div>`,m=>{
-  m.querySelector('#npGo').onclick=async()=>{const pw=m.querySelector('#npPass').value,note=m.querySelector('#npNote');if(pw.length<6){note.textContent='A senha precisa de pelo menos 6 caracteres.';return;}
+const pwField=(id,lab,ph)=>`<div class="field"><label for="${id}">${lab}</label><div class="pw-wrap"><input class="input" id="${id}" type="password" autocomplete="new-password" maxlength="72"${ph?` placeholder="${ph}"`:''}><button type="button" class="pw-eye" data-eye="${id}" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path class="pw-slash" d="M4 20L20 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div></div>`;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-eye]');if(!b)return;const i=document.getElementById(b.dataset.eye);if(!i)return;const show=i.type==='password';i.type=show?'text':'password';b.setAttribute('aria-pressed',String(show));b.setAttribute('aria-label',show?'Esconder senha':'Mostrar senha');i.focus();});
+function openNewPass(){openModal(head('Conta','Criar uma senha nova',false)+`<p>Você entrou pelo link do e-mail. Escolha a senha nova:</p>${pwField('npPass','Senha nova','mínimo 6 caracteres')}${pwField('npPass2','Confirme a senha nova')}<p class="geo-note" id="npNote"></p><div class="foot"><span></span><button class="btn primary" id="npGo">Salvar senha</button></div>`,m=>{
+  m.querySelector('#npGo').onclick=async()=>{const pw=m.querySelector('#npPass').value,note=m.querySelector('#npNote');if(pw.length<6){note.textContent='A senha precisa de pelo menos 6 caracteres.';return;}if(pw!==m.querySelector('#npPass2').value){note.textContent='As senhas não são iguais.';return;}
     const r=await sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:pw})});if(!r.ok){note.textContent='Não deu para salvar agora. Tente de novo.';return;}toast('Senha nova salva!');bootCloud();};});}
 async function sbLogout(){try{await sbFetch('/auth/v1/logout',{method:'POST'});}catch(e){}sbStore(null);cloud.ref=null;cloud.status='local';renderSaveDot();}
 /* O save vai comprimido (gzip em base64, {"gz":...}): ~17× menor (4,7 MB viram ~0,3 MB com 30 mil clientes), o que
@@ -1458,8 +1462,8 @@ function openSignup(fromStart,email){const d=SIGNUP_DRAFT;if(email&&!d.email)d.e
   openModal(head('Conta','Criar conta')+`<p style="margin-top:0">Ganhe <b>💎 ${LOGIN_DIAMONDS} diamantes</b>, salve online e dispute o ranking. Dá para jogar enquanto você confirma o e-mail.</p>
     <form id="suForm" autocomplete="on" onsubmit="return false">
     <div class="field"><label for="suEmail">E-mail</label><input class="input" id="suEmail" name="username" type="email" autocomplete="email" maxlength="120" value="${esc(d.email||'')}"></div>
-    <div class="row2"><div class="field"><label for="suPass">Senha</label><input class="input" id="suPass" type="password" autocomplete="new-password" maxlength="72" placeholder="mínimo 6 caracteres"></div>
-    <div class="field"><label for="suPass2">Confirme a senha</label><input class="input" id="suPass2" type="password" autocomplete="new-password" maxlength="72"></div></div>
+    <div class="row2 eq">${pwField('suPass','Senha','mínimo 6 caracteres')}
+    ${pwField('suPass2','Confirme a senha')}</div>
     <div class="field"><label for="suBirth">Data de nascimento</label><input class="input" id="suBirth" type="date" max="${new Date().toISOString().slice(0,10)}" min="1900-01-01" value="${esc(d.birth||'')}" style="max-width:220px"></div>
     <div class="field"><label>Escolha seu avatar</label>${avatarPicker(d.avatar??0,'su')}</div>
     <label class="pol-ok"><input type="checkbox" id="suPol" ${d.pol?'checked':''}> Li e aceito a <a href="#" id="suPolLink">política do jogo</a></label>
@@ -3010,7 +3014,7 @@ function retTake(c){const R=S.retB;if(!R){if(S.retCap>0){S.retCap--;return true;
   const B=bldgs().filter(b=>(R[b.key]||0)>0),own=B.find(b=>servesOf(b,'retencao').has(c.idx))||(flowOn('retencao')?B[0]:null);
   if(own){R[own.key]--;S.retCap=Math.max(0,(S.retCap||0)-1);return true;}
   if(S.retExtra>0){S.retExtra--;S.retCap=Math.max(0,(S.retCap||0)-1);return true;}return false;}
-function openRules(){const pc=v=>Math.round(v*100)+'%',cn=i=>esc((S.cities[i]||{}).name||'?');
+function openRules(){if(!rulesOn()){toast(`As regras de negócio liberam com ${RULES_MIN_CITIES} cidades.`);return;}const pc=v=>Math.round(v*100)+'%',cn=i=>esc((S.cities[i]||{}).name||'?');
   const secs=RULE_SECTORS.map(([id,name,unit])=>{const B=bldgs().filter(b=>bHas(b,id));
     const dem=id==='callcenter'?demClients():id==='recuperacao'?demLate():null,al=dem?allocSector(id,dem):null;
     const rows=B.map(b=>{const sv=servesOf(b,id),cap=bCap(b,id),custom=!!rulesOf().serve[b.key+':'+id];
@@ -3110,7 +3114,7 @@ function buildingPanelHtml(){
   const tabs=hqs.length||fils.length?`<div class="seg" style="margin-bottom:10px;flex-wrap:wrap"><button data-pb="main" aria-pressed="${PANEL_B==null}">Sede · ${esc((S.cities[(S.sede&&S.sede.ci)||0]||{}).name||'principal')}</button>${hqs.map(c=>`<button data-pb="${c.idx}" aria-pressed="${PANEL_B===c.idx}">Regional · ${esc(c.name)}</button>`).join('')}${fils.map(c=>`<button data-pb="${c.idx}" aria-pressed="${PANEL_B===c.idx}">Filial · ${esc(c.name)}</button>`).join('')}</div>`:'';
   const conv=cand.length?`<div class="notice"><b>Filiais que podem virar sede regional</b><div class="choice-list" style="margin-top:8px">${cand.map(c=>`<div class="choice"><div><b>${esc(c.name)}</b><small>Prédio próprio com andares e equipes. ${brl0(HQ_COST)} na conversão + ${brl0(HQ_MAINT)}/mês.</small></div><button class="btn small primary" data-act="hqConvert" data-c="${c.idx}">Converter · ${brl0(HQ_COST)}</button></div>`).join('')}</div></div>`:'';
   const body=PANEL_B!=null?(S.cities[PANEL_B].hq?hqBuildingHtml(PANEL_B):filialBuildingHtml(PANEL_B)):`<div class="building">${$('#building').innerHTML}</div>`;
-  return alertsHtml()+rulesBtn+outsBtn+tabs+`<div class="sede-modal"><div class="building">${body}</div></div>`+conv+logisticsHtml();
+  return alertsHtml()+(rulesOn()?rulesBtn:'')+outsBtn+tabs+`<div class="sede-modal"><div class="building">${body}</div></div>`+conv+logisticsHtml();
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-pb]');if(!b||!S)return;PANEL_B=b.dataset.pb==='main'?null:+b.dataset.pb;refreshPanel();});
 
@@ -4872,6 +4876,7 @@ const cTeam=(id,name)=>({sel:`#panelBody [data-act="team"][data-f="${id}"]:not([
 const cHire=(id,why)=>({sel:'#modal [data-add]',text:`Toque no <b>+</b> para contratar. ${why}`,done:()=>opsOf(id)>0,skip:()=>opsOf(id)>0});
 const cClose=txt=>({sel:'#modal .x',text:txt||'Pronto! Feche esta janela no <b>×</b>.',done:()=>!modalOpen});
 const cInfo=(sel,text)=>({sel,text,info:true,free:!sel});
+const RULES_TOUR={id:'rules',title:'Regras de negócio',steps:[cInfo(null,'Agora você tem mais de uma cidade: liberou as <b>Regras de negócio</b>. Elas definem qual prédio atende cada cidade e se a equipe que sobra ajuda as outras (transbordo).'),cP('building','Prédio'),{sel:'#panelBody [data-act="rules"]',text:'Toque em <b>Abrir</b> nas Regras de negócio.',done:()=>!!document.querySelector('#modal [data-rserve], #modal .rules-tbl')||(modalOpen&&/Regras de neg/.test((document.querySelector('#modal h2')||{}).textContent||''))},cInfo(null,'Para cada prédio e setor marque as cidades atendidas. Sem mexer, a sede atende as cidades que não têm prédio com aquele setor.'),cClose()]};
 const TOURS={
   2:{title:'Nível 2 · Call Center e Comercial',steps:[cP('building','Prédio'),cBuild('callcenter','Call Center','Ele atende os clientes: sem atendimento a reputação cai e mais gente cancela.'),cTeam('callcenter','Call Center'),cHire('callcenter','Cada atendente N1 voz atende até 40 clientes.'),cClose(),cP('building','Prédio'),cBuild('comercial','Comercial','Os vendedores batem de porta em porta sozinhos nas quadras com sinal.'),cTeam('comercial','Comercial'),cHire('comercial','Cada vendedor faz 3 visitas a cada 4 dias.'),cClose()]},
   4:{title:'Nível 4 · Técnico, Logística e Expansão',steps:[cP('building','Prédio'),cBuild('tecnico','Técnico','Com técnicos próprios você não paga instalação terceirizada.'),cBuild('logistica','Logística (galpão)','Os motoristas recolhem os rádios de quem cancela e o próximo cliente sai sem custo de equipamento.'),cClose('Contrate a equipe depois pelo botão <b>Equipe</b> de cada andar. Feche no <b>×</b>.'),cInfo('.fab-expand','<b>Expandir</b> liberado: daqui você abre outras cidades até 200 km das que já atende.')]},
@@ -4927,6 +4932,7 @@ function introTour(){const c0=()=>S.cities[0],dn=d=>!!(S.docs[d]&&S.docs[d].done
 function coachPump(){if(COACH.tour||!S||S.coachOff||S.phase==='start')return;S.tours=S.tours||{};
   const c0=S.cities[0],ready=!!(c0&&c0.geo&&!geoBusy.has(c0)&&!needsBlocks(c0)&&!blockBusy.has(c0));
   if(!S.tours.intro&&S.tut&&!S.tut.done&&!S.tut.skip&&!modalOpen){if(ready)coachRun(introTour());return;}
+  if(RULES_MIN_CITIES>1&&rulesOn()&&!S.tours.rules&&!COACH.q.some(x=>x.id==='rules'))COACH.q.push(RULES_TOUR);
   if(modalOpen)return;const k=COACH.q.find(x=>!S.tours[x.id]);COACH.q=COACH.q.filter(x=>!S.tours[x.id]&&x!==k);if(k)coachRun(k);}
 function coachLevel(L){const T=TOURS[L];if(T&&S&&!(S.tours&&S.tours['lv'+L]))COACH.q.push({id:'lv'+L,title:T.title,steps:T.steps});}
 setInterval(coachPump,1500);
@@ -4965,7 +4971,7 @@ const CFGS=[
   ['START_DIAMONDS','Selos e diamantes','Diamantes no começo'],['DIA_LEVEL','Selos e diamantes','Diamantes por nível'],['DIA_MISSION','Selos e diamantes','Diamantes por missão'],['DIA_TO_COINS','Selos e diamantes','Selos por diamante'],['DIA_TO_MONEY','Selos e diamantes','R$ por diamante'],
   ['IPV6_LEVEL','Níveis','IPv6'],['IPV6_COST','Preços','IPv6: implantação (R$)'],['IPV6_OFF','Links','IPv6: fração do tráfego por peering (0,2 = 20%)'],
   ['LOGIN_DIAMONDS','Selos e diamantes','Diamantes por entrar na conta (uma vez)'],['RIVAL_ONLINE_H','Níveis','Concorrência: horas sem jogar até parar de disputar'],
-  ['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
+  ['RULES_MIN_CITIES','Níveis','Regras de negócio: cidades mínimas (1 = sempre)'],['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
   ['DOCS#contrato.days','Duração','Contrato social (dias)'],['DOCS#cnpj.days','Duração','CNPJ (dias)'],['DOCS#alvara.days','Duração','Alvará (dias)'],['DOCS#contrato.cost','Preços','Contrato social (R$)'],['DOCS#alvara.cost','Preços','Alvará (R$)'],
   ['TRAININGS#b.months','Duração','Treinamento básico (meses)'],['TRAININGS#a.months','Duração','Treinamento avançado (meses)'],['TRAININGS#l.months','Duração','Liderança e gestão (meses)'],['CEO_MAX_H','Duração','CEO: horas máximas'],
   ['BONUS_PER_LEVEL','Economia','Bônus por nível (R$ × nível)'],['BONUS_CAP','Economia','Bônus máximo por nível (R$)'],['OFFLINE_CAP','Economia','Ganho offline máximo (R$)'],['OFFLINE_RATE','Economia','Ganho offline por hora (fração do saldo)'],
