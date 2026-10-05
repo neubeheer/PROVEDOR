@@ -4104,7 +4104,7 @@ function openApConfig(c,lot,draft){
   openModal(head(draft?`Torre em ${esc(draft.place||'novo terreno')}`:'Torre nova','Configurar rádio da torre')+devShell('Rádio setorial AS-5',tier,tierName,fields,sheets),m=>{
     m.querySelector('#dvCancel').onclick=closeModal;
     addCoinBtn(m,TOWER_COIN_COST,()=>{const set=(id,v)=>{const e=m.querySelector('#'+id);if(e)e.value=v;};let k=1;while(c.towers.some(t=>t.ssid===`TORRE-${k}`))k++;
-      set('dvMode','ap');set('dvSsid',`TORRE-${k}`);const ip=nextIp(c);set('dvIp',ipStr(c,ip));set('dvMask',maskOf(netPrefix(c)));set('dvGw',`10.${c.idx+1}.0.1`);
+      set('dvMode','ap');set('dvSsid',tutIntro()?'TORRE CENTRO':`TORRE-${k}`);const ip=nextIp(c);set('dvIp',ipStr(c,ip));set('dvMask',maskOf(netPrefix(c)));set('dvGw',`10.${c.idx+1}.0.1`);
       const okCh=CHANNELS.filter(ch=>c.spectrum[ch]<=30&&!c.towers.some(t=>t.channel===ch&&dist(t,lot)<=5)).sort((a,b)=>c.spectrum[a]-c.spectrum[b]);set('dvCh',okCh[0]||CHANNELS[0]);set('dvW','40');set('dvPw','14');set('dvKey','Senha'+Math.random().toString(36).slice(2,8));});
     m.querySelector('#dvApply').onclick=()=>{
       const g=id=>(m.querySelector('#'+id)||{value:''}).value;
@@ -4115,6 +4115,7 @@ function openApConfig(c,lot,draft){
       else if(ssid.length>32)errs.push(['SSID longo demais','O SSID aceita no máximo 32 caracteres.']);
       else if(c.towers.some(t=>t.ssid.toLowerCase()===ssid.toLowerCase()))errs.push(['SSID repetido','Já existe uma torre com esse nome. Nomes iguais confundem os clientes e o suporte.']);
       const octet=checkAddr(c,{ip:g('dvIp'),mask:g('dvMask'),gw:g('dvGw')},errs);
+      if(tutIntro()&&c===S.cities[0]){const T=tutNet(c),u=x=>g(x).trim().toUpperCase();if(u('dvSsid')!==T.ssid||u('dvIp')!==T.ip||u('dvMask')!==T.mask||u('dvGw')!==T.gw)errs.push(['Tutorial: primeira torre',`Nesta torre use o nome <b>${T.ssid}</b>, IP <b>${T.ip}</b>, máscara <b>${T.mask}</b> e gateway <b>${T.gw}</b>. Nas próximas você escolhe.`]);}
       let ch=null,w=null,pw=null,key=null;
       if(tier>=2){
         ch=+g('dvCh');w=+g('dvW');
@@ -4681,13 +4682,13 @@ document.addEventListener('click',e=>{
   const act=a.dataset.act;
   if(act==='geoLoad'){geoLoad(c,{rename:c.namesAuto});}
   else if(act==='openQuadra'){LM&&LM.closePopup();const q=quadras(c)[+a.dataset.q];if(q)openQuadra(c,q);}
-  else if(act==='newTowerReal'){if(!c.geo)return;setView('real');clearDraft();draft={picking:true};renderReal();renderDraftPanel(c);}
+  else if(act==='newTowerReal'){if(!c.geo)return;setView('real');clearDraft();draft={picking:true};if(tutTowerAtSede(c))return;renderReal();renderDraftPanel(c);}
   else if(act==='areaHere'){if(!lastClick)return;LM.closePopup();openArea(c,lastClick.lat,lastClick.lon,a.dataset.n);}
   else if(act==='areaRetry'){LM&&LM.closePopup();const ar=(c.areas||[]).find(x=>x.id===+a.dataset.a);if(ar){if(AREA_BUSY.has(ar)){toast('Já estou desenhando as quadras dessa filial.');return;}if(!navigator.onLine){toast('Sem internet agora.');return;}toast('Buscando as ruas em volta da filial…');ar.manual=true;loadArea(c,ar);}}
   else if(act==='storeHere'){if(!lastClick||hasStore(c))return;LM.closePopup();
     if(!spend(STORE_COST))return;let lot=null,bd=1e9;const gp=geoToGrid(c.geo,lastClick.lat,lastClick.lon);for(const l of c.lots){if(l.t==='sede'||l.t==='tower'||l.t==='store')continue;const d=Math.hypot(l.x+.5-gp.x,l.y+.5-gp.y);if(d<bd){bd=d;lot=l;}}
     if(lot){lot.t='store';delete lot.fams;}c.store={x:lot?lot.x:4,y:lot?lot.y:4,lat:lastClick.lat,lon:lastClick.lon};addXp(40);log(`Loja filial aberta em ${c.name}.`);event(`Loja filial em ${c.name}`);checkMissions();save(true);LSig='';renderAll();toast('Loja aberta! Agora dá para fazer carreata.');}
-  else if(act==='newTower'){if(!c.geo)return;clearDraft();draft={picking:true};renderReal();renderDraftPanel(c);}
+  else if(act==='newTower'){if(!c.geo)return;clearDraft();draft={picking:true};if(tutTowerAtSede(c))return;renderReal();renderDraftPanel(c);}
   else if(act==='draftHere'){if(!lastClick)return;LM.closePopup();draft=null;setDraftAt(c,lastClick.lat,lastClick.lon);renderReal();}
   else if(act==='cancelDraft'){clearDraft();renderReal();}
   else if(act==='bestAz'){if(!draft)return;draft.az=bestAzimuth(c,draft);drawDraft(c);renderDraftPanel(c);queueBuildingCount(c);}
@@ -4875,7 +4876,11 @@ const cBuild=(id,name,why)=>({sel:`#panelBody [data-act="build"][data-f="${id}"]
 const cTeam=(id,name)=>({sel:`#panelBody [data-act="team"][data-f="${id}"]:not([data-hq])`,text:`Toque em <b>Equipe</b> no andar do <b>${name}</b>.`,done:()=>!!document.querySelector('#modal [data-add]')&&!PANEL,skip:()=>opsOf(id)>0});
 const cHire=(id,why)=>({sel:'#modal [data-add]',text:`Toque no <b>+</b> para contratar. ${why}`,done:()=>opsOf(id)>0,skip:()=>opsOf(id)>0});
 const cClose=txt=>({sel:'#modal .x',text:txt||'Pronto! Feche esta janela no <b>×</b>.',done:()=>!modalOpen});
-const cNet=(id,text)=>{const ok=()=>/^\d{1,3}(\.\d{1,3}){3}$/.test(((document.querySelector('#'+id)||{}).value||'').trim());return {sel:'#modal #'+id,text,done:ok,skip:()=>S.towersBuilt>=1||ok()};};
+const cNet=(id,text,key)=>{const ok=()=>((document.querySelector('#'+id)||{}).value||'').trim().toUpperCase()===tutNet()[key];return {sel:'#modal #'+id,text,done:ok,skip:()=>S.towersBuilt>=1||ok()};};
+/* Primeira torre no tutorial: nome e endereços fixos (só nela), e o terreno em cima da sede. */
+const tutIntro=()=>!!(COACH.tour&&COACH.tour.id==='intro'&&S&&S.towersBuilt<1);
+function tutNet(c){c=c||S.cities[0];const ip=nextIp(c);return {ssid:'TORRE CENTRO',ip:ipStr(c,ip==null?2:ip),mask:maskOf(netPrefix(c)),gw:`10.${c.idx+1}.0.1`};}
+function tutTowerAtSede(c){if(!tutIntro()||c!==S.cities[0]||!S.sede||S.sede.lat==null)return false;setDraftAt(c,S.sede.lat,S.sede.lon);try{LM&&LM.panTo([S.sede.lat,S.sede.lon]);}catch(e){}return true;}
 const cInfo=(sel,text)=>({sel,text,info:true,free:!sel});
 const RULES_TOUR={id:'rules',title:'Regras de negócio',steps:[cInfo(null,'Agora você tem mais de uma cidade: liberou as <b>Regras de negócio</b>. Elas definem qual prédio atende cada cidade e se a equipe que sobra ajuda as outras (transbordo).'),cP('building','Prédio'),{sel:'#panelBody [data-act="rules"]',text:'Toque em <b>Abrir</b> nas Regras de negócio.',done:()=>!!document.querySelector('#modal [data-rserve], #modal .rules-tbl')||(modalOpen&&/Regras de neg/.test((document.querySelector('#modal h2')||{}).textContent||''))},cInfo(null,'Para cada prédio e setor marque as cidades atendidas. Sem mexer, a sede atende as cidades que não têm prédio com aquele setor.'),cClose()]};
 const TOURS={
@@ -4899,6 +4904,7 @@ const TOURS={
 };
 function introTour(){const c0=()=>S.cities[0],dn=d=>!!(S.docs[d]&&S.docs[d].done),st=d=>!!S.docs[d],docsOpen=()=>!!document.querySelector('#modal [data-doc], #modal .doc-row');
   const openDocs=(txt,when)=>({sel:'#tutBar [data-act="docs"]',text:txt,done:()=>docsOpen(),skip:when});
+  const N=tutNet();
   const waitDoc=(d,name)=>({sel:'[data-hs="speed"]',text:`<b>${name}</b> em andamento: leva alguns dias do jogo. Feche as janelas e deixe o relógio correr. Para acelerar, toque aqui e escolha <b>4×</b>.`,free:true,done:()=>dn(d),skip:()=>dn(d)});
   return {id:'intro',title:'Primeiros passos',steps:[
     {sel:'#realMap',text:'Bem-vindo! Primeiro, escolha onde fica a <b>sede</b>: toque no mapa no ponto exato do prédio da sua empresa.',done:()=>!!sedePick||!!S.sede,skip:()=>!!S.sede},
@@ -4918,15 +4924,15 @@ function introTour(){const c0=()=>S.cities[0],dn=d=>!!(S.docs[d]&&S.docs[d].done
     {sel:'#modal [data-doc="alvara"]',text:'Peça o <b>alvará</b>: é a licença para funcionar e instalar torres.',done:()=>st('alvara'),skip:()=>st('alvara')},
     cClose('Feche no <b>×</b> e deixe o relógio correr.'),
     waitDoc('alvara','Alvará'),
-    {sel:'#mapTools [data-act="newTower"]',text:'Tudo licenciado! Vamos subir a <b>primeira torre</b>: toque em <b>Nova torre</b>.',done:()=>!!draft,skip:()=>S.towersBuilt>=1},
+    {sel:'#mapTools [data-act="newTower"]',text:'Tudo licenciado! Vamos subir a <b>primeira torre</b>: toque em <b>Nova torre</b>. A primeira vai em cima da sede.',done:()=>!!draft,skip:()=>S.towersBuilt>=1},
     {sel:'#realMap',text:'Toque no mapa onde quer a torre: perto das casas e, se der, num ponto alto.',done:()=>!!(draft&&!draft.picking),skip:()=>S.towersBuilt>=1},
     {sel:'[data-act="bestAz"]',text:'Toque em <b>Melhor direção</b>: a antena vira para o lado com mais casas sem sinal.',skip:()=>S.towersBuilt>=1},
     {sel:'[data-act="buyDraft"]',text:'Toque em <b>comprar</b> a torre. Depois você configura o rádio.',done:()=>!!document.querySelector('#modal #dvApply'),skip:()=>S.towersBuilt>=1},
     {sel:'#modal #dvMode',text:'Configure o rádio. No <b>Modo de operação</b>, escolha <b>Access Point (AP)</b>: a torre distribui sinal para os clientes.',done:()=>{const e=document.querySelector('#dvMode');return !!(e&&e.value==='ap');},skip:()=>S.towersBuilt>=1},
-    {sel:'#modal #dvSsid',text:'Dê um <b>nome à rede (SSID)</b>, por exemplo TORRE-CENTRO.',done:()=>{const e=document.querySelector('#dvSsid');return !!(e&&e.value.trim().length>=3);},skip:()=>S.towersBuilt>=1},
-    cNet('dvIp','Digite o <b>IP do rádio</b> usando a folha da rede ao lado (ex.: <b>10.1.0.2</b>).'),
-    cNet('dvMask','Agora a <b>máscara de rede</b> (ex.: <b>255.255.255.0</b>).'),
-    cNet('dvGw','Por fim o <b>gateway</b> (ex.: <b>10.1.0.1</b>).'),
+    cNet('dvSsid','Dê o <b>nome da rede (SSID)</b>: digite <b>TORRE CENTRO</b>. Na primeira torre o nome é esse; nas próximas você escolhe.','ssid'),
+    cNet('dvIp',`Digite o <b>IP do rádio</b>: <b>${N.ip}</b> (a folha da rede ao lado mostra a faixa da cidade).`,'ip'),
+    cNet('dvMask',`Agora a <b>máscara de rede</b>: <b>${N.mask}</b>.`,'mask'),
+    cNet('dvGw',`Por fim o <b>gateway</b>: <b>${N.gw}</b>, o endereço do roteador da sede.`,'gw'),
     {sel:'#modal #dvApply',text:'Toque em <b>Aplicar configuração</b>. Se algo estiver errado, o rádio avisa o que corrigir.',done:()=>S.towersBuilt>=1,skip:()=>S.towersBuilt>=1},
     {sel:'#realMap',text:'Torre no ar! Agora toque numa <b>quadra com sinal</b> (verde-água) perto da torre.',free:true,done:()=>!!document.querySelector('#modal #qKnock'),skip:()=>S.signed>=1},
     {sel:'#modal #qKnock',text:'Toque em <b>Bater na próxima porta</b>: você conversa com uma família da quadra.',done:()=>!!document.querySelector('#modal #papGo'),skip:()=>S.signed>=1},
