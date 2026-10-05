@@ -9,5 +9,5 @@
 window.PT_CONFIG = {
   supabaseUrl: 'https://utwdnogihsfxxcuofoqi.supabase.co',
   supabaseAnonKey: 'sb_publishable_I-8kNZxqbjH8JBNTaZWPaA_8fF3SfMA',   // cole aqui a Publishable key (começa com sb_publishable_)
-  quadrasUrl: 'https://script.google.com/macros/s/AKfycbyfeA6pnDyjk8sSTxFnRBuesdtvyNhrCI4tlGoYNlf0GxcVRDq-sKf86Q9GO1bkXRVZWQ/exec'
+  quadrasUrl: 'https://script.google.com/macros/s/AKfycbzd_ehnhVIbY2qfxMyVK71w5tmbTUc6B3y_VS_Ales4Y4oD6dIlisj8UM1aDt7gYxfVOA/exec'
 };
