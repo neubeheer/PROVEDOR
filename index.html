@@ -963,6 +963,9 @@ html body #map.lockmode{padding-bottom:calc(16px + var(--sB))}
 .rule-row>div:first-child{display:flex;flex-direction:column;gap:2px}
 .rule-row small{color:var(--muted);font-size:12.5px}
 .rule-chips{display:flex;flex-wrap:wrap;gap:6px}
+html body .tabs.dock #dockRivals{font-size:calc(var(--fs)*.6);letter-spacing:-.02em}
+html body .tabs.dock button.dock-locked{filter:grayscale(.85) brightness(.85)}
+html body .tabs.dock button.dock-locked::after{background:var(--navy)!important}
 .ani-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:450}
 /* tutorial guiado */
 #coach{position:fixed;inset:0;z-index:140;pointer-events:none}
@@ -1031,6 +1034,7 @@ html body #map.lockmode{padding-bottom:calc(16px + var(--sB))}
   <button type="button" data-panel="missions"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Missões</button>
   <button type="button" data-panel="report"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M10 20V4M15 20v-7M20 20V8M3 20h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Relatório</button>
   <button type="button" data-panel="log"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Registro</button>
+  <button type="button" data-act="rivals" id="dockRivals"><svg class="rail-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M9 17h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Concorrência</button>
 </nav>
 
 <div id="rotateLock" role="alertdialog" aria-label="Gire o celular"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="20" y="6" width="24" height="44" rx="5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="32" cy="44" r="2" fill="#fff"/><path d="M50 34a18 18 0 0 1-12 16" fill="none" stroke="#ffc72c" stroke-width="3" stroke-linecap="round"/><path d="M36 46l2 4 4-2" fill="none" stroke="#ffc72c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Gire o celular</b><p>O Provedor Tycoon só funciona com o celular deitado. Vire a tela para continuar jogando.</p></div>
@@ -2349,6 +2353,7 @@ function renderTop(){
     <div class="hs-item ${HUD_OPEN==='date'?'open':''}"><button class="hs-btn" data-hs="date" aria-label="Data: ${dt}" title="${dt}">${HUD_ICO.cal}${S.phase==='play'?`<i class="hs-tag">${dayOf(S.day)}</i>`:''}</button><div class="hs-fly hs-date"><b>${dt}</b></div></div>
     <div class="hs-item ${HUD_OPEN==='speed'?'open':''}"><button class="hs-btn hs-speed" data-hs="speed" aria-label="Velocidade: ${S.speed?S.speed+'×':'pausado'}" title="Velocidade">${S.speed?S.speed+'×':'❚❚'}</button><div class="hs-fly speed" role="group" aria-label="Velocidade">${[[0,'❚❚'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>`<button data-speed="${v}" aria-pressed="${S.speed===v}" aria-label="${v?'Velocidade '+v:'Pausar'}">${l}</button>`).join('')}</div></div>
     <button class="hs-btn ${lu>1?'bad':lu>0.85?'warn':''}" data-act="link" aria-label="Link de internet: ${lkp}%" title="Link ${lkp}%">${HUD_ICO.signal}${lu>0.85?`<i class="hs-tag">${lkp}%</i>`:''}</button>`;
+  const dr=document.getElementById('dockRivals');if(dr){const on=levelOf(S.xp)>=RIVAL_LEVEL;dr.classList.toggle('dock-locked',!on);dr.title=on?'Concorrência e ranking':'Libera no nível '+RIVAL_LEVEL;dr.dataset.badge=on?'':'🔒';}
   const al=staffAlerts(),tb=document.querySelector('.tabs [data-panel="building"]');if(tb)tb.dataset.badge=al.length||'';notifyAlerts(al);
   renderSaveDot();
 }
