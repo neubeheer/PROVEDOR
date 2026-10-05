@@ -5,7 +5,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Estrutura e publicação
 - Repositório `neubeheer/PROVEDOR`, branch `main`. Publicado no Render como Static Site (sem build, pasta `.`); também funciona no GitHub Pages.
 - Quase tudo está em `index.html` (HTML, CSS e JS puro, sem framework).
-- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v70`), senão os jogadores não recebem a atualização.
+- `sw.js` guarda os arquivos do jogo (abre mais rápido), mas o jogo exige internet e login. **A cada versão publicada, suba o número em `VERSION`** (hoje `v71`), senão os jogadores não recebem a atualização.
 - `manifest.webmanifest` permite instalar como app (abre deitado).
 - Só deitado: em celular e tablet em pé (`(orientation:portrait) and (pointer:coarse)`) aparece `#rotateLock` e o relógio para (`portraitLock()` no `loop`); o manifest abre deitado. O layout em pé continua no CSS, mas não é usado.
 - Topo: caixa, clientes, selos e diamantes abreviados por `shortN` (mil, mi, bi, tri, qua a partir de 100 mil; valor exato no `title`).
@@ -57,6 +57,7 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 
 ## Online
 - Login opcional: sem sessão, `start` abre o login com "Jogar sem conta" (ou entra direto se `pt-guest`); o convidado salva no IndexedDB do aparelho (`guestRef`, comprimido, `cloud.guest`, `guestBoot`). Ao entrar, o progresso de convidado mais novo que o da conta sobe para ela e sai do aparelho. Diamantes por entrar na conta uma vez (`acctBonus`, `S.acctBonus`, `LOGIN_DIAMONDS`). Concorrência e ranking só com conta.
+- Cadastro (`openSignup`): e-mail, senha e confirmação, data de nascimento, avatar (`AVATARS`, `avatarSvg`, `avatarPicker`) e aceite da política (`openPolicy`, `POLICY_V`); vai no `user_metadata` do Supabase (`sbSignup`, `data`). Sem confirmar o e-mail, a pessoa joga sem conta e o topo mostra "📧 Confirmar e-mail" (`pendingMail`, `openPending`, reenviar com `sbResend`); ao tocar no link, entra e o progresso do aparelho sobe. Avatar em `S.avatar`/`pt-avatar`/metadata (`myAvatar`), no topo (toque troca, `openAvatar`) e no ranking (coluna `saves.avatar`, `cloud.meta3`). Tutorial inicial só começa com a primeira cidade carregada (geo e quadras prontas, em `coachPump`).
 - E-mail: cadastro e "Esqueci a senha" mandam `redirect_to` = endereço do jogo (`backUrl`); na volta, `authReturn` lê o `#access_token`/`#error` do link, entra na conta (confirmação) ou abre `openNewPass` (recuperação). O e-mail enviado fica em `pt-mail` e aparece em destaque no login (`mailNotice`) por até 2 dias. No Supabase: Authentication → URL Configuration → Site URL e Redirect URLs com o endereço do jogo.
 - Rodapé das janelas (`.modal>.foot`) fixo embaixo ao rolar: os botões de ação ficam sempre visíveis. No login, a mensagem de resposta (`#lgNote`) fica dentro do rodapé e também sai como aviso; o IndexedDB do convidado desiste em 3 s (`idbDo`) para não travar login nem abertura.
 - Janelas redesenhadas com o mesmo título mantêm a rolagem (`openModal` compara o `.mhead`). Zoom só no mapa: viewport sem zoom, `gesturestart`/pinça/Ctrl+roda bloqueados fora do `#realMap`, `touch-action` nos botões. Consultoria de gestão: botão "Contratar todos os setores" por prédio (`data-mgall`).
@@ -70,9 +71,9 @@ Jogo de navegador educativo: o jogador monta um provedor de internet do zero (em
 ## Pendências de configuração (em 2026-10-02)
 - [x] `supabase/schema.sql` rodado: as tabelas `saves` e `presenca` existem (conferido em 2026-10-02).
 - [x] Publishable key no `config.js` (feito). Conferir se também está nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
-- [ ] Rodar o `supabase/schema.sql` de novo (seção 8: colunas de resumo em `saves`, leitura do admin e tabela `grants`; seção 9: visão `ranking`).
+- [ ] Rodar o `supabase/schema.sql` de novo (seção 8: colunas de resumo em `saves`, leitura do admin e tabela `grants`; seção 9: visão `ranking`; seção 10: coluna `avatar` e visão com avatar).
 - Supabase: em 2026-10-04 o projeto antigo (fatdynkmnbqehxkrovsv, us-east-2, nano) ficou com CPU em 100% pelos saves de ~5 MB a cada 30 s e foi trocado por um projeto novo (wrvsbdtjtwbjutrtwcqk) com o `schema.sql` já rodado; o jogo recomeçou do zero. Falta trocar `SUPABASE_URL` e `SUPABASE_ANON_KEY` nas Propriedades do Apps Script.
-- [ ] Publicar a v70 e conferir em **Menu → Testar conexões**.
+- [ ] Publicar a v71 e conferir em **Menu → Testar conexões**.
 - [ ] Colar o novo `Code.gs` (v50: mapa da cidade `geo` e busca de arquivo por id) no Apps Script e publicar uma nova versão da implantação (o link `/exec` não muda).
 - [ ] Criar os segredos `QUADRAS_URL` e `QUADRAS_SENHA` no GitHub para ligar o robô. Em 2026-10-02 o workflow nunca tinha rodado (0 execuções) e o `quadras_cache.py` nunca foi executado de verdade (sem Python na máquina de desenvolvimento): conferir o log da primeira execução.
 

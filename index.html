@@ -984,6 +984,15 @@ html body .tabs.dock button.dock-locked::after{background:var(--navy)!important}
 @media (prefers-reduced-motion:reduce){#coach .c-ring,#coach .c-hand{animation:none}}
 .adm-ch{border-color:var(--accent)!important;background:#fff4e6!important}
 html body .modal>.foot{position:sticky;bottom:calc(-1*var(--mp));z-index:5;margin:10px calc(-1*var(--mp)) calc(-1*var(--mp));padding:10px var(--mp) var(--mp);background:var(--cream);border-top:2px solid var(--line)}
+.ava-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:8px}
+.ava-opt{padding:3px;border-radius:50%;border:3px solid transparent;background:transparent;cursor:pointer;aspect-ratio:1}
+.ava-opt svg{width:100%;height:100%;display:block}
+.ava-opt[aria-pressed="true"]{border-color:var(--go);box-shadow:0 0 0 3px rgba(82,204,58,.35)}
+html body .hud-ava{cursor:pointer;padding:0;overflow:hidden}
+.rk-ava{width:36px;height:36px;flex:none;display:block}.rk-ava svg{width:100%;height:100%}
+.pol-ok{display:flex;align-items:center;gap:8px;font-weight:700;margin:6px 0}.pol-ok input{width:20px;height:20px}
+.policy p{margin:0 0 10px;line-height:1.45}
+html body .hud-cta.pend{background:linear-gradient(180deg,#d3f9d8,#8ce99a);font-size:calc(var(--fs)*.8)}
 .lg-note{flex-basis:100%;margin:0;font-weight:800;color:#a61e2d;font-size:14px}
 .lg-note:empty{display:none}
 .mail-sent{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#e6fcf5;border:2.5px solid var(--signal);color:var(--navy)}
@@ -1278,7 +1287,7 @@ function migrate(st){
   if(!st.xp3){const x=st.xp||0;let l=1;while(x>=50*(l+1)*l)l++;const lo=50*l*(l-1),hi=50*(l+1)*l;st.xp=Math.round(xpFor(l)+(x-lo)/(hi-lo)*(xpFor(l+1)-xpFor(l)));st.xp3=true;}
   if(st.tut===undefined)st.tut=(st.towersBuilt>0||st.signed>0)?{done:true}:{};st.loans=st.loans||[];st.retained=st.retained||0;st.retCap=st.retCap||0;for(const c of st.cities)for(const l of quadras(c))for(const f of (l.fams||[]))if((f.st==='client'||f.st==='late'||f.st==='suspended')&&!f.since)f.since=st.day;st.stock=st.stock||0;st.parcelas=st.parcelas||[];st.recovered=st.recovered||0;st.crisis=st.crisis||null;st.cur=Object.assign(newMonth(),st.cur||{});if(!Number.isFinite(st.cur.novos))st.cur.novos=0;for(const h of st.history||[])if(!Number.isFinite(h.novos))h.novos=0;return st;}
 function newGame(company,cityName,uf){
-  S={v:2,company,phase:'sede',money:START_MONEY,xp:0,rep:50,day:1,speed:1,
+  S={v:2,company,avatar:myAvatar(),phase:'sede',money:START_MONEY,xp:0,rep:50,day:1,speed:1,
      docs:{},cities:[makeCity(cityName,uf,0)],ci:0,sede:null,
      floors:{recepcao:{built:true,staff:0}},combos:{tv:false,fone:false},
      manualInstalls:0,towersBuilt:0,signed:0,lv2:true,xp3:true,pot2:true,diamonds:START_DIAMONDS,link:0,tut:{},shield:{},peak:0,log:[],history:[],cur:newMonth(),mdone:{},savedAt:0,stock:0,parcelas:[],recovered:0,crisis:null,coins:0,loans:[],retained:0,retCap:0,partners:0,kits:0,servers:{},fiberTier:0,migrated:0,complaints:0};
@@ -1295,7 +1304,29 @@ const sbOn=()=>!!(SB.url&&SB.key);
 /* Com "Lembrar meus dados" a sessão fica no aparelho; sem, some ao fechar o navegador. */
 const remembers=()=>{try{return localStorage.getItem('pt-remember')!=='0';}catch(e){return true;}};
 function sbStore(sess){SB.session=sess;try{localStorage.removeItem('pt-sb');sessionStorage.removeItem('pt-sb');if(sess)(remembers()?localStorage:sessionStorage).setItem('pt-sb',JSON.stringify(sess));}catch(e){}}
-function sbSess(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),user:{id:j.user&&j.user.id,email:j.user&&j.user.email}};}
+/* Avatares do jogo: 12 personagens desenhados em SVG (fundo, pele, cabelo e acessório de provedor). */
+const AVATARS=[
+  {bg:'#5fc7ff',sk:'#f2c7a5',hr:'#3b2a20',ac:'helmet',n:'Técnica de campo'},{bg:'#ffd166',sk:'#c68b5e',hr:'#1d1d1d',ac:'headset',n:'Atendente'},
+  {bg:'#7bd389',sk:'#f5d0b0',hr:'#a0522d',ac:'cap',n:'Vendedor'},{bg:'#ff8fa3',sk:'#8d5a3b',hr:'#111',ac:'glasses',n:'Analista de rede'},
+  {bg:'#b39ddb',sk:'#f2c7a5',hr:'#e8c25a',ac:'antenna',n:'Engenheira de RF'},{bg:'#ffb35c',sk:'#e0ac7e',hr:'#5a3a22',ac:'tie',n:'Diretor'},
+  {bg:'#64d2c4',sk:'#6b4430',hr:'#111',ac:'helmet',n:'Instalador'},{bg:'#9ec5ff',sk:'#f5d0b0',hr:'#c0392b',ac:'headset',n:'Suporte N2'},
+  {bg:'#f7a8d8',sk:'#c68b5e',hr:'#3b2a20',ac:'glasses',n:'Gerente'},{bg:'#c5e17a',sk:'#f2c7a5',hr:'#7a7a7a',ac:'beard',n:'Fundador'},
+  {bg:'#ffcf8a',sk:'#8d5a3b',hr:'#2b1b12',ac:'cap',n:'Motorista'},{bg:'#a0e7ff',sk:'#e0ac7e',hr:'#f0e6d2',ac:'antenna',n:'Torreiro'}];
+function avatarSvg(i){const a=AVATARS[((i|0)%AVATARS.length+AVATARS.length)%AVATARS.length];
+  const acc={helmet:'<path d="M14 26a18 16 0 0 1 36 0z" fill="#ffc72c" stroke="#1b2a4a" stroke-width="2"/><rect x="11" y="24" width="42" height="5" rx="2" fill="#f0a81a" stroke="#1b2a4a" stroke-width="2"/>',
+    headset:'<path d="M17 34a15 15 0 0 1 30 0" fill="none" stroke="#1b2a4a" stroke-width="3"/><rect x="13" y="32" width="7" height="10" rx="3" fill="#1b2a4a"/><rect x="44" y="32" width="7" height="10" rx="3" fill="#1b2a4a"/><path d="M47 42q0 7-9 7" fill="none" stroke="#1b2a4a" stroke-width="2"/>',
+    cap:'<path d="M16 27a16 13 0 0 1 32 0z" fill="#e03131" stroke="#1b2a4a" stroke-width="2"/><path d="M40 26h14" stroke="#1b2a4a" stroke-width="4" stroke-linecap="round"/>',
+    glasses:'<circle cx="26" cy="36" r="5" fill="none" stroke="#1b2a4a" stroke-width="2"/><circle cx="38" cy="36" r="5" fill="none" stroke="#1b2a4a" stroke-width="2"/><path d="M31 36h2" stroke="#1b2a4a" stroke-width="2"/>',
+    antenna:'<path d="M32 14v-8" stroke="#1b2a4a" stroke-width="2"/><circle cx="32" cy="5" r="3" fill="#e03131"/><path d="M26 8a8 8 0 0 1 12 0M23 5a12 12 0 0 1 18 0" fill="none" stroke="#1b2a4a" stroke-width="1.6"/>',
+    tie:'<path d="M32 50l-3 4 3 8 3-8z" fill="#e03131" stroke="#1b2a4a" stroke-width="1.5"/>',
+    beard:'<path d="M20 38q12 16 24 0q-2 10-12 11q-10-1-12-11z" fill="#7a7a7a"/>'}[a.ac]||'';
+  return `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="31" fill="${a.bg}"/><path d="M12 64a20 16 0 0 1 40 0z" fill="#2f8fe0" stroke="#1b2a4a" stroke-width="2"/><circle cx="32" cy="35" r="14" fill="${a.sk}" stroke="#1b2a4a" stroke-width="2"/><path d="M18 33a14 13 0 0 1 28 0q-6-6-14-5q-8-1-14 5z" fill="${a.hr}"/><circle cx="26.5" cy="36" r="1.8" fill="#1b2a4a"/><circle cx="37.5" cy="36" r="1.8" fill="#1b2a4a"/><path d="M27 42q5 4 10 0" fill="none" stroke="#1b2a4a" stroke-width="2" stroke-linecap="round"/>${acc}</svg>`;}
+function myAvatar(){if(S&&S.avatar!=null)return S.avatar;const m=SB.session&&SB.session.user&&SB.session.user.meta;if(m&&m.avatar!=null)return +m.avatar;try{const v=localStorage.getItem('pt-avatar');if(v!=null)return +v;}catch(e){}return 0;}
+function avatarPicker(sel,name){return `<div class="ava-grid" role="radiogroup" aria-label="Avatar">${AVATARS.map((a,i)=>`<button type="button" class="ava-opt" data-ava="${i}" data-avn="${name}" aria-pressed="${i===sel}" title="${a.n}">${avatarSvg(i)}</button>`).join('')}</div>`;}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ava]');if(!b)return;const g=b.closest('.ava-grid');g.querySelectorAll('[data-ava]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  if(b.dataset.avn==='me'&&S){S.avatar=+b.dataset.ava;try{localStorage.setItem('pt-avatar',S.avatar);}catch(e){}if(SB.session&&SB.session.user)sbFetch('/auth/v1/user',{method:'PUT',body:JSON.stringify({data:{avatar:S.avatar}})}).catch(()=>{});save(true);renderTop();}});
+function openAvatar(){openModal(head('Perfil','Seu avatar')+`<p class="muted" style="margin-top:0">Ele aparece no topo da tela e no ranking.</p>${avatarPicker(myAvatar(),'me')}<div class="foot"><span></span><button class="btn primary" data-close>Pronto</button></div>`);}
+function sbSess(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),user:{id:j.user&&j.user.id,email:j.user&&j.user.email,meta:j.user&&j.user.user_metadata||{}}};}
 async function sbRefresh(){
   if(!SB.session||!SB.session.refresh_token)return false;
   try{const r=await fetch(SB.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:SB.session.refresh_token})});
@@ -1309,6 +1340,10 @@ async function sbFetch(path,opts={},useUser=true,ms=15000){
   let r=await go();if(r.status===401&&useUser&&SB.session&&await sbRefresh())r=await go();return r;
 }
 const backUrl=()=>location.origin+location.pathname;
+const POLICY_V='2026-10';
+async function sbSignup(email,pass,data){const r=await fetch(SB.url+'/auth/v1/signup?redirect_to='+encodeURIComponent(backUrl()),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,data})});
+  const j=await r.json().catch(()=>({}));if(!r.ok){const m=String(j.error_description||j.msg||j.message||j.error||'');throw new Error(/already/i.test(m)?'Esse e-mail já tem conta. Use Entrar.':/password/i.test(m)?'A senha precisa de pelo menos 6 caracteres.':/rate|seconds/i.test(m)?'Aguarde um minuto e tente de novo.':m||'Não deu para criar a conta agora.');}
+  if(!j.access_token)return {confirm:true};sbStore(sbSess(j));return {ok:true};}
 async function sbLogin(email,pass,signup){
   const r=await fetch(SB.url+(signup?'/auth/v1/signup?redirect_to='+encodeURIComponent(backUrl()):'/auth/v1/token?grant_type=password'),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
   const j=await r.json().catch(()=>({}));
@@ -1342,7 +1377,7 @@ function sbSaveRef(){
   const uid=SB.session.user.id;
   return {
     async get(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=data,saved_at`);if(!r.ok)throw new Error('http '+r.status);const rows=await r.json();const json=rows.length?await unpackSave(rows[0].data):null;return {exists:rows.length>0,data:()=>({json})};},
-    async set(o){const meta=(cloud.meta2&&S?`"email":${JSON.stringify((SB.session.user||{}).email||'')},"level":${levelOf(S.xp)},"clients":${allClients()},"coins":${S.coins|0},"diamonds":${S.diamonds|0},"cities":${S.cities.length},`:'')+`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${await packSave(o.json)}`;
+    async set(o){const meta=(cloud.meta2&&S?`${cloud.meta3?`"avatar":${myAvatar()|0},`:''}"email":${JSON.stringify((SB.session.user||{}).email||'')},"level":${levelOf(S.xp)},"clients":${allClients()},"coins":${S.coins|0},"diamonds":${S.diamonds|0},"cities":${S.cities.length},`:'')+`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${await packSave(o.json)}`;
       // com a trava ligada e a linha criada, só grava se a sessão ainda for deste aparelho (senão outro aparelho assumiu)
       if(cloud.lock==='on'&&cloud.hasRow){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&sess=eq.${MYSESS}&select=user_id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:'{'+meta+'}'},true,30000);
         if(!r.ok)throw new Error('http '+r.status);const rows=await r.json().catch(()=>null);if(Array.isArray(rows)&&!rows.length){const e=new Error('outro aparelho');e.takeover=true;throw e;}return;}
@@ -1408,6 +1443,59 @@ async function connTest(){
   }
   if(modalOpen)draw(r);
 }
+/* Cadastro: e-mail, senha e confirmação, data de nascimento, avatar e aceite da política. Sem a confirmação do e-mail,
+   a pessoa já joga (sem conta, no aparelho) e o progresso sobe para a conta quando ela tocar no link do e-mail. */
+function openPolicy(back){openModal(head('Provedor Tycoon','Política do jogo')+`<div class="policy">
+  <p><b>O que o jogo guarda.</b> E-mail, data de nascimento, avatar escolhido e o progresso da empresa (cidades, clientes, equipe). Para a concorrência e o ranking, o nome da empresa, o nível, os assinantes e as cidades atendidas ficam visíveis para os outros jogadores. O e-mail e a data de nascimento não aparecem para ninguém.</p>
+  <p><b>Para que usamos.</b> Para salvar o jogo, entrar na conta, enviar o e-mail de confirmação e de nova senha e montar o ranking. Não vendemos nem repassamos dados.</p>
+  <p><b>Menores de idade.</b> Quem tem menos de 18 anos deve jogar com o conhecimento de um responsável. O jogo é educativo e não tem compras com dinheiro de verdade.</p>
+  <p><b>Convivência.</b> Nome de empresa ofensivo, uso de falhas ou de mais de uma conta para levar vantagem podem levar à suspensão ou ao zeramento da conta pela administração.</p>
+  <p><b>Seus direitos.</b> Você pode pedir para ver, corrigir ou apagar os seus dados e a sua conta falando com a administração do jogo.</p>
+  <p class="muted">Versão ${POLICY_V}. O jogo pode mudar regras de jogo e valores a qualquer momento para manter o equilíbrio.</p></div>
+  <div class="foot"><span></span><button class="btn primary" id="polBack">${back?'Voltar ao cadastro':'Fechar'}</button></div>`,m=>{m.querySelector('#polBack').onclick=()=>back?back():closeModal();});}
+let SIGNUP_DRAFT={};
+function openSignup(fromStart,email){const d=SIGNUP_DRAFT;if(email&&!d.email)d.email=email;
+  openModal(head('Conta','Criar conta')+`<p style="margin-top:0">Ganhe <b>💎 ${LOGIN_DIAMONDS} diamantes</b>, salve online e dispute o ranking. Dá para jogar enquanto você confirma o e-mail.</p>
+    <form id="suForm" autocomplete="on" onsubmit="return false">
+    <div class="field"><label for="suEmail">E-mail</label><input class="input" id="suEmail" name="username" type="email" autocomplete="email" maxlength="120" value="${esc(d.email||'')}"></div>
+    <div class="row2"><div class="field"><label for="suPass">Senha</label><input class="input" id="suPass" type="password" autocomplete="new-password" maxlength="72" placeholder="mínimo 6 caracteres"></div>
+    <div class="field"><label for="suPass2">Confirme a senha</label><input class="input" id="suPass2" type="password" autocomplete="new-password" maxlength="72"></div></div>
+    <div class="field"><label for="suBirth">Data de nascimento</label><input class="input" id="suBirth" type="date" max="${new Date().toISOString().slice(0,10)}" min="1900-01-01" value="${esc(d.birth||'')}" style="max-width:220px"></div>
+    <div class="field"><label>Escolha seu avatar</label>${avatarPicker(d.avatar??0,'su')}</div>
+    <label class="pol-ok"><input type="checkbox" id="suPol" ${d.pol?'checked':''}> Li e aceito a <a href="#" id="suPolLink">política do jogo</a></label>
+    </form>
+    <div class="foot" style="flex-wrap:wrap;gap:8px"><p class="lg-note" id="suNote" aria-live="polite"></p><button class="btn ghost" id="suBack">Voltar</button><button class="btn primary" id="suGo">Criar conta</button></div>`,m=>{
+    const note=m.querySelector('#suNote'),keep=()=>{d.email=m.querySelector('#suEmail').value.trim();d.birth=m.querySelector('#suBirth').value;d.pol=m.querySelector('#suPol').checked;const a=m.querySelector('.ava-opt[aria-pressed="true"]');d.avatar=a?+a.dataset.ava:0;};
+    m.querySelector('#suPolLink').onclick=ev=>{ev.preventDefault();keep();openPolicy(()=>openSignup(fromStart));};
+    m.querySelector('#suBack').onclick=()=>{keep();openLogin(fromStart);};
+    const bad=t=>{note.textContent=t;toast('⚠️ '+t);};
+    m.querySelector('#suGo').onclick=async()=>{keep();const pw=m.querySelector('#suPass').value,pw2=m.querySelector('#suPass2').value;
+      if(!/^\S+@\S+\.\S+$/.test(d.email))return bad('Digite um e-mail válido.');
+      if(pw.length<6)return bad('A senha precisa de pelo menos 6 caracteres.');
+      if(pw!==pw2)return bad('As senhas não são iguais.');
+      const bd=d.birth?new Date(d.birth+'T12:00:00'):null,age=bd?(Date.now()-bd)/31557600000:-1;
+      if(!bd||isNaN(age)||age<4||age>110)return bad('Informe uma data de nascimento válida.');
+      if(!d.pol)return bad('Para criar a conta, aceite a política do jogo.');
+      if(!navigator.onLine)return bad('Sem internet agora.');
+      const go=m.querySelector('#suGo');go.disabled=true;go.textContent='Criando…';note.textContent='';
+      try{try{localStorage.setItem('pt-avatar',d.avatar);localStorage.setItem('pt-email',d.email);}catch(e){}
+        const r=await sbSignup(d.email,pw,{birth:d.birth,avatar:d.avatar,policy:POLICY_V,policy_at:new Date().toISOString()});
+        SIGNUP_DRAFT={};if(S)S.avatar=d.avatar;
+        if(r.confirm){mailSent('signup',d.email);
+          if(S){closeModal();toast('📧 Conta criada! Confirme o e-mail para salvar online. Pode continuar jogando.');}
+          else{toast('📧 Conta criada! Confirme o e-mail quando puder. Já dá para começar a jogar.');guestBoot();}
+          return;}
+        if(cloud.guest&&S){clearTimeout(cloud.t);cloud.t=null;try{await guestRef().set({json:saveJson()});}catch(e){}}
+        toast('Conta criada!');bootCloud();
+      }catch(e){bad(e.message);go.disabled=false;go.textContent='Criar conta';}};});}
+/* Aviso de e-mail pendente: reenviar e entrar depois de confirmar. */
+async function sbResend(email){const r=await fetch(SB.url+'/auth/v1/resend?redirect_to='+encodeURIComponent(backUrl()),{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({type:'signup',email})});if(!r.ok)throw new Error('Aguarde um minuto e tente de novo.');}
+function pendingMail(){if(SB.session&&SB.session.user)return null;try{const m=JSON.parse(localStorage.getItem('pt-mail')||'null');return m&&m.kind==='signup'&&Date.now()-m.at<7*864e5?m:null;}catch(e){return null;}}
+function openPending(){const p=pendingMail();if(!p){openLogin(false);return;}openModal(head('Conta','📧 Confirme seu e-mail')+`<div class="mail-sent"><span aria-hidden="true">📧</span><div><b>Falta confirmar ${esc(p.email)}</b><p>Abra o e-mail que enviamos (veja também o spam) e toque no link. Ele volta para o jogo, entra na sua conta e leva o progresso deste aparelho junto, com os 💎 ${LOGIN_DIAMONDS} diamantes.</p></div></div>
+  <p class="muted">Enquanto isso o jogo continua salvando neste aparelho.</p>
+  <div class="foot" style="flex-wrap:wrap;gap:8px"><p class="lg-note" id="pdNote"></p><button class="btn ghost" id="pdResend">Reenviar e-mail</button><button class="btn" id="pdLogin">Já confirmei: entrar</button><button class="btn primary" data-close>Continuar jogando</button></div>`,m=>{
+  m.querySelector('#pdResend').onclick=async()=>{const n=m.querySelector('#pdNote');try{await sbResend(p.email);mailSent('signup',p.email);n.style.color='var(--signal)';n.textContent='E-mail reenviado.';}catch(e){n.textContent=e.message;}};
+  m.querySelector('#pdLogin').onclick=()=>openLogin(false);});}
 function openLogin(fromStart){
   if(!sbOn()){toast('Salvamento online não configurado.');return;}
   const logged=SB.session&&SB.session.user;
@@ -1437,7 +1525,7 @@ function openLogin(fromStart){
         if(cloud.guest&&S){clearTimeout(cloud.t);cloud.t=null;try{await guestRef().set({json:saveJson()});}catch(e){}}
         toast('Conectado!');bootCloud();
       }catch(e){note.textContent=e.message;toast('⚠️ '+e.message);{const g1=m.querySelector('#lgGo'),g2=m.querySelector('#lgNew');if(g1)g1.textContent='Entrar';if(g2)g2.textContent='Criar conta';}m.querySelectorAll('button').forEach(b=>b.disabled=false);}};
-    m.querySelector('#lgGo').onclick=()=>run(false);m.querySelector('#lgNew').onclick=()=>run(true);
+    m.querySelector('#lgGo').onclick=()=>run(false);m.querySelector('#lgNew').onclick=()=>openSignup(fromStart,m.querySelector('#lgEmail').value.trim());
     m.querySelector('#lgPass').onkeydown=e=>{if(e.key==='Enter')run(false);};
   });
 }
@@ -1485,7 +1573,7 @@ const isGuest=()=>!!cloud.guest;
 async function guestBoot(){cloud.guest=true;cloud.lock='off';try{localStorage.setItem('pt-guest','1');}catch(e){}
   openModal(head('Jogo','Carregando sua empresa…',false)+'<div style="display:flex;justify-content:center;padding:18px"><span class="spin" aria-hidden="true"></span></div>');
   await cfgLoad();cloud.ref=guestRef();cloud.status='local';let st=null;try{const g=await cloud.ref.get();if(g.exists)st=JSON.parse(g.data().json);}catch(e){}
-  S=validSave(st)?migrate(st):null;renderSaveDot();if(!S){showStart();return;}
+  S=validSave(st)?migrate(st):null;renderSaveDot();if(pendingMail())setTimeout(()=>toast('📧 Falta confirmar seu e-mail para salvar online. Toque em Confirmar e-mail no topo.'),2500);if(!S){showStart();return;}
   closeModal();renderAll();setTimeout(checkOffline,1500);setTimeout(autoGeo,2500);}
 function loadLocal(){try{const raw=localStorage.getItem(SAVE_KEY);if(raw){const d=JSON.parse(raw);if(validSave(d))return d;}}catch(e){}return null;}
 /* Comandos do administrador chegam pela tabela grants: selos, diamantes, dinheiro ou zerar a conta. */
@@ -1600,19 +1688,19 @@ let RANK_TAB='geral',RANK=null;
 async function rankLoad(){RANK={at:Date.now(),rows:[],all:null};
   try{const r=await sbFetch('/rest/v1/presenca?select=user_id,company,city_code,city_name,uf,clients,fiber,rep,updated_at&order=updated_at.desc&limit=5000');if(r.ok)RANK.rows=await r.json();}catch(e){}
   // geral: todas as contas pela visão ranking (resumo de saves); sem ela, cai na presença
-  try{const r=await sbFetch('/rest/v1/ranking?select=user_id,company,level,clients,cities,updated_at&order=clients.desc.nullslast&limit=1000');if(r.ok)RANK.all=await r.json();else if(r.status===404)RANK.allErr='Rode o supabase/schema.sql (seção 9) para listar todos os jogadores.';}catch(e){}}
+  try{let r=await sbFetch('/rest/v1/ranking?select=user_id,company,level,clients,cities,avatar,updated_at&order=clients.desc.nullslast&limit=1000');if(r.status===400)r=await sbFetch('/rest/v1/ranking?select=user_id,company,level,clients,cities,updated_at&order=clients.desc.nullslast&limit=1000');if(r.ok)RANK.all=await r.json();else if(r.status===404)RANK.allErr='Rode o supabase/schema.sql (seção 9) para listar todos os jogadores.';}catch(e){}}
 function openRanking(){const logged=sbOn()&&SB.session&&SB.session.user;
   if(!logged){openModal(head('Concorrência','Ranking')+'<div class="notice warn">Entre na sua conta para ver o ranking dos provedores.</div><div class="foot"><span></span><button class="btn primary" data-act="login">Entrar</button></div>');return;}
   const me=SB.session.user.id,c=city();
   const body=()=>{if(!RANK)return '<p class="muted">Carregando o ranking…</p>';if(RANK.err)return `<div class="notice bad">${esc(RANK.err)}</div>`;
     let list;if(RANK_TAB==='cidade'){list=RANK.rows.filter(r=>r.city_code===c.ibgeCode).map(r=>({uid:r.user_id,company:r.company,clients:+r.clients||0,sub:`${Math.round(((+r.fiber||0)/Math.max(1,+r.clients||0))*100)}% fibra · reputação ${Math.round(+r.rep||0)}`,updated_at:r.updated_at}));}
-    else if(RANK.all){list=RANK.all.map(x=>({uid:x.user_id,company:x.company,clients:+x.clients||0,sub:`nível ${x.level??'?'} · ${x.cities||0} cidade(s)`,updated_at:x.updated_at,on:Date.now()-new Date(x.updated_at||0)<180000}));}
+    else if(RANK.all){list=RANK.all.map(x=>({uid:x.user_id,avatar:x.avatar,company:x.company,clients:+x.clients||0,sub:`nível ${x.level??'?'} · ${x.cities||0} cidade(s)`,updated_at:x.updated_at,on:Date.now()-new Date(x.updated_at||0)<180000}));}
     else{const by=new Map();for(const r of RANK.rows){const x=by.get(r.user_id)||{uid:r.user_id,company:r.company,clients:0,cities:0,updated_at:r.updated_at};x.clients+=+r.clients||0;x.cities++;if(r.updated_at>x.updated_at){x.updated_at=r.updated_at;x.company=r.company;}by.set(r.user_id,x);}
       list=[...by.values()].map(x=>({...x,sub:`${x.cities} cidade(s)`}));}
     list.sort((a,b)=>b.clients-a.clients);const isOn=x=>x.on!=null?x.on:rivalOnline(x);const online=list.filter(isOn).length;
     const medal=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'º';
     return `<p class="muted" style="margin:0 0 8px;font-size:13px">${list.length} provedor(es) · 🟢 ${online} online agora${RANK_TAB==='cidade'?' em '+esc(c.name):''}. ${RANK_TAB==='cidade'?`Na cidade aparecem os jogadores a partir do nível ${RIVAL_LEVEL} com outorga paga.`:RANK.all?'Todas as contas, online ou não.':esc(RANK.allErr||'')}</p>
-      <div class="choice-list">${list.slice(0,100).map((x,i)=>`<div class="choice" style="${x.uid===me?'border-color:var(--signal);background:#e6fcf5':''}"><div style="display:flex;gap:10px;align-items:center"><b style="min-width:34px;font-size:18px;text-align:center">${medal(i)}</b><div><b>${esc(x.company||'Provedor sem nome')}${x.uid===me?' (você)':''}</b><small>${x.sub} · ${isOn(x)?'🟢 online agora':seenTxt(x).replace('🟢 online agora','⚪ visto há pouco')}</small></div></div><b>${x.clients.toLocaleString('pt-BR')} assinantes</b></div>`).join('')||'<p class="muted">Ninguém ainda.</p>'}</div>`;};
+      <div class="choice-list">${list.slice(0,100).map((x,i)=>`<div class="choice" style="${x.uid===me?'border-color:var(--signal);background:#e6fcf5':''}"><div style="display:flex;gap:10px;align-items:center"><b style="min-width:34px;font-size:18px;text-align:center">${medal(i)}</b><span class="rk-ava">${avatarSvg(x.uid===me?myAvatar():(x.avatar??0))}</span><div><b>${esc(x.company||'Provedor sem nome')}${x.uid===me?' (você)':''}</b><small>${x.sub} · ${isOn(x)?'🟢 online agora':seenTxt(x).replace('🟢 online agora','⚪ visto há pouco')}</small></div></div><b>${x.clients.toLocaleString('pt-BR')} assinantes</b></div>`).join('')||'<p class="muted">Ninguém ainda.</p>'}</div>`;};
   openModal(head('Concorrência','🏆 Ranking dos provedores')+`<div class="seg" style="margin-bottom:10px"><button data-rk="geral" aria-pressed="${RANK_TAB==='geral'}">Geral</button><button data-rk="cidade" aria-pressed="${RANK_TAB==='cidade'}">${esc(c.name)}</button></div><div id="rkBody">${body()}</div><div class="foot"><span class="muted" style="font-size:12px">${RANK?'Atualizado às '+new Date(RANK.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''}</span><button class="btn small" id="rkRef">Atualizar</button></div>`,m=>{
     m.querySelectorAll('[data-rk]').forEach(b=>b.onclick=()=>{RANK_TAB=b.dataset.rk;openRanking();});
     const go=async()=>{RANK=null;const el=m.querySelector('#rkBody');if(el)el.innerHTML=body();await rankLoad();if(document.getElementById('rkBody'))openRanking();};m.querySelector('#rkRef').onclick=go;
@@ -2368,13 +2456,13 @@ function renderTop(){
   const rf=(()=>{let r=0,f=0;for(const c of S.cities){const x=radioFiber(c);r+=x.r;f+=x.f;}return {r,f};})();
   const plus=(act,lab)=>`<button class="pill-plus" data-act="${act}" aria-label="${lab}">+</button>`;
   $('#stats').innerHTML=`
-    <button class="hud-lvl" data-act="levels" aria-label="Nível ${lvl}, ver níveis"><span class="hud-ava">${HUD_ICO.tower}</span><span class="hud-xp"><span class="hud-xpbar"><i style="width:${pct}%"></i><b>${(S.xp-lo).toLocaleString('pt-BR')}/${(hi-lo).toLocaleString('pt-BR')}</b></span><span class="hud-star">★ Nv.${lvl}${ceoOn()?' · CEO':''}</span></span></button>
+    <button class="hud-lvl" data-act="levels" aria-label="Nível ${lvl}, ver níveis"><span class="hud-ava" data-act="avatar" title="Trocar avatar">${avatarSvg(myAvatar())}</span><span class="hud-xp"><span class="hud-xpbar"><i style="width:${pct}%"></i><b>${(S.xp-lo).toLocaleString('pt-BR')}/${(hi-lo).toLocaleString('pt-BR')}</b></span><span class="hud-star">★ Nv.${lvl}${ceoOn()?' · CEO':''}</span></span></button>
     <div class="pill money ${S.money<0?'neg':''}" title="Caixa: ${brl0(S.money)}"><span class="pill-ico">${HUD_ICO.cash}</span><b>${(S.money<0?"−":"")+"R$ "+shortN(Math.abs(S.money))}</b>${plus('bank','Banco e empréstimos')}</div><i class="hud-br" aria-hidden="true"></i>
     <div class="pill" title="${allClients().toLocaleString('pt-BR')} clientes${rf.f?` · rádio ${rf.r}, fibra ${rf.f}`:''}"><span class="pill-ico">${HUD_ICO.people}</span><b>${shortN(allClients())}</b></div>
     <div class="pill" title="Reputação"><span class="pill-ico">${HUD_ICO.heart}</span><b>${Math.round(S.rep)}</b><span class="pill-bar"><i style="width:${S.rep}%"></i></span></div>
     <div class="pill coin" title="${(S.coins||0).toLocaleString('pt-BR')} selos de fidelidade"><span class="pill-ico">${HUD_ICO.coin}</span><b>${shortN(S.coins||0)}</b>${plus('coins','Selos de fidelidade')}</div>
     <div class="pill dia" title="${(S.diamonds||0).toLocaleString('pt-BR')} diamantes"><span class="pill-ico">${HUD_ICO.gem}</span><b>${shortN(S.diamonds||0)}</b>${plus('diamonds','Diamantes')}</div>
-    ${sbOn()&&!(SB.session&&SB.session.user)?'<button class="hud-cta" data-act="login" aria-label="Entrar na conta e ganhar diamantes">Entrar 💎</button>':''}
+    ${sbOn()&&!(SB.session&&SB.session.user)?(pendingMail()?'<button class="hud-cta pend" data-act="pending" aria-label="Confirmar e-mail">📧 Confirmar e-mail</button>':'<button class="hud-cta" data-act="login" aria-label="Entrar na conta e ganhar diamantes">Entrar 💎</button>'):''}
     ${isStandalone()?'':`<button class="hud-full" data-act="fullscreen2" aria-label="Instalar o app ou tela cheia" title="Instalar o app / tela cheia">${document.fullscreenElement?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'}</button>`}
     <button class="hud-gear" data-act="menu" aria-label="Menu e salvamento">${HUD_ICO.gear}<span class="save-dot" id="saveDot"></span></button>`;
   const ht=$('#hudTime'),lkp=Math.round(lu*100);if(ht)ht.innerHTML=`
@@ -3164,6 +3252,8 @@ function openMenu(){
       ${deferredInstall?`<div class="choice"><div><b>Instalar como app</b><small>Abre em tela cheia e funciona sem internet.</small></div><button class="btn small primary" id="mInstall">Instalar</button></div>`:''}
       ${sbOn()?`<div class="choice"><div><b>Conta e salvamento online</b><small>${SB.session&&SB.session.user?`Conectado como ${esc(SB.session.user.email||'')}.`:'Entre para salvar online e jogar em outro aparelho.'}</small></div><button class="btn small ${SB.session?'':'primary'}" data-act="login">${SB.session?'Ver conta':'Entrar'}</button></div>`:''}
       ${isAdmin()?'<div class="choice" style="border-color:var(--accent)"><div><b>Administração</b><small>Valores, níveis, durações e tempo do jogo para todos os jogadores.</small></div><button class="btn small primary" data-act="admin">Abrir</button></div>':''}
+      <div class="choice"><div><b>Seu avatar</b><small>Aparece no topo e no ranking.</small></div><button class="btn small" data-act="avatar">Trocar</button></div>
+      <div class="choice"><div><b>Política do jogo</b><small>Dados guardados, convivência e seus direitos.</small></div><button class="btn small" data-act="policy">Ler</button></div>
       <div class="choice"><div><b>🏆 Ranking dos provedores</b><small>Quem tem mais assinantes, no geral e na sua cidade, e quem está online.</small></div><button class="btn small" data-act="ranking">Ver</button></div>
       <div class="choice"><div><b>Tutorial guiado</b><small>Ligar, desligar ou rever os tutoriais de cada nível.</small></div><button class="btn small" data-act="tours">Abrir</button></div>
       <div class="choice"><div><b>Som e animações</b><small>Música, efeitos sonoros e carros e pessoas no mapa.</small></div><button class="btn small" data-act="fx">Ajustar</button></div>
@@ -4141,6 +4231,9 @@ document.addEventListener('click',e=>{
   else if(act==='docs')openDocs();
   else if(act==='fullscreen'){closeModal();(async()=>{try{await document.documentElement.requestFullscreen();if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock('landscape');}catch(e){}})();}
   else if(act==='login')openLogin(false);
+  else if(act==='pending')openPending();
+  else if(act==='policy')openPolicy();
+  else if(act==='avatar')openAvatar();
   else if(act==='connTest')connTest();
   else if(act==='perf')openPerf();
   else if(act==='diamonds')openDiamonds();
@@ -4832,7 +4925,8 @@ function introTour(){const c0=()=>S.cities[0],dn=d=>!!(S.docs[d]&&S.docs[d].done
     {sel:'#modal #papGo',text:'Escolha um plano que caiba no bolso da família (veja quanto ela quer pagar) e toque em <b>Oferecer plano</b>. Se recusar, tente outra casa.',done:()=>S.signed>=1,skip:()=>S.signed>=1},
     cInfo(null,'<b>Primeiro cliente!</b> A cada nível novo o jogo libera setores e recursos, e este tutorial mostra onde ficam. Dá para desligar ou rever no <b>Menu</b>.')]};}
 function coachPump(){if(COACH.tour||!S||S.coachOff||S.phase==='start')return;S.tours=S.tours||{};
-  if(!S.tours.intro&&S.tut&&!S.tut.done&&!S.tut.skip&&!modalOpen){coachRun(introTour());return;}
+  const c0=S.cities[0],ready=!!(c0&&c0.geo&&!geoBusy.has(c0)&&!needsBlocks(c0)&&!blockBusy.has(c0));
+  if(!S.tours.intro&&S.tut&&!S.tut.done&&!S.tut.skip&&!modalOpen){if(ready)coachRun(introTour());return;}
   if(modalOpen)return;const k=COACH.q.find(x=>!S.tours[x.id]);COACH.q=COACH.q.filter(x=>!S.tours[x.id]&&x!==k);if(k)coachRun(k);}
 function coachLevel(L){const T=TOURS[L];if(T&&S&&!(S.tours&&S.tours['lv'+L]))COACH.q.push({id:'lv'+L,title:T.title,steps:T.steps});}
 setInterval(coachPump,1500);
@@ -4984,7 +5078,7 @@ async function bootCloud(){
   if(ok&&guestAt!=null&&S&&(S.savedAt||0)===guestAt){await guestRef().clear();toast('Seu progresso deste aparelho foi para a sua conta.');}
   if(ok){try{localStorage.removeItem('pt-guest');}catch(e){}}
   if(!ok){S=null;bootFail('Não deu para carregar a sua conta agora.');return;}
-  try{const q=await sbFetch('/rest/v1/saves?select=level&limit=1');cloud.meta2=q.ok;}catch(e){}
+  try{const q=await sbFetch('/rest/v1/saves?select=level&limit=1');cloud.meta2=q.ok;const q3=await sbFetch('/rest/v1/saves?select=avatar&limit=1');cloud.meta3=q3.ok;}catch(e){}
   if(S){const L=await grantsCheck();if(L&&L.some(g=>g.reset)){await grantsMark(L.filter(g=>g.reset).map(g=>g.id));log('Administração zerou a conta.');S=null;}}
   if(!S){showStart();return;}
   setTimeout(grantsApply,3000);

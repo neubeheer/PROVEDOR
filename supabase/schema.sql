@@ -161,3 +161,10 @@ create or replace view public.ranking as
   select user_id, company, level, clients, cities, month, updated_at
   from public.saves;
 grant select on public.ranking to anon, authenticated;
+
+-- 10) Avatar do jogador (o jogo envia junto do resumo) e no ranking.
+alter table public.saves add column if not exists avatar int;
+create or replace view public.ranking as
+  select user_id, company, level, clients, cities, month, updated_at, avatar
+  from public.saves;
+grant select on public.ranking to anon, authenticated;
