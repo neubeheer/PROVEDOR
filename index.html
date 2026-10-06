@@ -309,6 +309,32 @@ div.lot{cursor:default}
 .f3d-chip small{font-weight:600;color:#5a6a88}.f3d-chip.warn{background:#fff1d6}.f3d-chip.ok{background:#e3f7ec}
 .f3d-load{position:absolute;inset:0;display:grid;place-items:center;font:700 18px/1.3 var(--display);color:#fff;text-shadow:0 2px 0 var(--navy);background:rgba(31,108,192,.35);text-align:center;padding:20px}
 .f3d-tip{position:absolute;left:0;right:0;bottom:6px;margin:0;text-align:center;font-size:12px;font-weight:700;color:var(--navy);text-shadow:0 1px 0 #fff;pointer-events:none}
+.t3w #f3d{height:min(70vh,680px)}
+body:has(.modal.f3d-modal) #coach{display:none!important}
+@media (max-height:520px){.t3w #f3d{height:calc(100dvh - 170px)}}
+.t3-ui{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.t3-where{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(27,42,74,.88);color:#fff;border-radius:999px;padding:4px 14px;font-size:14px;white-space:nowrap}
+.t3-name{position:absolute;transform:translate(-50%,-100%);background:#ff8a1f;color:#fff;font:700 12px/1 var(--display);padding:3px 8px;border-radius:999px;border:2px solid var(--navy);white-space:nowrap}
+.t3-bub{position:absolute;transform:translate(-50%,-100%);background:#fff;color:var(--navy);border:2px solid var(--navy);border-radius:14px;padding:5px 10px;font-size:13px;font-weight:700;max-width:200px;text-align:center;box-shadow:0 3px 0 var(--navy);animation:t3pop .25s ease-out}
+.t3-bub::after{content:'';position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--navy)}
+@keyframes t3pop{from{transform:translate(-50%,-80%) scale(.7);opacity:0}to{transform:translate(-50%,-100%) scale(1);opacity:1}}
+.t3-joy{position:absolute;left:18px;bottom:30px;width:118px;height:118px;border-radius:50%;background:rgba(27,42,74,.25);border:3px solid rgba(255,255,255,.75);pointer-events:auto;touch-action:none;display:grid;place-items:center}
+.t3-joy i{width:52px;height:52px;border-radius:50%;background:#fff;border:3px solid var(--navy);box-shadow:0 3px 0 var(--navy)}
+@media (pointer:fine){.t3-joy{display:none}}
+.t3-act{position:absolute;right:16px;bottom:34px;pointer-events:auto;font:700 17px/1 var(--display);color:#fff;background:linear-gradient(180deg,#86e86f,var(--go) 60%,#3fb62a);border:3px solid var(--navy);border-radius:16px;padding:14px 18px;box-shadow:0 4px 0 var(--navy);text-shadow:0 1.5px 0 var(--go-dark);animation:t3pulse 1.2s ease-in-out infinite}
+.t3-act kbd{font:700 12px/1 sans-serif;background:#fff;color:var(--navy);border-radius:5px;padding:2px 5px;margin-left:6px;text-shadow:none}
+@keyframes t3pulse{50%{transform:scale(1.06)}}
+.t3-panel{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,20,40,.35);pointer-events:auto}
+.t3-pbox{background:linear-gradient(180deg,#d9dee8,#aab4c4);border:4px solid var(--navy);border-radius:20px;padding:14px;box-shadow:0 6px 0 var(--navy);max-width:min(560px,92%);max-height:92%;overflow:auto;text-align:center}
+.t3-ptitle{font:700 18px/1.2 var(--display);color:var(--navy);margin-bottom:10px}
+.t3-btns{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.t3-fbtn{display:flex;align-items:center;gap:8px;text-align:left;background:#eef1f6;border:2px solid #5d6a80;border-radius:14px;padding:6px 8px;cursor:pointer;font:inherit;color:var(--navy)}
+.t3-fbtn span{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 16px/1 var(--display);background:#fff;border:3px solid var(--navy);box-shadow:inset 0 -3px 0 #c9d1de}
+.t3-fbtn small{font-size:12px;font-weight:700;line-height:1.15}
+.t3-fbtn.cur span{background:#ffd84d}.t3-fbtn:active span{background:#7cf29a}
+.t3-stay{margin-top:10px;background:none;border:0;color:var(--navy);font-weight:700;text-decoration:underline;cursor:pointer}
+.t3-fade{position:absolute;inset:0;background:#0b1424;opacity:0;transition:opacity .35s;pointer-events:none}.t3-fade.on{opacity:1}
+.t3-help{position:absolute;left:0;right:0;bottom:6px;margin:0;text-align:center;font-size:12px;font-weight:700;color:var(--navy);text-shadow:0 1px 0 #fff}
 .win-3d{cursor:pointer;border-radius:10px}.win-3d:hover{outline:2px dashed var(--signal);outline-offset:2px}
 .acc-card{display:flex;align-items:center;gap:14px;padding:12px;border:2px solid var(--line);border-radius:16px;background:#fff}
 .acc-ava{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;cursor:pointer;font:inherit;font-size:12px;font-weight:800;color:#1f6cc0;padding:0}
@@ -2990,14 +3016,28 @@ let L3D=null;
 function load3D(){if(window.THREE&&window.Floor3D)return Promise.resolve();if(L3D)return L3D;
   const add=src=>new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error('Não deu para carregar o 3D. Confira a internet.'));document.head.appendChild(sc);});
   return L3D=(window.THREE?Promise.resolve():add('vendor/three/three.min.js')).then(()=>add('floor3d.js?v='+APP_V)).catch(e=>{L3D=null;throw e;});}
+function floorData(id,b){const f=FLOORS.find(x=>x.id===id);return inB(b.fl,()=>{const t=team(id),cc=id==='callcenter',lk=FLOOR_LOOK[id]||['🏢','#2a83d8'];
+    return {id,name:f.name,emoji:lk[0],color:lk[1],headset:!!lk[2],ops:cc?(t.voz||0)+(t.texto||0):(t.op||0),n2:cc?(t.n2||0):0,sup:t.sup||0,ger:t.ger||0,eff:effOf(id),op:cc?'Atendentes':(rolesOf(f).op||{}).t||'Operador'};});}
+/* Andares do prédio para o elevador: térreo (recepção), os andares construídos com o número real e o galpão anexo. */
+function tourFloors(b){const plain=FLOORS.filter(x=>!x.annex),L=[{id:'lobby',label:'T',name:'Recepção'}];
+  for(const f of plain){if(f.id==='recepcao'||!(b.fl[f.id]&&b.fl[f.id].built))continue;L.push({id:f.id,label:String(plain.indexOf(f)),name:f.name,data:floorData(f.id,b)});}
+  const an=FLOORS.find(x=>x.annex);if(an&&b.fl[an.id]&&b.fl[an.id].built)L.push({id:an.id,label:'G',name:an.name,data:floorData(an.id,b)});return L;}
+async function openTour(bk,startId){const b=bldgs().find(x=>x.key===bk)||bldgs()[0];if(!b)return;
+  const floors=tourFloors(b),start=Math.max(0,floors.findIndex(x=>x.id===startId));
+  openModal(head(esc(b.name),'🚶 Andando pela empresa')+`<div class="f3d-wrap t3w"><div id="f3d"></div><div class="f3d-load" id="f3dLoad">Abrindo as portas…</div></div>
+    <div class="foot"><span class="muted" style="font-size:12.5px">${floors.length-1} andar(es) no elevador</span><button class="btn primary" data-close>Sair</button></div>`,m=>{m.classList.add('f3d-modal');});
+  const md=$('#modal');let view=null,dead=false;MODAL_KILL=()=>{dead=true;md.classList.remove('f3d-modal');if(view)view.dispose();};
+  try{await load3D();if(dead)return;const el=document.getElementById('f3d');if(!el)return;
+    view=window.__tour=Floor3D.tour(el,{floors,start,sfx:k=>sfx(k),lobby:{company:S.company,clients:allClients(),level:levelOf(S.xp)},player:{name:(typeof playerName==='function'&&playerName())||'Você',color:'#ff8a1f'}});
+    const ld=document.getElementById('f3dLoad');if(ld)ld.remove();}
+  catch(e){const ld=document.getElementById('f3dLoad');if(ld)ld.textContent=/WebGL|context/i.test(e.message)?'Este aparelho não conseguiu abrir o 3D (WebGL desligado).':e.message;}}
 async function openFloor3D(id,bk){const f=FLOORS.find(x=>x.id===id),b=bldgs().find(x=>x.key===bk)||bldgs()[0];if(!f||!b)return;
-  const d=inB(b.fl,()=>{const t=team(id),cc=id==='callcenter',lk=FLOOR_LOOK[id]||['🏢','#2a83d8'];
-    return {id,name:f.name,emoji:lk[0],color:lk[1],headset:!!lk[2],ops:cc?(t.voz||0)+(t.texto||0):(t.op||0),n2:cc?(t.n2||0):0,sup:t.sup||0,ger:t.ger||0,eff:effOf(id),op:cc?'Atendentes':(rolesOf(f).op||{}).t||'Operador'};});
+  const d=floorData(id,b);
   const hq=b.key.startsWith('hq')||b.key.startsWith('f')?` data-hq="${b.ci}"`:'';
   const chip=(ico,lab,n,shown)=>`<span class="f3d-chip">${ico} ${lab} <b>${n}</b>${shown!=null&&shown<n?` <small>(${shown} na tela)</small>`:''}</span>`;
   const hud=v=>{const sh=v&&v.shown||{};return d.ops+d.n2+d.sup+d.ger?[chip('🧑‍💻',esc(d.op),d.ops,sh.ops),d.n2?chip('🟣','N2',d.n2,sh.n2):'',d.sup?chip('🧑‍🏫','Supervisores',d.sup,sh.sup):'',chip('👔','Gerente',d.ger),`<span class="f3d-chip ${d.eff<0.9?'warn':'ok'}">⚡ Eficiência <b>${Math.round(d.eff*100)}%</b></span>`].join(''):'<span class="f3d-chip warn">Sem equipe: contrate pelo botão Equipe</span>';};
   openModal(head(esc(b.name),`${d.emoji} ${esc(f.name)} · ${f.annex?'Galpão anexo':floorLabel(f)}`)+`<div class="f3d-wrap"><div id="f3d"></div><div class="f3d-hud" id="f3dHud">${hud(null)}</div><div class="f3d-load" id="f3dLoad">Montando o andar…</div><p class="f3d-tip">Arraste para girar · pinça ou roda do mouse para aproximar</p></div>
-    <div class="foot"><button class="btn" data-act="team" data-f="${id}"${hq}>Equipe</button><button class="btn primary" data-close>Fechar</button></div>`,m=>{m.classList.add('f3d-modal');});
+    <div class="foot"><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="team" data-f="${id}"${hq}>Equipe</button><button class="btn signal" data-act="tour" data-bk="${b.key}" data-f="${id}">🚶 Andar por aqui</button></span><button class="btn primary" data-close>Fechar</button></div>`,m=>{m.classList.add('f3d-modal');});
   const md=$('#modal');let view=null,dead=false;MODAL_KILL=()=>{dead=true;md.classList.remove('f3d-modal');if(view)view.dispose();};
   try{await load3D();if(dead)return;const el=document.getElementById('f3d');if(!el)return;view=Floor3D.open(el,d);
     const ld=document.getElementById('f3dLoad');if(ld)ld.remove();const h=document.getElementById('f3dHud');if(h)h.innerHTML=hud(view);}
@@ -3035,7 +3075,7 @@ function renderBuildingMain(){
   for(const f of [...FLOORS].filter(f=>!f.annex).reverse()){
     if(f.id==='recepcao'){
       const actions=!cnpjDone()?`<button class="btn small primary" data-act="docs">Abrir a empresa (CNPJ)</button>`:!cityLicensed(c0)?`<button class="btn small primary" data-act="outorga">Comprar outorga · ${brl0(c0.outorga)}</button>`:`<button class="btn small ${docsDone()?'ghost':'primary'}" data-act="docs">${docsDone()?'Documentação':'Licenciamento'}</button>`;
-      h+=`<div class="floor ground"><div class="floor-top"><span class="floor-name"><small>Térreo</small>${f.name}</span><span class="floor-lvl">Sede · ${esc(c0.bairros[S.sede.b])}</span></div><p class="floor-desc">${f.desc}${S.partners?` Sócios: ${S.partners}.`:''}</p><div class="floor-actions">${actions}</div></div>`;
+      h+=`<div class="floor ground"><div class="floor-top"><span class="floor-name"><small>Térreo</small>${f.name}</span><span class="floor-lvl">Sede · ${esc(c0.bairros[S.sede.b])}</span></div><p class="floor-desc">${f.desc}${S.partners?` Sócios: ${S.partners}.`:''}</p><div class="floor-actions">${actions}<button class="btn small signal" data-act="tour" data-bk="sede" data-f="lobby">🚶 Andar pela empresa</button></div></div>`;
       continue;
     }
     h+=floorHtml(f,lvl);
@@ -4407,6 +4447,7 @@ document.addEventListener('click',e=>{
   else if(act==='execDel'){if(!S.execs)return;S.execs--;log('Executivo de contas desligado.');save(true);refreshPanel();}
   else if(act==='team')openTeam(a.dataset.f,a.dataset.hq!=null?+a.dataset.hq:null);
   else if(act==='floor3d')openFloor3D(a.dataset.f,a.dataset.bk||'sede');
+  else if(act==='tour')openTour(a.dataset.bk||'sede',a.dataset.f||'lobby');
   else if(act==='servers')openServers();
   else if(act==='marketing')openMarketing();
   else if(act==='fiber')openFiber();
@@ -4893,7 +4934,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v86';
+const APP_V='v87';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
@@ -4947,7 +4988,7 @@ function musicSync(){const want=FXS.music&&audioOn&&!!S&&document.visibilityStat
   else if(musicEl&&!musicEl.paused)musicEl.pause();}
 document.addEventListener('pointerdown',()=>{if(!audioOn){audioOn=true;musicSync();}if(actx&&actx.state==='suspended')actx.resume().catch(()=>{});},true);
 document.addEventListener('visibilitychange',musicSync);
-const SFX={sale:[[988,0,.07,'square'],[1319,.07,.16,'square']],install:[[660,0,.09,'triangle'],[990,.09,.16,'triangle']],cancel:[[392,0,.14,'sawtooth'],[262,.12,.22,'sawtooth']],
+const SFX={ding:[[1319,0,.22,'sine'],[1047,.2,.5,'sine']],sale:[[988,0,.07,'square'],[1319,.07,.16,'square']],install:[[660,0,.09,'triangle'],[990,.09,.16,'triangle']],cancel:[[392,0,.14,'sawtooth'],[262,.12,.22,'sawtooth']],
   level:[[523,0,.11,'square'],[659,.11,.11,'square'],[784,.22,.11,'square'],[1047,.33,.32,'square']],click:[[1500,0,.025,'triangle']],collect:[[523,0,.08,'triangle'],[784,.08,.12,'triangle']]};
 const SFX_GAP={sale:450,install:450,cancel:900,click:60,collect:600,level:300},sfxLast={};
 function sfx(kind){if(!FXS.sfx||!audioOn||document.visibilityState!=='visible'||!SFX[kind])return;const now=performance.now();if(now-(sfxLast[kind]||0)<(SFX_GAP[kind]||300))return;sfxLast[kind]=now;
