@@ -299,6 +299,17 @@ div.lot{cursor:default}
 .notice.warn{background:var(--gold-soft);color:#6b4906}
 .choice-list{display:flex;flex-direction:column;gap:8px}
 .m-sec{margin-top:14px}
+.modal.f3d-modal{width:min(96vw,1180px);max-width:none}
+.f3d-wrap{position:relative;border:3px solid var(--navy);border-radius:16px;overflow:hidden;background:#9fd8f7}
+#f3d{height:min(64vh,620px);min-height:240px}
+@media (max-height:520px){#f3d{height:calc(100dvh - 190px)}}
+.f3d-hud{position:absolute;left:8px;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.f3d-chip{background:rgba(255,248,234,.93);border:2px solid var(--navy);border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;color:var(--navy);box-shadow:0 2px 0 var(--navy)}
+@media (max-height:520px){.f3d-chip{font-size:11px;padding:2px 8px;border-width:1.5px}.f3d-tip{font-size:10.5px}}
+.f3d-chip small{font-weight:600;color:#5a6a88}.f3d-chip.warn{background:#fff1d6}.f3d-chip.ok{background:#e3f7ec}
+.f3d-load{position:absolute;inset:0;display:grid;place-items:center;font:700 18px/1.3 var(--display);color:#fff;text-shadow:0 2px 0 var(--navy);background:rgba(31,108,192,.35);text-align:center;padding:20px}
+.f3d-tip{position:absolute;left:0;right:0;bottom:6px;margin:0;text-align:center;font-size:12px;font-weight:700;color:var(--navy);text-shadow:0 1px 0 #fff;pointer-events:none}
+.win-3d{cursor:pointer;border-radius:10px}.win-3d:hover{outline:2px dashed var(--signal);outline-offset:2px}
 .acc-card{display:flex;align-items:center;gap:14px;padding:12px;border:2px solid var(--line);border-radius:16px;background:#fff}
 .acc-ava{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;cursor:pointer;font:inherit;font-size:12px;font-weight:800;color:#1f6cc0;padding:0}
 .acc-ava svg{width:64px;height:64px;border:3px solid var(--navy);border-radius:16px;background:#f6e9cc}
@@ -2964,11 +2975,33 @@ function builtFloorHtml(f,cls){
   const hc=headcount(f.id),e=effOf(f.id),iss=effIssues(f.id);
   const extra=f.id==='noc'?`<button class="btn small" data-act="servers">Servidores · ${Object.keys(S.servers).length}/${SERVERS.length}</button>`:f.id==='marketing'?`<button class="btn small" data-act="marketing">Campanhas</button>`:f.id==='rh'?`<span class="chip">Vagas por setor: ${sectorCap()}</span>`:f.id==='ouvidoria'?`<button class="btn small" data-act="ouvidoria">Reclamações${S.ouv?' · '+S.ouv.total:''}</button>`:f.id==='migracao'?`<button class="btn small" data-act="migSector">Ligações · ticket ${brl0(ticketNow())}</button>`:'';
   return `<div class="${cls}"><div class="floor-top"><span class="floor-name"><small>${f.annex?'Galpão anexo':floorLabel(f)}</small>${f.name}</span><span class="floor-lvl">${hc} pessoa(s)<br>${brl0(rolesSum(f))}/mês</span></div>
-    ${windowsHtml(hc)}
+    <div class="win-3d" data-act="floor3d" data-f="${f.id}" data-bk="${bkeyNow()}" title="Ver o andar em 3D" role="button" tabindex="0">${windowsHtml(hc)}</div>
     <div class="floor-meta"><span class="chip ${hc===0?'bad':e<0.9?'warn':'ok'}">${hc===0?'Sem equipe':'Eficiência '+Math.round(e*100)+'%'}</span>${iss.length?`<span>${iss.join(' · ')}</span>`:''}</div>
     ${f.annex?(()=>{const cc=ctxCity(),e=eqOf(cc),n=famCount(cc,l=>l.cpe);return `<p class="floor-desc"><b>Estoque em ${esc(cc.name)}: ${e.r} rádio(s) · ${e.o} ONU(s)</b>${n?` · ${n} para recolher`:''}${S.kits?` · ${S.kits} torre(s) desmontada(s)`:''}</p>`;})():''}
-    <div class="floor-actions"><button class="btn small signal" data-act="team" data-f="${f.id}">Equipe</button>${extra}</div></div>`;
+    <div class="floor-actions"><button class="btn small signal" data-act="team" data-f="${f.id}">Equipe</button><button class="btn small" data-act="floor3d" data-f="${f.id}" data-bk="${bkeyNow()}">🎥 Ver andar</button>${extra}</div></div>`;
 }
+/* ===================== Andar em 3D =====================
+   Three.js (vendor/three) e floor3d.js só carregam quando o jogador abre um andar. A cena mostra a equipe do prédio
+   aberto: operadores digitando, N2, supervisores andando, gerente na sala de vidro e gente indo ao café. */
+const FLOOR_LOOK={callcenter:['🎧','#2a83d8',1],comercial:['💼','#ff8a1f'],tecnico:['🔧','#5b6b8c'],logistica:['📦','#c98a4a'],retencao:['🤝','#0f9a8d',1],rh:['🧑‍💼','#d94f8a'],
+  marketing:['📣','#e5a21e'],recuperacao:['💰','#3a9a4a',1],noc:['🖥️','#1f6cc0'],ouvidoria:['📢','#7a4fd6',1],migracao:['🔄','#2bb3a6',1]};
+function bkeyNow(){if(!BCTX||BCTX===S.floors)return 'sede';if(BCTX===S.outs)return 'out';const c=S.cities.find(x=>(x.hq&&x.hq.floors===BCTX)||x.galpao===BCTX);return c?(c.hq?'hq':'f')+c.idx:'sede';}
+let L3D=null;
+function load3D(){if(window.THREE&&window.Floor3D)return Promise.resolve();if(L3D)return L3D;
+  const add=src=>new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error('Não deu para carregar o 3D. Confira a internet.'));document.head.appendChild(sc);});
+  return L3D=(window.THREE?Promise.resolve():add('vendor/three/three.min.js')).then(()=>add('floor3d.js?v='+APP_V)).catch(e=>{L3D=null;throw e;});}
+async function openFloor3D(id,bk){const f=FLOORS.find(x=>x.id===id),b=bldgs().find(x=>x.key===bk)||bldgs()[0];if(!f||!b)return;
+  const d=inB(b.fl,()=>{const t=team(id),cc=id==='callcenter',lk=FLOOR_LOOK[id]||['🏢','#2a83d8'];
+    return {id,name:f.name,emoji:lk[0],color:lk[1],headset:!!lk[2],ops:cc?(t.voz||0)+(t.texto||0):(t.op||0),n2:cc?(t.n2||0):0,sup:t.sup||0,ger:t.ger||0,eff:effOf(id),op:cc?'Atendentes':(rolesOf(f).op||{}).t||'Operador'};});
+  const hq=b.key.startsWith('hq')||b.key.startsWith('f')?` data-hq="${b.ci}"`:'';
+  const chip=(ico,lab,n,shown)=>`<span class="f3d-chip">${ico} ${lab} <b>${n}</b>${shown!=null&&shown<n?` <small>(${shown} na tela)</small>`:''}</span>`;
+  const hud=v=>{const sh=v&&v.shown||{};return d.ops+d.n2+d.sup+d.ger?[chip('🧑‍💻',esc(d.op),d.ops,sh.ops),d.n2?chip('🟣','N2',d.n2,sh.n2):'',d.sup?chip('🧑‍🏫','Supervisores',d.sup,sh.sup):'',chip('👔','Gerente',d.ger),`<span class="f3d-chip ${d.eff<0.9?'warn':'ok'}">⚡ Eficiência <b>${Math.round(d.eff*100)}%</b></span>`].join(''):'<span class="f3d-chip warn">Sem equipe: contrate pelo botão Equipe</span>';};
+  openModal(head(esc(b.name),`${d.emoji} ${esc(f.name)} · ${f.annex?'Galpão anexo':floorLabel(f)}`)+`<div class="f3d-wrap"><div id="f3d"></div><div class="f3d-hud" id="f3dHud">${hud(null)}</div><div class="f3d-load" id="f3dLoad">Montando o andar…</div><p class="f3d-tip">Arraste para girar · pinça ou roda do mouse para aproximar</p></div>
+    <div class="foot"><button class="btn" data-act="team" data-f="${id}"${hq}>Equipe</button><button class="btn primary" data-close>Fechar</button></div>`,m=>{m.classList.add('f3d-modal');});
+  const md=$('#modal');let view=null,dead=false;MODAL_KILL=()=>{dead=true;md.classList.remove('f3d-modal');if(view)view.dispose();};
+  try{await load3D();if(dead)return;const el=document.getElementById('f3d');if(!el)return;view=Floor3D.open(el,d);
+    const ld=document.getElementById('f3dLoad');if(ld)ld.remove();const h=document.getElementById('f3dHud');if(h)h.innerHTML=hud(view);}
+  catch(e){const ld=document.getElementById('f3dLoad');if(ld)ld.textContent=/WebGL|context/i.test(e.message)?'Este aparelho não conseguiu abrir o 3D (WebGL desligado).':e.message;}}
 function rolesSum(f){const R=rolesOf(f),t=team(f.id);let s=0;for(const k in t)s+=(t[k]||0)*((R[k]||{}).sal||0);return s+careerExtra(f);}
 function lockedFloorHtml(f,cls,why){return `<div class="${cls} locked"><div class="floor-top"><span class="floor-name"><small>${f.annex?'Galpão anexo':floorLabel(f)}</small>${f.name}</span><span class="floor-lvl">🔒 ${why}</span></div><p class="floor-desc">${f.desc}</p></div>`;}
 function buyFloorHtml(f,cls){return `<div class="${cls}"><div class="floor-top"><span class="floor-name"><small>${f.annex?'Galpão anexo':floorLabel(f)}</small>${f.name}</span><span class="floor-lvl">Liberado</span></div><p class="floor-desc">${f.desc}</p><div class="floor-actions"><button class="btn primary small" data-act="build" data-f="${f.id}">Comprar ${f.annex?'galpão':'andar'} · ${brl0(f.cost)}</button></div></div>`;}
@@ -3355,11 +3388,13 @@ function renderReport(){
 function renderLog(){$('#log').innerHTML=S.log.slice(0,16).map(e=>`<li><time>M${monthOf(e.d)}·${String(dayOf(e.d)).padStart(2,'0')}</time><span>${esc(e.m)}</span></li>`).join('');}
 
 /* ===================== Modais ===================== */
-function openModal(html,onMount){const md=$('#modal'),prevKey=modalOpen?(md.querySelector('.mhead')||{}).textContent:null,prevTop=md.scrollTop;PANEL=null;document.querySelectorAll(".tabs [data-panel]").forEach(b=>b.removeAttribute("aria-pressed"));document.body.classList.add('modal-open');$('#modal').innerHTML=html;$('#modalWrap').hidden=false;modalOpen=true;if(onMount)onMount($('#modal'));
+let MODAL_KILL=null;
+function modalKill(){if(MODAL_KILL){const k=MODAL_KILL;MODAL_KILL=null;try{k();}catch(e){}}}
+function openModal(html,onMount){modalKill();const md=$('#modal'),prevKey=modalOpen?(md.querySelector('.mhead')||{}).textContent:null,prevTop=md.scrollTop;PANEL=null;document.querySelectorAll(".tabs [data-panel]").forEach(b=>b.removeAttribute("aria-pressed"));document.body.classList.add('modal-open');$('#modal').innerHTML=html;$('#modalWrap').hidden=false;modalOpen=true;if(onMount)onMount($('#modal'));
   // mesma janela redesenhada (ex.: contratar na Equipe): fica no mesmo ponto da rolagem
   const same=prevKey&&prevKey===((md.querySelector('.mhead')||{}).textContent);if(same){md.scrollTop=prevTop;return;}
   const f=$('#modal').querySelector('input:not([readonly]):not([type=range]),select,textarea:not([readonly]),.btn.primary');if(f)try{f.focus({preventScroll:true});}catch(e){f.focus();}}
-function closeModal(){PANEL=null;document.querySelectorAll('.tabs [data-panel]').forEach(b=>b.removeAttribute('aria-pressed'));document.body.classList.remove('modal-open');$('#modalWrap').hidden=true;$('#modal').innerHTML='';modalOpen=false;renderAll();}
+function closeModal(){modalKill();PANEL=null;document.querySelectorAll('.tabs [data-panel]').forEach(b=>b.removeAttribute('aria-pressed'));document.body.classList.remove('modal-open');$('#modalWrap').hidden=true;$('#modal').innerHTML='';modalOpen=false;renderAll();}
 const X='<button class="x" data-close aria-label="Fechar">×</button>';
 function head(eyebrow,title,closable=true){return `<div class="mhead"><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div>${closable?X:''}</div>`;}
 
@@ -4371,6 +4406,7 @@ document.addEventListener('click',e=>{
   else if(act==='execAdd'){if(levelOf(S.xp)<CORP_LEVEL||!spend(EXEC_HIRE))return;S.execs=(S.execs||0)+1;log('Executivo de contas contratado.');save(true);refreshPanel();}
   else if(act==='execDel'){if(!S.execs)return;S.execs--;log('Executivo de contas desligado.');save(true);refreshPanel();}
   else if(act==='team')openTeam(a.dataset.f,a.dataset.hq!=null?+a.dataset.hq:null);
+  else if(act==='floor3d')openFloor3D(a.dataset.f,a.dataset.bk||'sede');
   else if(act==='servers')openServers();
   else if(act==='marketing')openMarketing();
   else if(act==='fiber')openFiber();
@@ -4857,7 +4893,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v85';
+const APP_V='v86';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
