@@ -93,6 +93,17 @@
     ctx.box(0.25, H - 2.35, z2 - z1, wallM, -W / 2 - 0.12, 2.35 + (H - 2.35) / 2, ez);
     ctx.box(0.28, 0.18, z1 + D / 2, trimM, -W / 2 - 0.1, 0.09, (-D / 2 + z1) / 2);
     ctx.box(0.28, 0.18, D / 2 - z2, trimM, -W / 2 - 0.1, 0.09, (z2 + D / 2) / 2);
+    // frente e direita: só aparecem na primeira pessoa (na visão de cima a sala fica aberta, como casa de boneca)
+    ctx.fpWalls = [];
+    const fpw = (w, h, d, x, y, z) => { const m = ctx.box(w, h, d, wallM, x, y, z); m.visible = false; ctx.fpWalls.push(m); };
+    fpw(0.25, H, D + 0.5, W / 2 + 0.12, H / 2, 0);
+    if (opts.gap) { const g1 = opts.gap.x - opts.gap.w / 2, g2 = opts.gap.x + opts.gap.w / 2;
+      fpw(g1 + W / 2, H, 0.25, (-W / 2 + g1) / 2, H / 2, D / 2 + 0.12); fpw(W / 2 - g2, H, 0.25, (g2 + W / 2) / 2, H / 2, D / 2 + 0.12); fpw(g2 - g1, H - 2.5, 0.25, opts.gap.x, 2.5 + (H - 2.5) / 2, D / 2 + 0.12); }
+    else fpw(W + 0.5, H, 0.25, 0, H / 2, D / 2 + 0.12);
+    // teto com luminárias (também só na primeira pessoa)
+    { const ceil = ctx.box(W + 0.5, 0.12, D + 0.5, ctx.keep(new T.MeshBasicMaterial({ color: '#e9e2d3' })), 0, H + 0.06, 0); ceil.visible = false; ctx.fpWalls.push(ceil);
+      const lampM = ctx.keep(new T.MeshBasicMaterial({ color: '#fffbe8' })), lampG = ctx.keep(new T.BoxGeometry(1.2, 0.04, 0.5));
+      for (let lx = -W / 2 + 2; lx < W / 2 - 1; lx += 3.2) for (let lz = -D / 2 + 2; lz < D / 2 - 1; lz += 3) { const l = ctx.add(new T.Mesh(lampG, lampM), lx, H - 0.01, lz); l.visible = false; ctx.fpWalls.push(l); } }
     // janelas (depois do elevador)
     const glassSky = ctx.keep(new T.MeshBasicMaterial({ color: '#bfe7ff' }));
     for (let z = ez + 2.8; z < D / 2 - 1; z += 2.6) { ctx.box(0.08, 1.46, 1.76, trimM, -W / 2 + 0.03, 1.75, z); ctx.box(0.05, 1.3, 1.6, glassSky, -W / 2 + 0.07, 1.75, z); }
@@ -289,7 +300,7 @@
   /* ---------- térreo: recepção ---------- */
   function makeLobby(ctx, info) {
     const W = 16, D = 12, ez = -D / 2 + 1.7, lam = ctx.lam;
-    floorAndWalls(ctx, W, D, { ez, floorA: '#efe9df', floorB: '#e2d9cb' });
+    floorAndWalls(ctx, W, D, { ez, floorA: '#efe9df', floorB: '#e2d9cb', gap: { x: -1.6, w: 2.6 } });
     const logo = textTex(ctx, 1024, 384, (g) => {
       g.fillStyle = '#1b2a4a'; roundRect(g, 0, 0, 1024, 384, 60); g.fill(); g.fillStyle = '#ff8a1f'; roundRect(g, 16, 16, 992, 352, 48); g.fill();
       g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = 'rgba(0,0,0,.3)'; g.shadowOffsetY = 6;
@@ -394,16 +405,26 @@
     const touch = !matchMedia('(pointer:fine)').matches;
     const ui = document.createElement('div'); ui.className = 't3-ui'; el.appendChild(ui);
     ui.innerHTML = `<div class="t3-where" id="t3Where"></div><div class="t3-bubs" id="t3Bubs"></div><div class="t3-name" id="t3Name"></div>
-      <div class="t3-joy" id="t3Joy"><i></i></div><button type="button" class="t3-act" id="t3Act" hidden></button>
+      <button type="button" class="t3-cam" id="t3Cam"></button><div class="t3-aim" id="t3Aim" hidden></div><div class="t3-joy" id="t3Joy"><i></i></div><button type="button" class="t3-act" id="t3Act" hidden></button>
       <div class="t3-panel" id="t3Panel" hidden></div><div class="t3-fade" id="t3Fade"></div>
-      <p class="t3-help">${touch ? 'Joystick para andar · arraste a tela para girar a câmera' : 'WASD ou setas para andar · Shift corre · E chama o elevador · arraste para girar'}</p>`;
+      <p class="t3-help">${touch ? 'Joystick para andar · arraste a tela para girar a câmera' : 'WASD ou setas para andar · Shift corre · E chama o elevador · V troca a câmera · arraste para girar'}</p>`;
     const $u = id => ui.querySelector('#' + id);
+    const camBtn = $u('t3Cam'), aim = $u('t3Aim');
     const where = $u('t3Where'), bubs = $u('t3Bubs'), act = $u('t3Act'), panel = $u('t3Panel'), fade = $u('t3Fade'), joy = $u('t3Joy'), nameTag = $u('t3Name');
     nameTag.textContent = (cfg.player && cfg.player.name) || 'Você';
     let ctx = null, room = null, cur = Math.max(0, Math.min(cfg.floors.length - 1, cfg.start || 0));
     const me = { p: null, x: 0, z: 0, ry: Math.PI };
     const st = { theta: 0.55, phi: 0.95, rad: 8.5, rMin: 4, rMax: 16, tMin: -0.7, tMax: 1.8 };
     const unbind = bindOrbit(v.cv, st);
+    let fp = false; try { fp = localStorage.getItem('pt-fp') === '1'; } catch (e) {}
+    function setFp(on) {
+      fp = on; try { localStorage.setItem('pt-fp', on ? '1' : '0'); } catch (e) {}
+      camBtn.innerHTML = on ? '🎥 3ª pessoa' : '👁️ 1ª pessoa'; aim.hidden = !on;
+      if (on) { st.tMin = -Infinity; st.tMax = Infinity; st.phi = 0.95; } else { st.tMin = -0.7; st.tMax = 1.8; st.theta = 0.55; st.phi = 0.95; firstCam = true; }
+      v.camera.fov = on ? 72 : 40; v.camera.updateProjectionMatrix();
+      if (ctx) { for (const m of ctx.fpWalls || []) m.visible = on; if (me.p) me.p.g.visible = !on; }
+    }
+    camBtn.onclick = () => setFp(!fp);
     const floorName = f => (f.label === 'T' ? 'Térreo' : f.label === 'G' ? 'Galpão' : f.label + 'º andar') + ' · ' + f.name;
     function build(i, inCabin) {
       if (ctx) ctx.dispose();
@@ -412,6 +433,7 @@
       me.p = person(ctx, (cfg.player && cfg.player.color) || '#ff8a1f', { skin: 1, hair: 0, cap: '#1b2a4a', pants: '#1b2a4a' }); stand(me.p);
       const s = inCabin ? room.elev.cabin : room.spawn; me.x = s.x; me.z = s.z; me.ry = inCabin ? Math.PI / 2 : Math.PI;
       room.elev.show(f.label); room.elev.set(0);
+      for (const m of ctx.fpWalls || []) m.visible = fp; me.p.g.visible = !fp;
       where.innerHTML = '<b>' + floorName(f) + '</b>';
       bubs.innerHTML = ''; BUB.length = 0;
     }
@@ -420,7 +442,7 @@
     // teclado e joystick
     const keys = {};
     const KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, KeyW: 1, KeyA: 1, KeyS: 1, KeyD: 1, ShiftLeft: 1, ShiftRight: 1 };
-    const kd = e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; if (KEYS[e.code]) { keys[e.code] = true; e.preventDefault(); } else if ((e.code === 'KeyE' || e.code === 'Enter') && !act.hidden) { e.preventDefault(); act.click(); } };
+    const kd = e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; if (KEYS[e.code]) { keys[e.code] = true; e.preventDefault(); } else if ((e.code === 'KeyE' || e.code === 'Enter') && !act.hidden) { e.preventDefault(); act.click(); } else if (e.code === 'KeyV') { e.preventDefault(); setFp(!fp); } };
     const ku = e => { if (KEYS[e.code]) keys[e.code] = false; };
     window.addEventListener('keydown', kd); window.addEventListener('keyup', ku);
     const jv = { x: 0, y: 0, id: null }, knob = joy.querySelector('i');
@@ -442,7 +464,8 @@
       if (busy) return; busy = true; act.hidden = true; sfx('ding');
       await tween(700, k => room.elev.set(k));
       await walkTo([[room.elev.door.x - 0.5, room.elev.z], [room.elev.cabin.x, room.elev.cabin.z]]);
-      me.ry = Math.PI / 2; await tween(600, k => room.elev.set(1 - k)); showPanel();
+      me.ry = Math.PI / 2; if (fp) { const th0 = st.theta; let dth = -Math.PI / 2 - th0; while (dth > Math.PI) dth -= 2 * Math.PI; while (dth < -Math.PI) dth += 2 * Math.PI; tween(500, k => { st.theta = th0 + dth * k; }); st.phi = 0.95; }
+      await tween(600, k => room.elev.set(1 - k)); showPanel();
     }
     function showPanel() {
       panel.innerHTML = `<div class="t3-pbox"><div class="t3-ptitle">🛗 Para qual andar?</div><div class="t3-btns">${cfg.floors.map((f, i) => `<button type="button" class="t3-fbtn ${i === cur ? 'cur' : ''}" data-fl="${i}"><span>${f.label}</span><small>${f.name}</small></button>`).join('')}</div>
@@ -456,7 +479,7 @@
         const step = i > cur ? 1 : -1, arrow = step > 0 ? '▲' : '▼', per = Math.max(240, Math.min(650, 1800 / Math.abs(i - cur)));
         for (let k = cur; k !== i; k += step) { room.elev.show(cfg.floors[k].label, arrow); await wait(per); }
         fade.classList.add('on'); await wait(380);
-        cur = i; build(cur, true); st.theta = 0.55;
+        cur = i; build(cur, true); st.theta = fp ? -Math.PI / 2 : 0.55;
         fade.classList.remove('on'); await wait(320); sfx('ding');
       }
       await tween(700, k => room.elev.set(k));
@@ -479,8 +502,10 @@
       if (auto) {
         const [tx, tz] = auto.pts[0], dx = tx - me.x, dz = tz - me.z, dd = Math.hypot(dx, dz);
         if (dd < 0.06) { auto.pts.shift(); if (!auto.pts.length) { const r = auto.res; auto = null; r(); } } else { mx = dx / dd; mz = dz / dd; }
+        if (fp && (mx || mz)) { let dth = Math.atan2(-mx, -mz) - st.theta; while (dth > Math.PI) dth -= 2 * Math.PI; while (dth < -Math.PI) dth += 2 * Math.PI; st.theta += dth * Math.min(1, dt * 5); }
       } else if (!busy) {
-        const kx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + jv.x;
+        if (fp) st.theta += ((keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0)) * 2.2 * dt;
+        const kx = (keys.KeyD || (!fp && keys.ArrowRight) ? 1 : 0) - (keys.KeyA || (!fp && keys.ArrowLeft) ? 1 : 0) + jv.x;
         const kf = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - jv.y;
         run = !!(keys.ShiftLeft || keys.ShiftRight) || Math.hypot(jv.x, jv.y) > 0.95;
         const fx = -Math.sin(st.theta), fz = -Math.cos(st.theta), rx = -fz, rz = fx;
@@ -503,16 +528,23 @@
         if (t - p.talkAt > 25 && Math.hypot(px - me.x, pz - me.z) < 1.9) { p.talkAt = t; lastTalk = now; talk(p, room.say(p)); const a = Math.atan2(me.x - px, me.z - pz) - p.g.rotation.y; p.head.rotation.y = Math.max(-1, Math.min(1, Math.atan2(Math.sin(a), Math.cos(a)))); break; }
       }
       // câmera atrás do jogador
+      if (fp) {
+        const pitch = Math.max(-0.75, Math.min(0.75, (st.phi - 0.95) * 1.6)), bob = Math.hypot(mx, mz) > 0.05 ? Math.sin(t * (6 + sp * 2.6)) * 0.035 : 0;
+        v.camera.position.set(me.x, 1.55 + bob, me.z);
+        look.set(me.x - Math.sin(st.theta) * Math.cos(pitch), 1.55 + bob + Math.sin(pitch), me.z - Math.cos(st.theta) * Math.cos(pitch)); v.camera.lookAt(look);
+      } else {
       const inCab = me.x < room.elev.x, fx0 = inCab ? room.elev.door.x + 0.4 : me.x, fz0 = inCab ? room.elev.z : me.z;
       camPos.set(fx0 + st.rad * Math.sin(st.phi) * Math.sin(st.theta), st.rad * Math.cos(st.phi) + 0.6, fz0 + st.rad * Math.sin(st.phi) * Math.cos(st.theta));
       if (firstCam) { v.camera.position.copy(camPos); firstCam = false; } else v.camera.position.lerp(camPos, Math.min(1, dt * 6));
       look.set(fx0, 1.0, fz0); v.camera.lookAt(look);
+      }
       v.renderer.render(v.scene, v.camera);
       // nome do jogador e balões acompanham as cabeças
       const w = el.clientWidth, h = el.clientHeight, place = (node, x, y, z) => { tmp.set(x, y, z).project(v.camera); node.style.left = ((tmp.x + 1) / 2 * w) + 'px'; node.style.top = ((1 - tmp.y) / 2 * h) + 'px'; node.style.opacity = tmp.z < 1 ? 1 : 0; };
-      place(nameTag, me.x, 2.0, me.z); nameTag.style.display = busy && !auto ? 'none' : '';
+      place(nameTag, me.x, 2.0, me.z); nameTag.style.display = fp || (busy && !auto) ? 'none' : '';
       for (let i = BUB.length - 1; i >= 0; i--) { const b = BUB[i]; if (now > b.until || !b.p.g.parent) { b.el.remove(); BUB.splice(i, 1); continue; } place(b.el, b.p.g.position.x, 2.1, b.p.g.position.z); }
     };
+    setFp(fp);
     raf = requestAnimationFrame(frame);
     return {
       dbg: { me, get room() { return room; }, get cur() { return cur; } },

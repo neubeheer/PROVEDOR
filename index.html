@@ -333,6 +333,8 @@ body:has(.modal.f3d-modal) #coach{display:none!important}
 .t3-fbtn small{font-size:12px;font-weight:700;line-height:1.15}
 .t3-fbtn.cur span{background:#ffd84d}.t3-fbtn:active span{background:#7cf29a}
 .t3-stay{margin-top:10px;background:none;border:0;color:var(--navy);font-weight:700;text-decoration:underline;cursor:pointer}
+.t3-cam{position:absolute;right:10px;top:8px;pointer-events:auto;font:700 14px/1 var(--display);color:var(--navy);background:#fff8ea;border:3px solid var(--navy);border-radius:999px;padding:8px 12px;box-shadow:0 3px 0 var(--navy);cursor:pointer}
+.t3-aim{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#fff;border:2px solid var(--navy);opacity:.8}
 .t3-fade{position:absolute;inset:0;background:#0b1424;opacity:0;transition:opacity .35s;pointer-events:none}.t3-fade.on{opacity:1}
 .t3-help{position:absolute;left:0;right:0;bottom:6px;margin:0;text-align:center;font-size:12px;font-weight:700;color:var(--navy);text-shadow:0 1px 0 #fff}
 .win-3d{cursor:pointer;border-radius:10px}.win-3d:hover{outline:2px dashed var(--signal);outline-offset:2px}
@@ -4934,7 +4936,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v87';
+const APP_V='v88';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
