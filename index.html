@@ -1849,7 +1849,11 @@ const cnpjDone=()=>!!(S.docs.cnpj&&S.docs.cnpj.done);
    Dentro de inB(prédio, fn) (tela de um prédio, contratação, demissões), valem só os dados daquele prédio. */
 let BCTX=null;
 const hqCities=()=>S.cities.filter(c=>c.hq);
-function allFloors(){return [S.floors,...hqCities().map(c=>c.hq.floors),...S.cities.filter(c=>c.galpao&&!c.hq).map(c=>c.galpao),...(S.outs&&Object.keys(S.outs).length?[S.outs]:[])];}
+/* TM: memória curta enquanto o relógio processa um dia (tick, inclusive o fechamento do mês). Nesse meio tempo não se
+   constrói prédio nem se muda regra, então prédios, cidades atendidas e andares construídos são calculados uma vez só
+   (antes eram refeitos a cada venda e a cada pedido de cancelamento). A equipe (team) não entra: a consultoria contrata no meio. */
+let TM=null;
+function allFloors(){if(TM&&TM.af)return TM.af;const v=[S.floors,...hqCities().map(c=>c.hq.floors),...S.cities.filter(c=>c.galpao&&!c.hq).map(c=>c.galpao),...(S.outs&&Object.keys(S.outs).length?[S.outs]:[])];if(TM)TM.af=v;return v;}
 /* Galpão de logística de cada cidade: o da sede, o da sede regional ou o galpão próprio de uma filial. */
 const galpaoBuilt=fl=>!!(fl&&fl.logistica&&fl.logistica.built);
 function galpaoOf(c){const fl=S.sede&&S.sede.ci===c.idx?S.floors:c.hq?c.hq.floors:c.galpao||null;return galpaoBuilt(fl)?fl:null;}
@@ -1858,7 +1862,7 @@ let GALPAO_COST=20000;
 function ctxCity(){if(!BCTX||BCTX===S.floors)return S.cities[(S.sede&&S.sede.ci)||0]||S.cities[0];return S.cities.find(c=>(c.hq&&c.hq.floors===BCTX)||c.galpao===BCTX)||S.cities[0];}
 function buildings(){return BCTX?[BCTX]:allFloors();}
 function inB(fl,fn){const prev=BCTX;BCTX=fl;try{return fn();}finally{BCTX=prev;}}
-const built=id=>buildings().some(f=>f[id]&&f[id].built);
+const built=id=>{if(TM){const m=TM.bu||(TM.bu=new Map()),k=BCTX||TM;let o=m.get(k);if(!o)m.set(k,o={});return o[id]??(o[id]=buildings().some(f=>f[id]&&f[id].built));}return buildings().some(f=>f[id]&&f[id].built);};
 const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
 function rolesOf(f){if(f.roles){if(f.roles.sup)f.roles.sup.sal=SUP_SAL;if(f.roles.ger)f.roles.ger.sal=GER_SAL;return f.roles;}return {op:{t:f.op,sal:f.sal},sup:{t:'Supervisor',sal:SUP_SAL},ger:{t:'Gerente',sal:GER_SAL}};}
 const team=id=>{const L=buildings().filter(f=>f[id]&&f[id].built);if(!L.length)return {};if(L.length===1){const fl=L[0][id];return fl.team||(fl.team={});}const o={};for(const f of L)for(const [k,v] of Object.entries(f[id].team||{}))o[k]=(o[k]||0)+(v||0);return o;};
@@ -1928,12 +1932,12 @@ function famsOf(c){const qs=quadras(c);let n=0;for(const l of qs)if(l.fams)n+=l.
   if(k&&k.src===src&&k.q===qs.length&&k.n===n)return k.out;
   const out=new Array(n);let i=0;for(const l of qs)if(l.fams)for(const f of l.fams)out[i++]=f;FAMC.set(c,{src,q:qs.length,n,out});return out;}
 /* Censo da cidade durante um desenho: clientes, rádio/fibra, rede usada, carga das torres e assinaturas numa passada só. */
-function censusRC(c){const k='cs'+c.idx;let v=RC.get(k);if(v)return v;let sub=0,r=0,f=0,nu=0,h1=0,h2=0;const tl=new Map();
+function censusRC(c){const k='cs'+c.idx;let v=RC.get(k);if(v)return v;let sub=0,r=0,f=0,nu=0,h1=0,h2=0,late=0,mb=0;const tl=new Map();
   for(const l of famsOf(c)){const st=l.st,s0=st.charCodeAt(0),sb=st==='client'||st==='late'||st==='suspended'||st==='cancelReq';
     if(sb){sub++;if(l.tech==='fiber')f++;else r++;}if(sb||st==='pending')nu++;
-    if(l.tid&&l.tech!=='fiber'&&(pays(l)||st==='late'))tl.set(l.tid,(tl.get(l.tid)||0)+1);
+    const pl=pays(l);if(pl||st==='late'){mb+=planById(l.plan).mb||10;if(l.tid&&l.tech!=='fiber')tl.set(l.tid,(tl.get(l.tid)||0)+1);}if(st==='late'||st==='suspended')late++;
     const b=s0+(l.cpe?7:0)+(l.tech==='fiber'?13:0);h1=(h1*31+b)|0;h2=(h2*31+b)|0;if(l.tid){const t=l.tid;h2=(h2*17+t.length*29+t.charCodeAt(t.length-1))|0;}}
-  v={sub,rf:{r,f},nu,tl,h1,h2};RC.set(k,v);return v;}
+  v={sub,rf:{r,f},nu,tl,h1,h2,late,mb};RC.set(k,v);return v;}
 function famCount(c,fn){let n=0;for(const f of famsOf(c))if(fn(f))n++;return n;}
 /* Assinatura numérica das famílias (antes era um texto do tamanho da base, montado a cada desenho). */
 function famHash(c,withTower){if(RC){const v=censusRC(c);return withTower?v.h2:v.h1;}const rk='fh'+c.idx+(withTower?'t':'');let h=0;for(const f of famsOf(c)){h=(h*31+f.st.charCodeAt(0)+(f.cpe?7:0)+(f.tech==='fiber'?13:0))|0;if(withTower&&f.tid){const t=f.tid;h=(h*17+t.length*29+t.charCodeAt(t.length-1))|0;}}if(RC)RC.set(rk,h);return h;}
@@ -1958,7 +1962,7 @@ function towerLoads(c){if(RC)return censusRC(c).tl;const k='tl'+c.idx;const m=ne
 function towerLoad(c,t){return towerLoads(c).get(t.id)||0;}
 let RC=null;
 function cityClients(c){if(RC)return censusRC(c).sub;const n=famCount(c,isSub);if(RC)RC.set(c,n);return n;}
-function lateCount(){return S.cities.reduce((s,c)=>s+famCount(c,l=>l.st==='late'||l.st==='suspended'),0);}
+function lateCount(){if(RC)return S.cities.reduce((s,c)=>s+censusRC(c).late,0);return S.cities.reduce((s,c)=>s+famCount(c,l=>l.st==='late'||l.st==='suspended'),0);}
 const SHIELDS={nat:{name:'Proteção contra desastres naturais',short:'Desastres naturais',cost:80,desc:'Tempestades e descargas elétricas não afetam a rede.'},geo:{name:'Proteção geopolítica e econômica',short:'Geopolítica',cost:100,desc:'Alta do dólar, falta de chips e crise econômica não afetam a empresa.'}};
 const shieldOn=k=>!!(S.shield&&S.shield[k]>=monthOf(S.day));
 function crisisBlocked(id){const cr=CRISES.find(x=>x.id===id);return !!(cr&&cr.kind&&shieldOn(cr.kind));}
@@ -2023,7 +2027,8 @@ function addXp(n){const b=levelOf(S.xp);S.xp+=n;const a=levelOf(S.xp);
 function spend(v){if(S.money<v){toast(`Falta caixa: precisa de ${brl0(v)}.`);return false;}S.money-=v;S.cur.inv+=v;return true;}
 
 /* ===================== Simulação ===================== */
-function tick(){
+function tick(){if(TM)return tick0();TM={};try{return tick0();}finally{TM=null;}}
+function tick0(){
   if(S.phase!=='play')return;
   S.seenAt=Date.now();
   S.day++;
@@ -2191,7 +2196,7 @@ function netSteps(c){
 function netPrefix(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length-1)].p;}
 function netCap(c){const st=netSteps(c),cap=st[Math.min(c.net||0,st.length-1)].cap;return ipv6On()?Math.max(cap,cityHomes(c)+1000):cap;}
 function netUsed(c){if(RC)return censusRC(c).nu;const k='nu'+c.idx;const v=famCount(c,f=>isSub(f)||f.st==='pending');if(RC)RC.set(k,v);return v;}
-const netFull=c=>netUsed(c)>=netCap(c);
+const netFull=c=>{if(TM){const m=TM.nf||(TM.nf=new Map());let v=m.get(c);if(v===undefined)m.set(c,v=netUsed(c)>=netCap(c));return v;}return netUsed(c)>=netCap(c);};
 function saleBlock(c){return signupBlock(c)||(needsBlocks(c)?'quadras':null)||(needIlink(c)?'ilink':null)||(netFull(c)?'rede':null);}
 function ipStr(c,off){return `10.${c.idx+1}.${off>>8}.${off&255}`;}
 function radioFiber(c){if(RC)return censusRC(c).rf;const k='rf'+c.idx;let r=0,f=0;for(const l of famsOf(c))if(isSub(l)){if(l.tech==='fiber')f++;else r++;}const v={r,f};if(RC)RC.set(k,v);return v;}
@@ -2215,7 +2220,8 @@ const TRAFFIC_MIX=[['YouTube','yt'],['Netflix','nf'],['Facebook, Instagram e Wha
 let IPV6_LEVEL=300,IPV6_COST=500000000,IPV6_OFF=0.2;
 const ipv6On=()=>!!(S&&S.ipv6);
 function cacheRed(){if(!built('noc'))return 0;return SERVERS.reduce((s,sv)=>s+(S.servers[sv.id]?sv.share*0.8:0),0);}
-function trafficRaw(){let mb=0;for(const c of S.cities)for(const l of famsOf(c))if(pays(l)||l.st==='late')mb+=planById(l.plan).mb||10;return mb*0.025*(1+monthOf(S.day)*0.004)/1000+corpMb()*0.6/1000;}
+function cityMb(c){if(RC)return censusRC(c).mb;const m=TM&&(TM.mb||(TM.mb=new Map()));let v=m&&m.get(c);if(v!=null)return v;v=0;for(const l of famsOf(c))if(pays(l)||l.st==='late')v+=planById(l.plan).mb||10;if(m)m.set(c,v);return v;}
+function trafficRaw(){let mb=0;for(const c of S.cities)mb+=cityMb(c);return mb*0.025*(1+monthOf(S.day)*0.004)/1000+corpMb()*0.6/1000;}
 /* Durante um desenho (RC) o tráfego é calculado uma vez só. */
 function trafficGbps(){if(RC&&RC.has("tg"))return RC.get("tg");const v=trafficRaw()*(1-cacheRed())*(ipv6On()?1-IPV6_OFF:1);if(RC)RC.set("tg",v);return v;}
 const linkNow=()=>LINKS[clamp(S.link||0,0,LINKS.length-1)];
@@ -2391,7 +2397,7 @@ function wholeCityPrice(c){return Math.max(Math.round(c.outorga*0.2/100)*100,c.o
 
 /* ===================== Interligação até as cidades da expansão ===================== */
 const needIlink=c=>c.idx>0&&!(c.ilink>=0);
-function cityTraffic(c){let mb=0;for(const l of famsOf(c))if(pays(l)||l.st==='late')mb+=planById(l.plan).mb||10;return mb*0.025*(1+monthOf(S.day)*0.004)*(1-cacheRed())/1000;}
+function cityTraffic(c){const mb=cityMb(c);return mb*0.025*(1+monthOf(S.day)*0.004)*(1-cacheRed())/1000;}
 function ilinkHtml(c){
   if(c.idx===0)return '';
   const cur=c.ilink>=0?CITY_LINKS[c.ilink]:null,tr=cityTraffic(c),u=cur?tr/cur.g:0;
@@ -2451,15 +2457,17 @@ function activate(c,lot,deal,ip){sfx('sale');if(c===city()&&FXS.anim)aniTrip('te
   lot.st='client';lot.plan=deal.plan;lot.combo=deal.combo;lot.price=deal.price;lot.tid=deal.tid;lot.ip=ip;delete lot.deal;
   ipAdd(c,ip);
   applyEntryPromo(lot);
-  S.signed++;S.cur.novos++;addXp(20);
+  S.signed++;CSIG.set(c,(CSIG.get(c)||0)+1);S.cur.novos++;addXp(20);
 }
 /* Quadras vendáveis da cidade no dia (SCACHE): montadas uma vez e reaproveitadas por todas as vendas do dia
    (indicação, promoção, loja, carreata, concorrência). Refeitas quando muda o dia, a rede, as torres, a fibra, a outorga,
    o que o Comercial vende ou quando houve venda fora daqui. Antes cada tentativa varria a base inteira. */
 const SCACHE=new WeakMap();
+/* Vendas por cidade (só na memória): a lista do dia de uma cidade só é refeita quando houve venda nela fora da lista. */
+const CSIG=new WeakMap(),csig=c=>CSIG.get(c)||0;
 function saleCache(c){const key=[S.day,c.blocksAt||0,c.net||0,c.towers.length,c.towers.filter(t=>t.off).length,c.fiber&&c.fiber.on?c.fiber.ctos.length:-1,c.outorgaPaid?1:0,(c.regionsPaid||[]).length,salesTech(),c.ilink].join(':');
-  let sc=SCACHE.get(c);if(sc&&sc.key===key&&sc.signed===S.signed)return sc;
-  sc={key,signed:S.signed,qs:[],fr:[],tot:0,used:0,cap:0};SCACHE.set(c,sc);if(saleBlock(c))return sc;
+  let sc=SCACHE.get(c);if(sc&&sc.key===key&&sc.signed===csig(c))return sc;
+  sc={key,signed:csig(c),qs:[],fr:[],tot:0,used:0,cap:0};SCACHE.set(c,sc);if(saleBlock(c))return sc;
   for(const l of quadras(c)){const f=quadraFree(l);if(f>0&&regionOk(c,l)&&sellable(c,l)){sc.qs.push(l);sc.fr.push(f);sc.tot+=f;}}
   sc.used=netUsed(c);sc.cap=netCap(c);if(sc.used>=sc.cap)sc.tot=0;return sc;}
 function attemptSale(c,who,sure,pre){
@@ -2475,16 +2483,17 @@ function attemptSale(c,who,sure,pre){
     if(!opsOf('tecnico'))spend(THIRD_COST);
     activate(c,lot,{plan:o.plan,combo:o.combo,price:o.price,tid:fib?null:coverOf(c,lot).t.id},nextIp(c));
     if(who!=='promo')log(`${who==='loja'?'Loja':who==='carreata'?'Carreata':who==='conc'?'Portabilidade: veio da concorrência':who==='indica'?'Indicação de cliente':'Vendedor'} fechou com ${lot.fam.name} (${c.name}): ${planLabel(o.plan,o.combo)}.`);save(true);
-    if(!pre){P.used++;P.signed=S.signed;if(P.used>=P.cap)P.tot=0;}
+    if(!pre){P.used++;P.signed=csig(c);if(P.used>=P.cap)P.tot=0;}
     return true;
   }
   lot.st='refused';lot.until=S.day+45;return false;
 }
 /* V guarda as quadras vendáveis da rodada de visitas (montado uma vez por rodada). */
 function vendorAttempt(V){V=V||{};
-  if(!V.cs){V.cs=[];for(const c of S.cities){if(V.only&&!V.only.has(c.idx))continue;if(saleBlock(c))continue;const qs=[],fr=[];for(const l of quadras(c)){const f=quadraFree(l);if(f>0&&regionOk(c,l)&&sellable(c,l)){qs.push(l);fr.push(f);}}if(qs.length)V.cs.push({qs,fr,c,tot:fr.reduce((a,b)=>a+b,0),used:netUsed(c),cap:netCap(c)});}}
+  // usa a lista de quadras vendáveis do dia de cada cidade (saleCache), a mesma das outras vendas: antes cada prédio montava a sua do zero
+  if(!V.cs){V.cs=[];for(const c of S.cities){if(V.only&&!V.only.has(c.idx))continue;const sc=saleCache(c);if(sc.tot>0){sc.c=c;V.cs.push(sc);}}}
   // a rede da cidade é contada uma vez por rodada; cada venda soma 1 (antes recontava a base inteira a cada venda)
-  let cs=V.cs.filter(x=>x.tot>0);if(!cs.length&&V.only&&V.flow){V.only=null;V.cs=null;return vendorAttempt(V);}if(cs.length){const x=cs[Math.floor(Math.random()*cs.length)];if(attemptSale(x.c,'vendedor',false,x)){x.used++;if(x.used>=x.cap)x.tot=0;}}}
+  let cs=V.cs.filter(x=>x.tot>0);if(!cs.length&&V.only&&V.flow){V.only=null;V.cs=null;return vendorAttempt(V);}if(cs.length){const x=cs[Math.floor(Math.random()*cs.length)];if(attemptSale(x.c,'vendedor',false,x)){x.used++;x.signed=csig(x.c);if(x.used>=x.cap)x.tot=0;}}}
 function planLabel(planId,combo){const pl=planById(planId);return pl.name+(combo.length?' + '+combo.map(k=>COMBOS[k].short).join(' + '):'');}
 
 /* ===================== Missões ===================== */
@@ -2579,7 +2588,7 @@ function shortN(v){v=Math.round(+v||0);const a=Math.abs(v);if(a<100000)return v.
 /* Números do topo: uma passada pela base guarda clientes, rádio/fibra e uso do link por 1,5 s ou até a próxima venda. */
 let HUDC=null;
 function hudCensus(){const now=performance.now();if(HUDC&&HUDC.signed===S.signed&&HUDC.ci===S.cities.length&&now-HUDC.at<1500)return HUDC;
-  let r=0,f=0;for(const c of S.cities)for(const l of famsOf(c))if(isSub(l)){if(l.tech==='fiber')f++;else r++;}
+  let r=0,f=0;if(RC)for(const c of S.cities){const x=censusRC(c).rf;r+=x.r;f+=x.f;}else for(const c of S.cities)for(const l of famsOf(c))if(isSub(l)){if(l.tech==='fiber')f++;else r++;}
   return HUDC={at:now,signed:S.signed,ci:S.cities.length,cl:r+f,rf:{r,f},lu:trafficGbps()/linkNow().g};}
 function renderTop(){
   const c=city();
@@ -2881,7 +2890,7 @@ async function loadArea(c,a){
   finally{AREA_BUSY.delete(a);c.geoStep='';LSig='';renderAll();}
 }
 function areaSales(c,a){if(!(a.n>0)||saleBlock(c))return;const qs=[],fr=[];for(const q of c.blocks){if(q.ar!==a.id)continue;const f=quadraFree(q);if(f>0&&regionOk(c,q)&&sellable(c,q)){qs.push(q);fr.push(f);}}
-  if(!qs.length)return;const pre={qs,fr,tot:fr.reduce((x,y)=>x+y,0)};for(let i=0;i<AREA_SALES&&pre.tot>0;i++)if(attemptSale(c,'loja',false,pre)&&saleBlock(c))break;}
+  if(!qs.length)return;const pre={qs,fr,tot:fr.reduce((x,y)=>x+y,0)};let used=netUsed(c);const cap=netCap(c);for(let i=0;i<AREA_SALES&&pre.tot>0&&used<cap;i++)if(attemptSale(c,'loja',false,pre))used++;}
 const BSTAT=new Map();
 const needsBlocks=c=>!!c&&!hasBlocks(c)&&!c.blocksNone;
 function retryBlocks(c,why){const st=BSTAT.get(c)||{n:0};st.n++;st.err=why;const wait=Math.min(60000,4000*Math.pow(2,st.n-1));st.next=Date.now()+wait;clearTimeout(st.t);st.t=setTimeout(()=>{if(S&&needsBlocks(c)&&navigator.onLine)loadBlocks(c);},wait);BSTAT.set(c,st);}
@@ -3055,13 +3064,17 @@ const mgmtPrice=()=>MGMT_BASE*(mgmtActive().length+1);
 const mgmtOn=(bk,id)=>{const v=(S.mgmt||{})[bk+':'+id];return !!(v&&v.until>=monthOf(S.day));};
 function mgmtServed(b,id){if(RULE_SECTORS.some(x=>x[0]===id))return servesOf(b,id);const set=new Set(b.ci!=null?[b.ci]:[]);if(b.main)for(const c of S.cities)if(!bldgs().some(x=>!x.main&&x.ci===c.idx&&bHas(x,id)))set.add(c.idx);return set;}
 /* Operadores que o setor precisa para dar conta das cidades que o prédio atende (null = manter como está). */
-function mgmtNeed(b,id){const sv=mgmtServed(b,id),cs=S.cities.filter(c=>sv.has(c.idx)),cnt=f=>cs.reduce((t,c)=>t+famCount(c,f),0);
-  if(id==='callcenter')return Math.ceil(cnt(isSub)/CAP_VOZ*1.05);
-  if(id==='recuperacao')return Math.ceil(cnt(l=>(l.st==='late'||l.st==='suspended')&&l.debt>0)/CAP_REC);
-  if(id==='retencao')return Math.ceil(Math.max(cnt(l=>l.st==='cancelReq'),cnt(isSub)*0.02)/CAP_RET);
-  if(id==='logistica')return Math.ceil(cnt(l=>l.cpe)/CAP_LOG);
+/* Números de uma cidade para a consultoria (uma passada; dentro do relógio fica guardado até o fim do dia). */
+function cityStat(c){const m=TM&&(TM.cs||(TM.cs=new Map()));let v=m&&m.get(c);if(v)return v;v={sub:0,debt:0,req:0,cpe:0};
+  for(const l of famsOf(c)){const st=l.st;if(st==='client'||st==='late'||st==='suspended'||st==='cancelReq')v.sub++;if((st==='late'||st==='suspended')&&l.debt>0)v.debt++;if(st==='cancelReq')v.req++;if(l.cpe)v.cpe++;}
+  if(m)m.set(c,v);return v;}
+function mgmtNeed(b,id){const sv=mgmtServed(b,id),cs=S.cities.filter(c=>sv.has(c.idx)),cnt=k=>cs.reduce((t,c)=>t+cityStat(c)[k],0);
+  if(id==='callcenter')return Math.ceil(cnt('sub')/CAP_VOZ*1.05);
+  if(id==='recuperacao')return Math.ceil(cnt('debt')/CAP_REC);
+  if(id==='retencao')return Math.ceil(Math.max(cnt('req'),cnt('sub')*0.02)/CAP_RET);
+  if(id==='logistica')return Math.ceil(cnt('cpe')/CAP_LOG);
   if(id==='ouvidoria')return S.ouv?Math.ceil((S.ouv.total||0)/CAP_OUV):1;
-  if(id==='tecnico')return Math.max(1,Math.ceil(cnt(isSub)/CAP_TEC));
+  if(id==='tecnico')return Math.max(1,Math.ceil(cnt('sub')/CAP_TEC));
   return null;}
 function mgmtRun(b,id,quiet){return inB(b.fl,()=>{if(!built(id))return null;const f=FLOORS.find(x=>x.id===id),t=team(id),cc=id==='callcenter',opK=cc?'voz':'op';
   const cap=sectorCap(),need=mgmtNeed(b,id);let hired=0,fired=0,prom=0;
@@ -3069,7 +3082,8 @@ function mgmtRun(b,id,quiet){return inB(b.fl,()=>{if(!built(id))return null;cons
   // operadores alvo (cabe na vaga junto com supervisores, gerente e N2)
   let want=need==null?ops():need;want=Math.max(cc||need!=null?1:0,want);
   const fit=w=>{const sup=w>3?Math.ceil(w/5):0,n2=cc?Math.ceil(w/10):0,ger=(w+sup+n2)>=8?1:0;return w+sup+n2+ger<=cap;};
-  while(want>1&&!fit(want))want--;
+  // maior quantidade que cabe na vaga (busca binária: com base grande a necessidade passa de milhares e descer de 1 em 1 pesava)
+  if(want>1&&!fit(want)){let lo=1,hi=want;while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(fit(mid))lo=mid;else hi=mid-1;}want=lo;}
   while(ops()<want){if(S.money<hireCost())break;S.money-=hireCost();t[opK]=(t[opK]||0)+1;hired++;}
   while(ops()>want){if(cc&&(t.texto||0)>0)t.texto--;else t[opK]--;fired++;}
   const o=ops(),supW=o>3?Math.ceil(o/5):0,n2W=cc?Math.ceil(o/10):0;
@@ -3121,13 +3135,15 @@ document.addEventListener('click',e=>{if(!S)return;
 const RULE_SECTORS=[['callcenter','Call Center','clientes'],['comercial','Comercial','visitas'],['retencao','Retenção','pedidos'],['recuperacao','Recuperação','inadimplentes']];
 const POSTO_FLOORS=['callcenter','comercial','retencao','recuperacao','logistica'];
 const RULE_PER={get comercial(){return CAP_COM;},get retencao(){return CAP_RET;},get recuperacao(){return CAP_REC;}};
-function bldgs(){const sc=(S.sede&&S.sede.ci)||0,out=[{key:'sede',fl:S.floors,ci:sc,name:'Sede · '+((S.cities[sc]||{}).name||''),main:true}];
+function bldgs(){if(TM&&TM.bl)return TM.bl;const v=bldgs0();if(TM)TM.bl=v;return v;}
+function bldgs0(){const sc=(S.sede&&S.sede.ci)||0,out=[{key:'sede',fl:S.floors,ci:sc,name:'Sede · '+((S.cities[sc]||{}).name||''),main:true}];
   for(const c of S.cities){if(c.idx===sc)continue;if(c.hq)out.push({key:'hq'+c.idx,fl:c.hq.floors,ci:c.idx,name:'Regional · '+c.name});else if(c.galpao)out.push({key:'f'+c.idx,fl:c.galpao,ci:c.idx,name:'Filial · '+c.name});}
   if(S.outs&&Object.keys(S.outs).length)out.push({key:'out',fl:S.outs,ci:null,name:'Terceirizada',main:true});return out;}
 const bHas=(b,id)=>!!(b.fl&&b.fl[id]&&b.fl[id].built);
 function rulesOf(){return S.rules||(S.rules={serve:{},flow:{}});}
 const flowOn=id=>rulesOf().flow[id]!==false;
-function servesOf(b,id){const r=rulesOf().serve[b.key+':'+id],set=new Set(b.ci!=null?[b.ci]:[]);
+function servesOf(b,id){if(TM){const m=TM.sv||(TM.sv=new Map()),k=b.key+':'+id;let v=m.get(k);if(!v)m.set(k,v=servesOf0(b,id));return v;}return servesOf0(b,id);}
+function servesOf0(b,id){const r=rulesOf().serve[b.key+':'+id],set=new Set(b.ci!=null?[b.ci]:[]);
   if(r){for(const i of r)if(S.cities[i])set.add(i);return set;}
   if(b.main){const others=new Set(bldgs().filter(x=>!x.main&&bHas(x,id)).map(x=>x.ci));for(const c of S.cities)if(!others.has(c.idx))set.add(c.idx);}
   return set;}
@@ -4840,28 +4856,30 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mais de 0,5 s com a aba visível (PERF.ev). Fica só neste aparelho (localStorage pt-perf); Menu → Relatório de desempenho
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
+/* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
+const APP_V='v85';
 PERF.net=[];
-try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.net=o.net||[];PERF.since=o.since||Date.now();}}catch(e){}
+try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
 function perfNet(a,ok,msg,det,cota){PERF.net.push({t:Date.now(),a,ok,m:String(msg||'').slice(0,160),d:String(det||'').slice(0,300),q:cota});if(PERF.net.length>30)PERF.net.shift();perfSave();}
 function perfCtx(){if(!S)return {};const c=city();return {d:S.day,sp:S.speed,ci:S.ci,q:c&&c.blocks?c.blocks.length:0,cl:HUDC?HUDC.cl:0,p:PANEL||(modalOpen?'janela':''),z:LM&&LM._loaded?LM.getZoom():null};}
 function perfWrap(name,fn){return function(){const t0=performance.now();PERF.stack.push(name);try{return fn.apply(this,arguments);}finally{PERF.stack.pop();const ms=performance.now()-t0;
   const st=PERF.stats[name]||(PERF.stats[name]={n:0,sum:0,max:0,slow:0});st.n++;st.sum+=ms;if(ms>st.max)st.max=ms;if(ms>100)st.slow++;
   if(ms>50){PERF.calls.push({n:name,ms:Math.round(ms),end:performance.now(),in:PERF.stack.slice(-1)[0]||''});if(PERF.calls.length>60)PERF.calls.shift();}}};}
-for(const k of ['tick','monthEnd','renderAll','renderTop','renderMap','renderReal','drawReal','drawQuadras','qnRefresh','checkMissions','saveJson','openPanel','refreshPanel','renderBuilding','openModal','rivalMonth','migrationCalls','clientCampaignsMonth','corpMonth','ouvidoriaMonth','evalGoals','staffAlerts','vendorAttempt','areaSales','checkOffline','loadArea','loadBlocks','geoLoad','mgmtMonth','attemptSale','activate','cancelClient','requestCancel','staffPayroll','allocSector','saleCache'])
+for(const k of ['tick','monthEnd','renderAll','renderTop','renderMap','renderReal','drawReal','drawQuadras','qnRefresh','checkMissions','saveJson','openPanel','refreshPanel','renderBuilding','openModal','rivalMonth','migrationCalls','clientCampaignsMonth','corpMonth','ouvidoriaMonth','evalGoals','staffAlerts','areaSales','checkOffline','loadArea','loadBlocks','geoLoad','mgmtMonth','staffPayroll','allocSector'])
   try{const f=eval(k);if(typeof f==='function')eval(k+'=perfWrap(k,f)');}catch(e){}
 setInterval(()=>{const now=performance.now(),gap=now-PERF.last-250;PERF.last=now;if(document.visibilityState!=='visible'||gap<500)return;
   const from=now-gap-250,during=PERF.calls.filter(x=>x.end>=from&&!x.in).map(x=>x.n+' '+x.ms+' ms');
   PERF.ev.push({t:Date.now(),ms:Math.round(gap),f:during.join(', ')||'navegador (desenho da página, memória ou mapa)',...perfCtx()});if(PERF.ev.length>200)PERF.ev.shift();},250);
 document.addEventListener('visibilitychange',()=>{PERF.last=performance.now();});
-function perfSave(){try{localStorage.setItem('pt-perf',JSON.stringify({stats:PERF.stats,ev:PERF.ev.slice(-200),net:PERF.net.slice(-30),since:PERF.since}));}catch(e){}}
+function perfSave(){try{localStorage.setItem('pt-perf',JSON.stringify({v:APP_V,stats:PERF.stats,ev:PERF.ev.slice(-200),net:PERF.net.slice(-30),since:PERF.since}));}catch(e){}}
 setInterval(perfSave,20000);window.addEventListener('pagehide',perfSave);
 function perfText(){const n=navigator,sc=screen,c=S&&city(),h=x=>new Date(x).toLocaleString('pt-BR');
   const ua=(n.userAgent.match(/(iPhone|iPad|Android[^;)]*|Windows NT [\d.]+|Mac OS X [\d_]+)/)||[''])[0]+' · '+((n.userAgent.match(/(CriOS|Chrome|Firefox|Version)\/[\d.]+/)||[''])[0]);
   const big=PERF.ev.filter(e=>e.ms>=1000).length,worst=PERF.ev.reduce((m,e)=>Math.max(m,e.ms),0);
   const fn=Object.entries(PERF.stats).sort((a,b)=>b[1].sum-a[1].sum).map(([k,v])=>`  ${k}: ${v.n}× · média ${(v.sum/v.n).toFixed(1)} ms · máx ${Math.round(v.max)} ms · >100 ms ${v.slow}× · total ${(v.sum/1000).toFixed(1)} s`).join('\n');
   const ev=PERF.ev.slice(-40).reverse().map(e=>`  ${new Date(e.t).toLocaleTimeString('pt-BR')} · ${(e.ms/1000).toFixed(1).replace('.',',')} s · ${e.f} · dia ${e.d??'-'} · ${e.sp??'-'}× · ${e.p||'mapa'}${e.z!=null?' · zoom '+e.z:''} · ${e.q||0} quadras · ${e.cl||0} clientes`).join('\n');
-  return `Provedor Tycoon · relatório de desempenho
+  return `Provedor Tycoon ${APP_V} · relatório de desempenho
 Gerado em ${h(Date.now())} · medindo desde ${h(PERF.since)}
 Aparelho: ${ua} · tela ${sc.width}×${sc.height} (janela ${innerWidth}×${innerHeight}, dpr ${devicePixelRatio}) · núcleos ${n.hardwareConcurrency||'?'} · memória ${n.deviceMemory?n.deviceMemory+' GB':'?'}${performance.memory?' · heap '+Math.round(performance.memory.usedJSHeapSize/1048576)+' MB':''}
 Empresa: ${S?S.cities.length:0} cidade(s) · atual ${c?c.name+' ('+(c.blocks?c.blocks.length:0)+' quadras, '+(c.towers||[]).length+' torres)':'-'} · ${S?allClients():0} clientes · ${S?corpCount():0} empresas · velocidade ${S?S.speed:'-'}×
