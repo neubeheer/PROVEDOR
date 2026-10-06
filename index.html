@@ -334,6 +334,8 @@ body:has(.modal.f3d-modal) #coach{display:none!important}
 .t3-fbtn.cur span{background:#ffd84d}.t3-fbtn:active span{background:#7cf29a}
 .t3-stay{margin-top:10px;background:none;border:0;color:var(--navy);font-weight:700;text-decoration:underline;cursor:pointer}
 .t3-cam{position:absolute;right:10px;top:8px;pointer-events:auto;font:700 14px/1 var(--display);color:var(--navy);background:#fff8ea;border:3px solid var(--navy);border-radius:999px;padding:8px 12px;box-shadow:0 3px 0 var(--navy);cursor:pointer}
+.t3-q{position:absolute;right:10px;bottom:10px;pointer-events:auto;font:700 12px/1 var(--display);color:var(--navy);background:#fff8ea;border:2px solid var(--navy);border-radius:999px;padding:6px 10px;box-shadow:0 2px 0 var(--navy);cursor:pointer;z-index:2}
+.t3-ui .t3-q{right:auto;left:10px;top:8px;bottom:auto}
 .t3-aim{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#fff;border:2px solid var(--navy);opacity:.8}
 .t3-fade{position:absolute;inset:0;background:#0b1424;opacity:0;transition:opacity .35s;pointer-events:none}.t3-fade.on{opacity:1}
 .t3-help{position:absolute;left:0;right:0;bottom:6px;margin:0;text-align:center;font-size:12px;font-weight:700;color:var(--navy);text-shadow:0 1px 0 #fff}
@@ -1178,6 +1180,8 @@ const FLOORS=[
   {id:'migracao',name:'Migração e Upgrade',level:12,cost:12000,op:'Operador de migração',sal:380,desc:'Liga para a base: migra clientes do rádio para a fibra (pode manter o mesmo preço) e oferece upgrade de plano para aumentar o ticket médio. Cada operador faz 30 ligações por mês.'},
   {id:'ouvidoria',name:'Ouvidoria',level:11,cost:7500,op:'Ouvidor',sal:420,desc:'Recebe as reclamações dos clientes e mostra o que a empresa precisa melhorar. Cada ouvidor trata até 60 manifestações por mês; reclamação sem resposta vira queixa na Anatel e pode dar multa.'},
   {id:'noc',name:'NOC',level:10,cost:9000,op:'Analista de NOC',sal:500,desc:'Monitoramento 24h: torres aguentam 50% mais clientes. Aqui ficam os servidores de cache.'},
+  {id:'infra',name:'Infraestrutura',level:13,cost:9500,op:'Cabista (rede externa)',sal:450,desc:'Equipe de rede externa: constrói backbone e caixas CTO com 30% de desconto (até 2 obras por cabista por mês) e conserta as CTOs que param, em 1 a 2 dias (até 6 por cabista por mês). Sem ela, a empreiteira demora 7 dias e cobra por conserto.'},
+  {id:'garagem',under:true,name:'Garagem',level:15,cost:8000,op:'Mecânico',sal:380,desc:'Subsolo com a frota: vans dos técnicos, picapes da infra, caminhões da logística e motos dos vendedores. Cada mecânico cuida de até 8 veículos; com a frota em dia, Técnico, Infra e Logística rendem até 10% mais.'},
   {id:'logistica',annex:true,name:'Logística',level:4,cost:3800,op:'Motorista',sal:300,desc:'Galpão dos equipamentos em comodato. Cada motorista recolhe até 6 rádios por mês.'},
 ];
 const ROLE_HINT={voz:'Atende até 40 clientes',texto:'Atende até 50 clientes, salário menor',n2:'Menos cancelamentos por problema técnico',sup:'1 para cada 5 operadores',ger:'Obrigatório a partir de 8 pessoas no setor',
@@ -1262,6 +1266,7 @@ const RETAIN={
 };
 /* Capacidade de cada função por mês (administrador pode mudar): clientes por atendente, visitas por vendedor (a cada 4 dias)… */
 let CAP_VOZ=40,CAP_TEXTO=50,CAP_COM=3,CAP_RET=5,CAP_REC=3,CAP_LOG=6,CAP_OUV=60,CAP_MIG=30,CAP_TEC=1500,SUP_SAL=700,GER_SAL=1200,SUP_PER=5;
+let CAP_INFRA=6,INFRA_OBRAS=2,INFRA_DISC=0.3,CTO_FAIL=0.0006,CTO_THIRD=2500,CTO_THIRD_DAYS=7,CAP_MEC=8,GARAGE_BONUS=0.1;
 let LOGIN_DIAMONDS=100,RIVAL_ONLINE_H=24,RULES_MIN_CITIES=2,MENU_CONN=0;
 const connOn=()=>isAdmin()||MENU_CONN>=1;
 const rulesOn=()=>!!S&&S.cities.length>=RULES_MIN_CITIES;
@@ -1915,6 +1920,22 @@ function effIssues(id){
   if(headcount(id)>=8&&!t.ger)out.push('falta um gerente');
   return out;
 }
+/* Frota da empresa (todos os prédios) e bônus da garagem: mecânicos suficientes deixam a frota em dia. */
+function fleetOf(){const o=id=>inB(null,()=>opsOf(id));return {vans:o('tecnico'),picapes:o('infra'),trucks:o('logistica'),motos:Math.ceil(o('comercial')/2)};}
+function garageBonus(){if(!inB(null,()=>built('garagem')))return 0;const f=fleetOf(),n=f.vans+f.picapes+f.trucks+f.motos;if(!n)return 0;return GARAGE_BONUS*Math.min(1,inB(null,()=>opsOf('garagem'))*CAP_MEC/n);}
+/* Infraestrutura: obras de fibra com desconto (até INFRA_OBRAS por cabista no mês) e conserto das CTOs que param. */
+function infraQuote(base){const I=S.infra||(S.infra={});const m=monthOf(S.day);if(I.m!==m){I.m=m;I.obras=0;}
+  const crew=inB(null,()=>built('infra')?opsOf('infra'):0),left=crew*INFRA_OBRAS-(I.obras||0);return {price:left>0?Math.round(base*(1-INFRA_DISC)):base,own:left>0,left:Math.max(0,left),crew};}
+function infraUse(){const I=S.infra||(S.infra={});I.obras=(I.obras||0)+1;}
+function infraDay(){if(!S.cities.some(c=>c.fiber&&c.fiber.on&&c.fiber.ctos.length))return;
+  const I=S.infra||(S.infra={}),crew=inB(null,()=>built('infra')?opsOf('infra')*effOf('infra'):0),perDay=crew*CAP_INFRA/30;
+  I.rep=Math.min(Math.max(1,perDay*3),(I.rep||0)+perDay);const rain=effect('chuva')?3:1;
+  for(const c of S.cities){if(!(c.fiber&&c.fiber.on))continue;const dn=c.fiber.down||(c.fiber.down={}),dd=c.fiber.dd||(c.fiber.dd={});
+    for(const j of c.fiber.ctos)if(!dn[j]&&Math.random()<CTO_FAIL*rain){dn[j]={since:S.day};log(`⚠️ A caixa CTO do bairro ${c.bairros[j]} (${c.name}) parou: os clientes de fibra de lá estão sem internet.`);event(`CTO parada em ${c.bairros[j]}`);}
+    for(const j of Object.keys(dn)){dd[j]=(dd[j]||0)+1;const d=dn[j],days=S.day-d.since;
+      if(days>=1&&I.rep>=1){I.rep--;delete dn[j];S.cur.ctoRep=(S.cur.ctoRep||0)+1;log(`Infra consertou a CTO do bairro ${c.bairros[j]} (${c.name}) em ${days} dia(s).`);}
+      else if(days>=CTO_THIRD_DAYS){S.money-=CTO_THIRD;S.cur.ctoThird=(S.cur.ctoThird||0)+CTO_THIRD;delete dn[j];log(`Empreiteira consertou a CTO do bairro ${c.bairros[j]} (${c.name}) depois de ${days} dias: ${brl0(CTO_THIRD)}.`);}}}}
+const ctoDown=c=>c.fiber&&c.fiber.down?Object.keys(c.fiber.down).length:0;
 function effOf(id){
   if(!built(id))return 0;const t=team(id),ops=opsOf(id)+(id==='callcenter'?(t.n2||0):0);
   let e=1;const need=ops>3?Math.ceil(ops/5):0;e-=0.12*Math.max(0,need-(t.sup||0));
@@ -1922,6 +1943,7 @@ function effOf(id){
   const cr=careerOf(id),o=opsOf(id);if(o)e+=(0.12*cr.pl+0.25*cr.sr)/o;
   const gf=S.goalFx&&S.goalFx[id];if(gf&&gf.m===monthOf(S.day))e+=gf.e;
   const tr=S.train&&S.train[id];if(tr&&tr.until>=monthOf(S.day))e+=tr.b;
+  if(id==='tecnico'||id==='infra'||id==='logistica')e+=garageBonus();
   return clamp(e,0.4,1.45);
 }
 const capOf=(id,per)=>Math.floor(opsOf(id)*per*effOf(id)+1e-9);
@@ -2071,6 +2093,7 @@ function tick0(){
   if(S.phase!=='play')return;
   S.seenAt=Date.now();
   S.day++;
+  infraDay();
   for(const d of DOCS){const st=S.docs[d.id];if(st&&!st.done&&st.until<=S.day){st.done=true;addXp(15);log(`${d.name}: pronto.`);event(`${d.name} pronto`);toast(`${d.name} pronto!`);save(true);}}
   for(const c of S.cities)for(const l of famsOf(c)){if(l.st==='refused'&&l.until<=S.day)l.st='none';if(l.st==='cancelReq'&&l.reqUntil<=S.day)cancelClient(c,l,REASONS[l.reason]||'pedido não atendido');}
   if(S.day%4===0)for(const b of bldgs()){if(!bHas(b,'comercial'))continue;const v=bCap(b,'comercial');if(!(v>0))continue;const V={only:servesOf(b,'comercial'),flow:flowOn('comercial')};for(let i=0;i<v;i++)vendorAttempt(V);}
@@ -2095,13 +2118,13 @@ function monthEnd(){
   const trNow=trafficGbps(),peakT=trNow*(1.05+Math.random()*0.15),util=peakT/linkNow().g,congP=util>1?Math.min(0.08,(util-1)*0.2):0;
   const bTec=built('tecnico'),bNoc=built('noc'),eChuva=effect('chuva'),eCrise=effect('crise'),clubOn=cpOn('clube'),capT=cap();
   for(const c of S.cities){
-    const offT=new Set(c.towers.filter(t=>t.off).map(t=>t.id)),TL=towerLoads(c);
+    const offT=new Set(c.towers.filter(t=>t.off).map(t=>t.id)),TL=towerLoads(c),ctoDD=c.fiber&&c.fiber.dd||null;
     const overT=new Set(c.towers.filter(t=>!t.off&&(TL.get(t.id)||0)>capT).map(t=>t.id));over+=overT.size;
     for(const l of famsOf(c)){
       if(!isSub(l))continue;
       const fib=l.tech==='fiber';
-      const offline=!fib&&offT.has(l.tid);
-      if(pays(l)&&!offline){rev+=priceNow(l);clients++;if(fib)fiberCl++;else radioCl++;if(l.combo.includes('tv'))tv++;if(l.combo.includes('fone'))fone++;}
+      const offline=!fib&&offT.has(l.tid),cdd=fib&&ctoDD?(ctoDD[bairroOf(l)]||0):0;
+      if(pays(l)&&!offline){rev+=priceNow(l)*(cdd?Math.max(0,1-cdd/30):1);clients++;if(fib)fiberCl++;else radioCl++;if(l.combo.includes('tv'))tv++;if(l.combo.includes('fone'))fone++;}
       else if(l.st==='late'&&!offline){clients++;if(fib)fiberCl++;else radioCl++;lateUnpaid+=l.price;}
       if(l.st==='cancelReq')continue;
       if(l.st==='late'||l.st==='suspended'){
@@ -2111,7 +2134,7 @@ function monthEnd(){
         else if(l.st==='suspended'&&months>=4){S.cur.perdaDivida=(S.cur.perdaDivida||0)+(l.debt||0);cancelClient(c,l,'dívida não paga');}
         continue;
       }
-      let p=0.012;if(!fib&&overT.has(l.tid))p+=0.07;if(S.rep<40)p+=0.03;if(!bTec)p+=0.01;if(bNoc)p-=0.008;if(eChuva&&!fib)p+=0.02;if(offline)p+=0.35;
+      let p=0.012;if(!fib&&overT.has(l.tid))p+=0.07;if(S.rep<40)p+=0.03;if(!bTec)p+=0.01;if(bNoc)p-=0.008;if(eChuva&&!fib)p+=0.02;if(cdd)p+=Math.min(0.3,cdd*0.015);if(offline)p+=0.35;
       if(fib)p-=0.008;p-=Math.min(n2,4)*0.003*ccE;p+=(1-(ccR[c.idx]??1))*0.015;p+=prevCompl*0.004+congP-(S.ouvBonus||0);{const cu=cityU.get(c)||0;if(cu>1)p+=Math.min(0.08,(cu-1)*0.2);}
       if(l.fidUntil&&l.fidUntil>=m)p*=0.5;if(clubOn)p*=0.6;
       if(Math.random()<p){requestCancel(c,l,congP&&Math.random()<0.6?'lenta':reasonFor(c,l,offline,!fib&&overT.has(l.tid)));continue;}
@@ -2120,6 +2143,7 @@ function monthEnd(){
       if(!(l.grace&&l.grace>=m)&&Math.random()<q){l.st='late';l.lateSince=S.day;l.debt=0;calNow++;}
     }
   }
+  for(const c of S.cities)if(c.fiber)c.fiber.dd={};
   // parcelas de acordos
   let parc=0;
   S.parcelas=S.parcelas.filter(pc=>{parc+=pc.amount;pc.left--;return pc.left>0;});
@@ -2997,7 +3021,7 @@ function renderTut(){
     <div class="tut-dots" aria-hidden="true">${st.map((x,k)=>`<i class="${x.done?'ok':k===i?'on':''}"></i>`).join('')}</div>
     <div class="tut-act">${s.act?`<button class="btn small primary" data-act="${s.act}">${s.btn}</button>`:''}<button class="btn small ghost" data-act="tutSkip">Pular tutorial</button></div></div></div>`;
 }
-function floorLabel(f){const list=FLOORS.filter(x=>!x.annex);const i=list.indexOf(f);return i===0?'Térreo':`${i}º andar`;}
+function floorLabel(f){if(f.under)return 'Subsolo';const list=FLOORS.filter(x=>!x.annex&&!x.under);const i=list.indexOf(f);return i===0?'Térreo':`${i}º andar`;}
 function windowsHtml(n){const k=Math.max(6,Math.min(10,n));return `<div class="windows">${Array.from({length:k},(_,i)=>`<span class="win ${i<n?'':'empty'}">${i<n?'<span class="person"></span>':''}</span>`).join('')}${n>10?`<small>+${n-10}</small>`:''}</div>`;}
 function builtFloorHtml(f,cls){
   const hc=headcount(f.id),e=effOf(f.id),iss=effIssues(f.id);
@@ -3011,7 +3035,7 @@ function builtFloorHtml(f,cls){
 /* ===================== Andar em 3D =====================
    Three.js (vendor/three) e floor3d.js só carregam quando o jogador abre um andar. A cena mostra a equipe do prédio
    aberto: operadores digitando, N2, supervisores andando, gerente na sala de vidro e gente indo ao café. */
-const FLOOR_LOOK={callcenter:['🎧','#2a83d8',1],comercial:['💼','#ff8a1f'],tecnico:['🔧','#5b6b8c'],logistica:['📦','#c98a4a'],retencao:['🤝','#0f9a8d',1],rh:['🧑‍💼','#d94f8a'],
+const FLOOR_LOOK={infra:['🛠️','#e5641f'],garagem:['🚐','#5d6a80'],callcenter:['🎧','#2a83d8',1],comercial:['💼','#ff8a1f'],tecnico:['🔧','#5b6b8c'],logistica:['📦','#c98a4a'],retencao:['🤝','#0f9a8d',1],rh:['🧑‍💼','#d94f8a'],
   marketing:['📣','#e5a21e'],recuperacao:['💰','#3a9a4a',1],noc:['🖥️','#1f6cc0'],ouvidoria:['📢','#7a4fd6',1],migracao:['🔄','#2bb3a6',1]};
 function bkeyNow(){if(!BCTX||BCTX===S.floors)return 'sede';if(BCTX===S.outs)return 'out';const c=S.cities.find(x=>(x.hq&&x.hq.floors===BCTX)||x.galpao===BCTX);return c?(c.hq?'hq':'f')+c.idx:'sede';}
 let L3D=null;
@@ -3019,9 +3043,10 @@ function load3D(){if(window.THREE&&window.Floor3D)return Promise.resolve();if(L3
   const add=src=>new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error('Não deu para carregar o 3D. Confira a internet.'));document.head.appendChild(sc);});
   return L3D=(window.THREE?Promise.resolve():add('vendor/three/three.min.js')).then(()=>add('floor3d.js?v='+APP_V)).catch(e=>{L3D=null;throw e;});}
 function floorData(id,b){const f=FLOORS.find(x=>x.id===id);return inB(b.fl,()=>{const t=team(id),cc=id==='callcenter',lk=FLOOR_LOOK[id]||['🏢','#2a83d8'];
-    return {id,name:f.name,emoji:lk[0],color:lk[1],headset:!!lk[2],ops:cc?(t.voz||0)+(t.texto||0):(t.op||0),n2:cc?(t.n2||0):0,sup:t.sup||0,ger:t.ger||0,eff:effOf(id),op:cc?'Atendentes':(rolesOf(f).op||{}).t||'Operador'};});}
+    return {id,fleet:id==='garagem'?fleetOf():null,bonus:id==='garagem'&&GARAGE_BONUS?garageBonus()/GARAGE_BONUS:null,name:f.name,emoji:lk[0],color:lk[1],headset:!!lk[2],ops:cc?(t.voz||0)+(t.texto||0):(t.op||0),n2:cc?(t.n2||0):0,sup:t.sup||0,ger:t.ger||0,eff:effOf(id),op:cc?'Atendentes':(rolesOf(f).op||{}).t||'Operador'};});}
 /* Andares do prédio para o elevador: térreo (recepção), os andares construídos com o número real e o galpão anexo. */
-function tourFloors(b){const plain=FLOORS.filter(x=>!x.annex),L=[{id:'lobby',label:'T',name:'Recepção'}];
+function tourFloors(b){const plain=FLOORS.filter(x=>!x.annex&&!x.under),L=[{id:'lobby',label:'T',name:'Recepção'}];
+  const gar=FLOORS.find(x=>x.under);if(gar&&b.fl[gar.id]&&b.fl[gar.id].built)L.unshift({id:gar.id,label:'S',name:gar.name,data:floorData(gar.id,b)});
   for(const f of plain){if(f.id==='recepcao'||!(b.fl[f.id]&&b.fl[f.id].built))continue;L.push({id:f.id,label:String(plain.indexOf(f)),name:f.name,data:floorData(f.id,b)});}
   const an=FLOORS.find(x=>x.annex);if(an&&b.fl[an.id]&&b.fl[an.id].built)L.push({id:an.id,label:'G',name:an.name,data:floorData(an.id,b)});return L;}
 async function openTour(bk,startId){const b=bldgs().find(x=>x.key===bk)||bldgs()[0];if(!b)return;
@@ -3041,7 +3066,7 @@ async function openFloor3D(id,bk){const f=FLOORS.find(x=>x.id===id),b=bldgs().fi
   openModal(head(esc(b.name),`${d.emoji} ${esc(f.name)} · ${f.annex?'Galpão anexo':floorLabel(f)}`)+`<div class="f3d-wrap"><div id="f3d"></div><div class="f3d-hud" id="f3dHud">${hud(null)}</div><div class="f3d-load" id="f3dLoad">Montando o andar…</div><p class="f3d-tip">Arraste para girar · pinça ou roda do mouse para aproximar</p></div>
     <div class="foot"><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="team" data-f="${id}"${hq}>Equipe</button><button class="btn signal" data-act="tour" data-bk="${b.key}" data-f="${id}">🚶 Andar por aqui</button></span><button class="btn primary" data-close>Fechar</button></div>`,m=>{m.classList.add('f3d-modal');});
   const md=$('#modal');let view=null,dead=false;MODAL_KILL=()=>{dead=true;md.classList.remove('f3d-modal');if(view)view.dispose();};
-  try{await load3D();if(dead)return;const el=document.getElementById('f3d');if(!el)return;view=Floor3D.open(el,d);
+  try{await load3D();if(dead)return;const el=document.getElementById('f3d');if(!el)return;view=window.__view=Floor3D.open(el,d);
     const ld=document.getElementById('f3dLoad');if(ld)ld.remove();const h=document.getElementById('f3dHud');if(h)h.innerHTML=hud(view);}
   catch(e){const ld=document.getElementById('f3dLoad');if(ld)ld.textContent=/WebGL|context/i.test(e.message)?'Este aparelho não conseguiu abrir o 3D (WebGL desligado).':e.message;}}
 function rolesSum(f){const R=rolesOf(f),t=team(f.id);let s=0;for(const k in t)s+=(t[k]||0)*((R[k]||{}).sal||0);return s+careerExtra(f);}
@@ -3074,7 +3099,7 @@ function renderBuildingMain(){
   const fibCities=S.cities.filter(c=>c.fiber&&c.fiber.on).length,fibCl=S.cities.reduce((s,c)=>s+famCount(c,l=>isSub(l)&&l.tech==='fiber'),0);
   h+=lvl<FIBRA_LEVEL?`<div class="floor soon"><div class="floor-top"><span class="floor-name">Fibra óptica</span><span class="floor-lvl">🔒 Nível ${FIBRA_LEVEL}</span></div><p class="floor-desc">Backbone de ${brl0(BACKBONE_COST)} por cidade, caixas CTO por bairro e clientes migrando do rádio.</p></div>`
     :`<div class="floor"><div class="floor-top"><span class="floor-name"><small>Diretoria de rede</small>Fibra óptica</span><span class="floor-lvl">${FIBER_TIERS[S.fiberTier].name}</span></div><p class="floor-desc">Backbone em ${fibCities} cidade(s) · ${fibCl} cliente(s) na fibra.</p><div class="floor-actions"><button class="btn small primary" data-act="fiber">Rede de fibra</button></div></div>`;
-  for(const f of [...FLOORS].filter(f=>!f.annex).reverse()){
+  for(const f of [...FLOORS].filter(f=>!f.annex&&!f.under).reverse()){
     if(f.id==='recepcao'){
       const actions=!cnpjDone()?`<button class="btn small primary" data-act="docs">Abrir a empresa (CNPJ)</button>`:!cityLicensed(c0)?`<button class="btn small primary" data-act="outorga">Comprar outorga · ${brl0(c0.outorga)}</button>`:`<button class="btn small ${docsDone()?'ghost':'primary'}" data-act="docs">${docsDone()?'Documentação':'Licenciamento'}</button>`;
       h+=`<div class="floor ground"><div class="floor-top"><span class="floor-name"><small>Térreo</small>${f.name}</span><span class="floor-lvl">Sede · ${esc(c0.bairros[S.sede.b])}</span></div><p class="floor-desc">${f.desc}${S.partners?` Sócios: ${S.partners}.`:''}</p><div class="floor-actions">${actions}<button class="btn small signal" data-act="tour" data-bk="sede" data-f="lobby">🚶 Andar pela empresa</button></div></div>`;
@@ -3082,7 +3107,7 @@ function renderBuildingMain(){
     }
     h+=floorHtml(f,lvl);
   }
-  h+=`<div class="door"></div>`+floorHtml(FLOORS.find(x=>x.annex),lvl);
+  h+=`<div class="door"></div>`+floorHtml(FLOORS.find(x=>x.under),lvl)+floorHtml(FLOORS.find(x=>x.annex),lvl);
   $('#building').innerHTML=h;
   const bm=document.getElementById('buildingM');if(bm)bm.innerHTML=h;
 }
@@ -3121,7 +3146,7 @@ function convertHQ(ci){const c=S.cities[ci];if(!canHQ(c))return;if(!spend(HQ_COS
   toast(`Sede regional em ${c.name}! Compre os andares e contrate a equipe.`);PANEL_B=ci;openPanel('building');}
 function hqBuildingHtml(ci){const c=S.cities[ci];if(!c||!c.hq)return '';return inB(c.hq.floors,()=>{const lvl=levelOf(S.xp);
   let h=`<div class="sign">Sede regional · ${esc(c.name)}</div>`;
-  for(const f of [...FLOORS].filter(f=>!f.annex).reverse()){
+  for(const f of [...FLOORS].filter(f=>!f.annex&&!f.under).reverse()){
     if(f.id==='recepcao'){h+=`<div class="floor ground"><div class="floor-top"><span class="floor-name"><small>Térreo</small>Recepção regional</span><span class="floor-lvl">Antiga filial</span></div><p class="floor-desc">Atendimento de balcão e base da equipe regional. As equipes daqui somam na capacidade da empresa, e cada setor tem vagas próprias.</p></div>`;continue;}
     h+=floorHtml(f,lvl);}
   h+='<div class="door"></div>'+floorHtml(FLOORS.find(x=>x.annex),lvl);
@@ -3150,6 +3175,8 @@ function mgmtNeed(b,id){const sv=mgmtServed(b,id),cs=S.cities.filter(c=>sv.has(c
   if(id==='logistica')return Math.ceil(cnt('cpe')/CAP_LOG);
   if(id==='ouvidoria')return S.ouv?Math.ceil((S.ouv.total||0)/CAP_OUV):1;
   if(id==='tecnico')return Math.max(1,Math.ceil(cnt('sub')/CAP_TEC));
+  if(id==='infra')return Math.max(1,Math.ceil(cs.reduce((t,c)=>t+(c.fiber&&c.fiber.on?c.fiber.ctos.length:0),0)/(CAP_INFRA*5)));
+  if(id==='garagem'){const f=fleetOf();return Math.max(1,Math.ceil((f.vans+f.picapes+f.trucks+f.motos)/CAP_MEC));}
   return null;}
 function mgmtRun(b,id,quiet){return inB(b.fl,()=>{if(!built(id))return null;const f=FLOORS.find(x=>x.id===id),t=team(id),cc=id==='callcenter',opK=cc?'voz':'op';
   const cap=sectorCap(),need=mgmtNeed(b,id);let hired=0,fired=0,prom=0;
@@ -3374,6 +3401,7 @@ function staffAlerts0(){
   if(built('callcenter')){const t=team('callcenter'),k=Math.floor(((t.voz||0)*CAP_VOZ+(t.texto||0)*CAP_TEXTO)*effOf('callcenter'));if(cl>k)add('cc','callcenter',`Call Center: ${cl} clientes e a equipe atende ${k}. Contrate atendentes.`);}
   if(built('recuperacao')){const n=cn().late,k=capOf('recuperacao',CAP_REC);if(n>k)add('rec','recuperacao',`Recuperação: ${n} inadimplentes e os cobradores negociam ${k} por mês.`);}
   if(built('retencao')){const n=cn().req,k=capOf('retencao',CAP_RET);if(n>k)add('ret','retencao',`Retenção: ${n} pedidos de cancelamento e a equipe atende ${k} por mês.`);}
+  if(built('infra')){const dw=S.cities.reduce((t,c)=>t+ctoDown(c),0);if(dw&&!opsOf('infra'))add('infra','infra',`Infraestrutura: ${dw} CTO(s) parada(s) e nenhum cabista.`);}
   if(built('logistica')){const n=cn().cpe,k=capOf('logistica',CAP_LOG);if(n>k)add('log','logistica',`Logística: ${n} rádios para recolher e os motoristas buscam ${k} por mês.`);}
   if(built('ouvidoria')&&S.ouv){const k=capOf('ouvidoria',CAP_OUV);if((S.ouv.total||0)>k)add('ouv','ouvidoria',`Ouvidoria: ${S.ouv.total} manifestações e a equipe trata ${k} por mês.`);}
   for(const f of FLOORS){if(f.id==='recepcao'||!built(f.id))continue;
@@ -4042,19 +4070,20 @@ function openStore(c){
 function openFiber(){
   const c=city(),lvl=levelOf(S.xp);
   if(lvl<FIBRA_LEVEL){toast(`A fibra libera no nível ${FIBRA_LEVEL}.`);return;}
-  const tier=FIBER_TIERS[S.fiberTier],next=FIBER_TIERS[S.fiberTier+1];
+  const tier=FIBER_TIERS[S.fiberTier],next=FIBER_TIERS[S.fiberTier+1],bbQ=infraQuote(BACKBONE_COST),ctoQ=infraQuote(CTO_COST),dn=c.fiber.down||{};
   const bairros=c.bairros.map((b,i)=>{const lots=quadras(c).filter(l=>bairroOf(l)===i),houses=lots.reduce((s,l)=>s+(l.dom||0),0),fl=lots.flatMap(l=>l.fams||[]),radio=fl.filter(l=>isSub(l)&&l.tech!=='fiber').length,fib=fl.filter(l=>isSub(l)&&l.tech==='fiber').length,has=c.fiber.ctos.includes(i);
-    return `<div class="tile ${has?'on':''}"><b>${esc(b)}</b><small>${houses.toLocaleString('pt-BR')} moradores · ${radio} no rádio · ${fib} na fibra</small>${has?'<span class="chip ok" style="align-self:flex-start">CTO instalada</span>':`<button class="btn small" data-cto="${i}" ${c.fiber.on?'':'disabled'} style="align-self:flex-start">Caixa CTO · ${brl0(CTO_COST)}</button>`}</div>`;}).join('');
+    return `<div class="tile ${has?'on':''}"><b>${esc(b)}</b><small>${houses.toLocaleString('pt-BR')} moradores · ${radio} no rádio · ${fib} na fibra</small>${has?(dn[i]?`<span class="chip bad" style="align-self:flex-start">⚠️ CTO parada há ${S.day-dn[i].since} dia(s)</span>`:'<span class="chip ok" style="align-self:flex-start">CTO instalada</span>'):`<button class="btn small" data-cto="${i}" ${c.fiber.on?'':'disabled'} style="align-self:flex-start">Caixa CTO · ${brl0(ctoQ.price)}</button>`}</div>`;}).join('');
   openModal(head('Rede de fibra',esc(c.name))+`
     ${!cityLicensed(c)?'<div class="notice bad">Compre a outorga desta cidade primeiro.</div>':''}
-    ${c.fiber.on?`<div class="notice ok">Backbone ativo em ${esc(c.name)}. Manutenção: ${brl0(1000)}/mês + ${brl0(40)} por caixa CTO.</div>`:`<div class="notice warn"><b>Primeiro investimento: backbone de ${brl0(BACKBONE_COST)}.</b> É o cabo principal que traz a fibra até a cidade. Depois, cada bairro precisa de uma caixa CTO.<div style="margin-top:8px"><button class="btn small primary" id="fbBack" ${c.outorgaPaid?'':'disabled'}>Construir backbone · ${brl0(BACKBONE_COST)}</button></div></div>`}
+    ${ctoQ.crew?`<div class="notice ok">🛠️ Equipe de Infraestrutura: ${ctoQ.crew} cabista(s). ${ctoQ.left?`Ainda ${ctoQ.left} obra(s) com ${Math.round(INFRA_DISC*100)}% de desconto neste mês.`:'As obras com desconto deste mês acabaram: a próxima vai para a empreiteira.'}</div>`:levelOf(S.xp)>=(FLOORS.find(f=>f.id==='infra')||{}).level?`<div class="notice warn">Sem equipe de Infraestrutura: obras pela empreiteira (preço cheio) e CTO parada só volta em ${CTO_THIRD_DAYS} dias (${brl0(CTO_THIRD)}). Monte o andar de Infraestrutura no Prédio.</div>`:''}
+    ${c.fiber.on?`<div class="notice ok">Backbone ativo em ${esc(c.name)}. Manutenção: ${brl0(1000)}/mês + ${brl0(40)} por caixa CTO.</div>`:`<div class="notice warn"><b>Primeiro investimento: backbone de ${brl0(bbQ.price)}.</b> É o cabo principal que traz a fibra até a cidade. Depois, cada bairro precisa de uma caixa CTO.<div style="margin-top:8px"><button class="btn small primary" id="fbBack" ${c.outorgaPaid?'':'disabled'}>Construir backbone · ${brl0(bbQ.price)}</button></div></div>`}
     <div class="grid3">${bairros}</div>
     <h3 style="font-size:15px;margin:16px 0 8px">Planos e equipamento (${tier.name})</h3>
     <p class="muted" style="margin:0 0 8px">${tier.plans.map(p=>`${p.name}: ${brl(pp(p))}`).join(' · ')}. A fibra começa cara e com pouca velocidade; cada geração de OLT traz planos mais rápidos e mais baratos.</p>
     ${next?`<div class="choice"><div><b>${next.name}</b><small>Nível ${next.level} · ${next.plans.map(p=>`${p.name} ${brl(pp(p))}`).join(', ')}</small></div><button class="btn small primary" id="fbUp" ${lvl<next.level?'disabled':''}>${lvl<next.level?'🔒 Nível '+next.level:'Atualizar · '+brl0(next.cost)}</button></div>`:'<div class="notice ok">Você já tem a OLT mais moderna.</div>'}
     <p class="muted" style="font-size:12.5px;margin-top:12px">Para migrar: toque numa casa que já é cliente de rádio num bairro com CTO. O rádio dela volta para o estoque. Torre sem clientes de rádio pode ser desmontada e levada para outra cidade.</p>`,m=>{
-    const bb=m.querySelector('#fbBack');if(bb)bb.onclick=()=>{if(!spend(BACKBONE_COST))return;c.fiber.on=true;addXp(150);log(`Backbone de fibra chegou em ${c.name}.`);event(`Backbone de fibra em ${c.name}`);checkMissions();save(true);openFiber();};
-    m.querySelectorAll('[data-cto]').forEach(b=>b.onclick=()=>{const i=+b.dataset.cto;if(!spend(CTO_COST))return;c.fiber.ctos.push(i);addXp(20);log(`Caixa CTO instalada no bairro ${c.bairros[i]}.`);event(`CTO em ${c.bairros[i]}`);checkMissions();save(true);openFiber();});
+    const bb=m.querySelector('#fbBack');if(bb)bb.onclick=()=>{const q=infraQuote(BACKBONE_COST);if(!spend(q.price))return;if(q.own)infraUse();c.fiber.on=true;addXp(150);log(`Backbone de fibra chegou em ${c.name}.`);event(`Backbone de fibra em ${c.name}`);checkMissions();save(true);openFiber();};
+    m.querySelectorAll('[data-cto]').forEach(b=>b.onclick=()=>{const i=+b.dataset.cto,q=infraQuote(CTO_COST);if(!spend(q.price))return;if(q.own)infraUse();c.fiber.ctos.push(i);addXp(20);log(`Caixa CTO instalada no bairro ${c.bairros[i]}.`);event(`CTO em ${c.bairros[i]}`);checkMissions();save(true);openFiber();});
     const up=m.querySelector('#fbUp');if(up)up.onclick=()=>{if(!next||lvl<next.level||!spend(next.cost))return;S.fiberTier++;addXp(60);log(`OLT atualizada: ${next.name}.`);event(`Nova OLT: ${next.name}`);save(true);openFiber();};
   });
 }
@@ -4824,7 +4853,7 @@ function renderReal(){blkNote(S&&city());
   if(!window.L){tools.innerHTML='<div class="real-empty"><b>Carregando o mapa…</b></div>';setTimeout(renderReal,400);return;}
   initLeaflet();
   if(LM.getSize().x===0){LSig='';return;}
-  const sig=JSON.stringify([RIVAL.at,c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,c.store,S.sede,c.bairros,famHash(c,true),c.lots.map(l=>l.t[0]).join(''),S.phase,c.blocksAt||0]);
+  const sig=JSON.stringify([RIVAL.at,c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,Object.keys(c.fiber.down||{}).join(),c.store,S.sede,c.bairros,famHash(c,true),c.lots.map(l=>l.t[0]).join(''),S.phase,c.blocksAt||0]);
   if(sig!==LSig){const first=!LSig||!LSig.includes(','+c.idx+','+c.geo.loadedAt+',');const wait=(TICKR?5000:1500)-(Date.now()-LDrawAt);
     if(first||wait<=0){clearTimeout(LDrawT);LDrawT=null;LSig=sig;LDrawAt=Date.now();drawReal(c,first);}else if(!LDrawT||!TICKR){clearTimeout(LDrawT);LDrawT=setTimeout(()=>{LDrawT=null;renderReal();},wait);}}
   if(!$('#draftPanel')||tools.dataset.phase!==S.phase){
@@ -4854,9 +4883,9 @@ function drawReal(c,fit){
   }
   // bairros do jogo
   if(!ibd)c.geo.bairros.forEach((b,j)=>{
-    const fib=c.fiber.ctos.includes(j);
-    L.circleMarker([b.lat,b.lon],{radius:4,color:fib?'#f0a81a':'#1e2a30',weight:2,fillColor:'#fff',fillOpacity:1,interactive:false})
-      .bindTooltip(`${esc(c.bairros[j])}`,{permanent:true,direction:'top',offset:[0,-6],className:'bairro-tip'}).addTo(LLayers);
+    const fib=c.fiber.ctos.includes(j),dw=fib&&c.fiber.down&&c.fiber.down[j];
+    L.circleMarker([b.lat,b.lon],{radius:dw?7:4,color:dw?'#cf3b3b':fib?'#f0a81a':'#1e2a30',weight:dw?3:2,fillColor:dw?'#ffd6d6':'#fff',fillOpacity:1,interactive:false})
+      .bindTooltip(`${dw?'⚠️ ':''}${esc(c.bairros[j])}`,{permanent:true,direction:'top',offset:[0,-6],className:'bairro-tip'}).addTo(LLayers);
   });
   // quadras reais: polígono de cada quarteirão
   if(hasBlocks(c)){
@@ -4936,7 +4965,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v88';
+const APP_V='v89';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
@@ -5120,6 +5149,8 @@ const TOURS={
   10:{title:'Nível 10 · NOC e telefone',steps:[cP('building','Prédio'),cBuild('noc','NOC','Monitoramento 24h: as torres aguentam 50% mais clientes e ficam os servidores de cache.'),cClose(),cP('plans','Planos'),{sel:'#panelBody [data-act="combo-fone"]',text:'Lance o <b>combo com telefone fixo</b>.',done:()=>!!(S.combos&&S.combos.fone),skip:()=>!!(S.combos&&S.combos.fone)},cClose()]},
   11:{title:'Nível 11 · Ouvidoria',steps:[cP('building','Prédio'),cBuild('ouvidoria','Ouvidoria','Recebe as reclamações e mostra o que melhorar; reclamação sem resposta vira multa da Anatel.'),cClose()]},
   12:{title:'Nível 12 · Fibra óptica',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="fiber"]',text:'Toque em <b>Rede de fibra</b> para montar o backbone e as caixas CTO nos bairros.',done:()=>modalOpen&&!PANEL},cInfo(null,'Na fibra cada bairro com <b>caixa CTO</b> pode receber clientes de fibra: aguenta muito mais e cancela menos que o rádio. Depois monte o andar <b>Migração e Upgrade</b> para levar a base do rádio para a fibra.')]},
+  13:{title:'Nível 13 · Infraestrutura',steps:[cP('building','Prédio'),cBuild('infra','Infraestrutura','A equipe de rede externa faz backbone e CTOs mais baratos e conserta as caixas que param.'),cTeam('infra','Infraestrutura'),cHire('infra','Cada cabista conserta até 6 CTOs por mês e faz 2 obras com desconto.'),cClose()]},
+  15:{title:'Nível 15 · Garagem',steps:[cP('building','Prédio'),cBuild('garagem','Garagem','No subsolo fica a frota da empresa. Mecânicos deixam técnicos, infra e logística até 10% mais eficientes.'),cTeam('garagem','Garagem'),cHire('garagem','Cada mecânico cuida de até 8 veículos.'),cClose('Dica: no térreo, toque em <b>Andar pela empresa</b> e desça até o subsolo pelo elevador. Feche no <b>×</b>.')]},
   14:{title:'Nível 14 · OLT 2ª geração',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="fiber"]',text:'Nova geração de OLT: abra a <b>Rede de fibra</b> e faça o upgrade para Fibra 300 Mega com preços menores.',done:()=>modalOpen&&!PANEL}]},
   16:{title:'Nível 16 · OLT XGS-PON',steps:[cP('building','Prédio'),{sel:'#panelBody [data-act="fiber"]',text:'XGS-PON liberado: abra a <b>Rede de fibra</b> e faça o upgrade para a Fibra 600 Mega.',done:()=>modalOpen&&!PANEL}]},
   18:{title:'Nível 18 · Concorrência',steps:[cInfo('.city-card .cc-info','<b>Concorrência entre jogadores</b>: quem atende a mesma cidade disputa os assinantes. Toque no <b>i</b> e em <b>Concorrentes</b> para ver quem está na cidade. Torres e caixas dos rivais aparecem em roxo no mapa.')]},
@@ -5191,7 +5222,7 @@ const FL=(id,f,lab)=>[`FLOORS#${id}.${f}`,f==='level'?'Níveis':'Andares e equip
 const CFGS=[
   ['DAY_MS','Tempo','Minutos reais por mês de jogo (em 1×)',30/60000],
   ['FIBRA_LEVEL','Níveis','Fibra óptica'],['EXPAND_LEVEL','Níveis','Expansão para outras cidades'],['STORE_LEVEL','Níveis','Loja filial'],['RIVAL_LEVEL','Níveis','Concorrência entre jogadores'],['OFFLINE_LEVEL','Níveis','Empresa offline e CEO'],['PROMO_LEVEL','Níveis','Promoções'],['OUTS_LEVEL','Níveis','Terceirizadas e consultorias'],['MGMT_LEVEL','Níveis','Consultoria de gestão (selos)'],['CORP_LEVEL','Níveis','Planos corporativos'],
-  ...['callcenter','comercial','tecnico','logistica','retencao','rh','marketing','recuperacao','noc','ouvidoria','migracao'].map(id=>FL(id,'level','Andar: '+id)),
+  ...['callcenter','comercial','tecnico','logistica','retencao','rh','marketing','recuperacao','noc','ouvidoria','migracao','infra','garagem'].map(id=>FL(id,'level','Andar: '+id)),
   ['COMBOS#tv.level','Níveis','Combo TV'],['COMBOS#fone.level','Níveis','Combo telefone'],['FIBER_TIERS#1.level','Níveis','OLT 2ª geração'],['FIBER_TIERS#2.level','Níveis','OLT XGS-PON'],
   ['XP_STEP','Níveis','Curva de XP (XP por nível)'],
   ['OUT_MUL','Outorga','Multiplicador da fórmula (1 = padrão)'],['OUT_MIN','Outorga','Valor mínimo (R$)'],['OUT_MAX','Outorga','Valor máximo (R$)'],['OUT_TIER_M','Outorga','Faixa média começa em (habitantes)'],['OUT_TIER_B','Outorga','Faixa grande começa em (habitantes)'],
@@ -5199,7 +5230,7 @@ const CFGS=[
   ['START_MONEY','Preços','Caixa inicial (R$)'],['TOWER_COST','Preços','Torre e rádio (R$)'],['CPE_COST','Preços','Rádio do cliente (R$)'],['ONU_COST','Preços','ONU de fibra (R$)'],['THIRD_COST','Preços','Instalação terceirizada (R$)'],['KIT_COST','Preços','Reinstalar torre do galpão (R$)'],['DISMANTLE_COST','Preços','Desmontar torre (R$)'],
   ['BACKBONE_COST','Preços','Backbone de fibra (R$)'],['CTO_COST','Preços','Caixa CTO (R$)'],['NEWCITY_COST','Preços','Estudo de nova cidade (R$)'],['STORE_COST','Preços','Loja filial (R$)'],['AREA_COST','Preços','Filial de área (R$)'],['AREA_MAINT','Preços','Filial de área por mês (R$)'],['HQ_COST','Preços','Sede regional (R$)'],['HQ_MAINT','Preços','Sede regional por mês (R$)'],['GALPAO_COST','Preços','Galpão da filial (R$)'],
   ['INDEP_SUBS','Preços','Assinantes para nova operação'],['INDEP_MUL','Preços','Multiplicador da nova operação'],
-  ...['callcenter','comercial','tecnico','logistica','retencao','rh','marketing','recuperacao','noc','ouvidoria','migracao'].map(id=>FL(id,'cost','Comprar andar: '+id+' (R$)')),
+  ...['callcenter','comercial','tecnico','logistica','retencao','rh','marketing','recuperacao','noc','ouvidoria','migracao','infra','garagem'].map(id=>FL(id,'cost','Comprar andar: '+id+' (R$)')),
   ['HIRE_COST','Andares e equipe','Contratação base (R$)'],['CAREER_COST','Andares e equipe','Plano de carreira (R$)'],['PROMO_COST','Andares e equipe','Promoção pleno/sênior (R$)'],['PARTNER_CASH','Andares e equipe','Capital do sócio (R$)'],['PARTNER_PAY','Andares e equipe','Pró-labore do sócio por mês (R$)'],
   ['OUT_FEE','Andares e equipe','Taxa das terceirizadas (0,45 = 45%)'],['EXEC_SAL','Andares e equipe','Salário do executivo de contas (R$)'],['EXEC_HIRE','Andares e equipe','Contratação do executivo (R$)'],['EXEC_VISITS','Andares e equipe','Visitas por executivo por mês'],
   ['PLANS#r10.price','Planos','Rádio 10 Mega (R$)'],['PLANS#r20.price','Planos','Rádio 20 Mega (R$)'],['PLANS#r35.price','Planos','Rádio 35 Mega (R$)'],['COMBOS#tv.price','Planos','Combo TV (R$/mês)'],['COMBOS#fone.price','Planos','Combo telefone (R$/mês)'],['COMBOS#tv.cost','Planos','Lançar combo TV (R$)'],['COMBOS#fone.cost','Planos','Lançar combo telefone (R$)'],
@@ -5208,6 +5239,7 @@ const CFGS=[
   ['START_DIAMONDS','Selos e diamantes','Diamantes no começo'],['DIA_LEVEL','Selos e diamantes','Diamantes por nível'],['DIA_MISSION','Selos e diamantes','Diamantes por missão'],['DIA_TO_COINS','Selos e diamantes','Selos por diamante'],['DIA_TO_MONEY','Selos e diamantes','R$ por diamante'],
   ['IPV6_LEVEL','Níveis','IPv6'],['IPV6_COST','Preços','IPv6: implantação (R$)'],['IPV6_OFF','Links','IPv6: fração do tráfego por peering (0,2 = 20%)'],
   ['LOGIN_DIAMONDS','Selos e diamantes','Diamantes por entrar na conta (uma vez)'],['RIVAL_ONLINE_H','Níveis','Concorrência: horas sem jogar até parar de disputar'],
+  ['CAP_INFRA','Capacidade','CTOs consertadas por cabista/mês'],['INFRA_OBRAS','Capacidade','Obras de fibra com desconto por cabista/mês'],['INFRA_DISC','Preços','Desconto das obras feitas pela Infra (0,3 = 30%)'],['CTO_FAIL','Capacidade','Chance de uma CTO parar por dia (0,0006)'],['CTO_THIRD','Preços','Conserto de CTO pela empreiteira (R$)'],['CTO_THIRD_DAYS','Duração','Dias até a empreiteira consertar a CTO'],['CAP_MEC','Capacidade','Veículos por mecânico'],['GARAGE_BONUS','Capacidade','Bônus da garagem no Técnico/Infra/Logística (0,1 = 10%)'],
   ['RULES_MIN_CITIES','Níveis','Regras de negócio: cidades mínimas (1 = sempre)'],['MENU_CONN','Menu','Mostrar "Testar conexões" para os jogadores (1 = sim, 0 = só administrador)'],['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
   ['DOCS#contrato.days','Duração','Contrato social (dias)'],['DOCS#cnpj.days','Duração','CNPJ (dias)'],['DOCS#alvara.days','Duração','Alvará (dias)'],['DOCS#contrato.cost','Preços','Contrato social (R$)'],['DOCS#alvara.cost','Preços','Alvará (R$)'],
   ['TRAININGS#b.months','Duração','Treinamento básico (meses)'],['TRAININGS#a.months','Duração','Treinamento avançado (meses)'],['TRAININGS#l.months','Duração','Liderança e gestão (meses)'],['CEO_MAX_H','Duração','CEO: horas máximas'],
@@ -5220,7 +5252,7 @@ function cfgRef(k){const [base,path]=k.split('#');if(!path)return {get:()=>new F
 /* Etapa 2: salários, capacidade de cada função, torre e links. */
 CFGS.push(
   ['FLOORS#callcenter.roles.voz.sal','Salários','N1 voz (R$/mês)'],['FLOORS#callcenter.roles.texto.sal','Salários','N1 texto/chat (R$/mês)'],['FLOORS#callcenter.roles.n2.sal','Salários','N2 suporte técnico (R$/mês)'],
-  ...['comercial','tecnico','logistica','retencao','recuperacao','rh','marketing','noc','ouvidoria','migracao'].map(id=>[`FLOORS#${id}.sal`,'Salários',`${(FLOORS.find(f=>f.id===id)||{}).op||id} (R$/mês)`]),
+  ...['comercial','tecnico','logistica','retencao','recuperacao','rh','marketing','noc','ouvidoria','migracao','infra','garagem'].map(id=>[`FLOORS#${id}.sal`,'Salários',`${(FLOORS.find(f=>f.id===id)||{}).op||id} (R$/mês)`]),
   ['SUP_SAL','Salários','Supervisor (R$/mês)'],['GER_SAL','Salários','Gerente (R$/mês)'],
   ['CAP_VOZ','Capacidade','Clientes por atendente N1 voz'],['CAP_TEXTO','Capacidade','Clientes por atendente N1 texto'],['CAP_COM','Capacidade','Visitas por vendedor (a cada 4 dias)'],['CAP_RET','Capacidade','Pedidos de cancelamento por retentor/mês'],['CAP_REC','Capacidade','Dívidas por cobrador/mês'],
   ['CAP_LOG','Capacidade','Equipamentos recolhidos por motorista/mês'],['CAP_OUV','Capacidade','Manifestações por ouvidor/mês'],['CAP_MIG','Capacidade','Ligações por operador de migração/mês'],['CAP_TEC','Capacidade','Clientes por técnico (consultoria de gestão)'],
