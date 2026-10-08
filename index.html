@@ -2058,12 +2058,14 @@ function famsOf(c){const qs=quadras(c);let n=0;for(const l of qs)if(l.fams)n+=l.
   if(k&&k.src===src&&k.q===qs.length&&k.n===n)return k.out;
   const out=new Array(n);let i=0;for(const l of qs)if(l.fams)for(const f of l.fams)out[i++]=f;FAMC.set(c,{src,q:qs.length,n,out});return out;}
 /* Censo da cidade durante um desenho: clientes, rádio/fibra, rede usada, carga das torres e assinaturas numa passada só. */
-function censusRC(c){const k='cs'+c.idx;let v=RC.get(k);if(v)return v;let sub=0,r=0,f=0,nu=0,h1=0,h2=0,late=0,mb=0;const tl=new Map();
+/* Com cidade grande (mais de 30 mil famílias) o censo vale por 3 s entre desenhos: recontar a base a cada desenho travava a tela. */
+const CENC=new WeakMap();
+function censusRC(c){const k='cs'+c.idx;let v=RC.get(k);if(v)return v;const old=CENC.get(c),fl=famsOf(c);if(old&&fl.length>30000&&performance.now()-old.at<3000){RC.set(k,old.v);return old.v;}let sub=0,r=0,f=0,nu=0,h1=0,h2=0,late=0,mb=0;const tl=new Map();
   for(const l of famsOf(c)){const st=l.st,s0=st.charCodeAt(0),sb=st==='client'||st==='late'||st==='suspended'||st==='cancelReq';
     if(sb){sub++;if(l.tech==='fiber')f++;else r++;}if(sb||st==='pending')nu++;
     const pl=pays(l);if(pl||st==='late'){mb+=planById(l.plan).mb||10;if(l.tid&&l.tech!=='fiber')tl.set(l.tid,(tl.get(l.tid)||0)+1);}if(st==='late'||st==='suspended')late++;
     const b=s0+(l.cpe?7:0)+(l.tech==='fiber'?13:0);h1=(h1*31+b)|0;h2=(h2*31+b)|0;if(l.tid){const t=l.tid;h2=(h2*17+t.length*29+t.charCodeAt(t.length-1))|0;}}
-  v={sub,rf:{r,f},nu,tl,h1,h2,late,mb};RC.set(k,v);return v;}
+  v={sub,rf:{r,f},nu,tl,h1,h2,late,mb};RC.set(k,v);CENC.set(c,{v,at:performance.now(),len:fl.length});return v;}
 function famCount(c,fn){let n=0;for(const f of famsOf(c))if(fn(f))n++;return n;}
 /* Assinatura numérica das famílias (antes era um texto do tamanho da base, montado a cada desenho). */
 function famHash(c,withTower){if(RC){const v=censusRC(c);return withTower?v.h2:v.h1;}const rk='fh'+c.idx+(withTower?'t':'');let h=0;for(const f of famsOf(c)){h=(h*31+f.st.charCodeAt(0)+(f.cpe?7:0)+(f.tech==='fiber'?13:0))|0;if(withTower&&f.tid){const t=f.tid;h=(h*17+t.length*29+t.charCodeAt(t.length-1))|0;}}if(RC)RC.set(rk,h);return h;}
@@ -2087,8 +2089,9 @@ function priceNow(l){return l.disc&&monthOf(S.day)<=l.disc.until?Math.round(l.pr
 function towerLoads(c){if(RC)return censusRC(c).tl;const k='tl'+c.idx;const m=new Map();for(const l of famsOf(c))if(l.tid&&l.tech!=='fiber'&&(pays(l)||l.st==='late'))m.set(l.tid,(m.get(l.tid)||0)+1);if(RC)RC.set(k,m);return m;}
 function towerLoad(c,t){return towerLoads(c).get(t.id)||0;}
 let RC=null;
-function cityClients(c){if(RC)return censusRC(c).sub;const n=famCount(c,isSub);if(RC)RC.set(c,n);return n;}
-function lateCount(){if(RC)return S.cities.reduce((s,c)=>s+censusRC(c).late,0);return S.cities.reduce((s,c)=>s+famCount(c,l=>l.st==='late'||l.st==='suspended'),0);}
+function cityClients(c){if(RC)return censusRC(c).sub;const m=TM&&(TM.cc||(TM.cc=new Map()));if(m&&m.has(c))return m.get(c);const n=famCount(c,isSub);if(m)m.set(c,n);return n;}
+function lateCount(){if(RC)return S.cities.reduce((s,c)=>s+censusRC(c).late,0);if(TM&&TM.late!=null)return TM.late;if(TM)return TM.late=lateCount0();return lateCount0();}
+function lateCount0(){return S.cities.reduce((s,c)=>s+famCount(c,l=>l.st==='late'||l.st==='suspended'),0);}
 const SHIELDS={nat:{name:'Proteção contra desastres naturais',short:'Desastres naturais',cost:80,desc:'Tempestades e descargas elétricas não afetam a rede.'},geo:{name:'Proteção geopolítica e econômica',short:'Geopolítica',cost:100,desc:'Alta do dólar, falta de chips e crise econômica não afetam a empresa.'}};
 const shieldOn=k=>!!(S.shield&&S.shield[k]>=monthOf(S.day));
 function crisisBlocked(id){const cr=CRISES.find(x=>x.id===id);return !!(cr&&cr.kind&&shieldOn(cr.kind));}
@@ -2161,12 +2164,13 @@ function tick0(){
   infraDay();
   mgmtCheck();
   for(const d of DOCS){const st=S.docs[d.id];if(st&&!st.done&&st.until<=S.day){st.done=true;addXp(15);log(`${d.name}: pronto.`);event(`${d.name} pronto`);toast(`${d.name} pronto!`);save(true);}}
-  for(const c of S.cities)for(const l of famsOf(c)){if(l.st==='refused'&&l.until<=S.day)l.st='none';if(l.st==='cancelReq'&&l.reqUntil<=S.day)cancelClient(c,l,REASONS[l.reason]||'pedido não atendido');}
+  const tcc=TM&&(TM.cc||(TM.cc=new Map()));let tot=0;
+  for(const c of S.cities){let n=0;for(const l of famsOf(c)){const st=l.st;if(st==='refused'){if(l.until<=S.day)l.st='none';}else if(st==='cancelReq'){if(l.reqUntil<=S.day)cancelClient(c,l,REASONS[l.reason]||'pedido não atendido');else n++;}else if(st==='client'||st==='late'||st==='suspended')n++;}if(tcc)tcc.set(c,n);tot+=n;}
   if(S.day%4===0)for(const b of bldgs()){if(!bHas(b,'comercial'))continue;const v=bCap(b,'comercial');if(!(v>0))continue;const V={only:servesOf(b,'comercial'),flow:flowOn('comercial')};for(let i=0;i<v;i++)vendorAttempt(V);}
   if(S.day%4===0&&FXS.anim){const c=city(),qs=hasBlocks(c)?c.blocks.filter((q,i)=>QP.looks[i]&&sellable(c,q)):[];for(let i=0;i<Math.min(3,qs.length);i++){const q=qs[Math.floor(Math.random()*qs.length)];aniTrip('pap',c,qCenter(q));}}
   if(S.day%5===0)syncRivals();
   if(S.day%30===0)monthEnd();
-  S.peak=Math.max(S.peak,allClients());
+  S.peak=Math.max(S.peak,TM&&TM.cc?allClients():tot);
   checkMissions();
   save(false);renderSoon();
 }
@@ -2324,7 +2328,10 @@ function netSteps(c){
 }
 function netPrefix(c){const st=netSteps(c);return st[Math.min(c.net||0,st.length-1)].p;}
 function netCap(c){const st=netSteps(c),cap=st[Math.min(c.net||0,st.length-1)].cap;return ipv6On()?Math.max(cap,cityHomes(c)+1000):cap;}
-function netUsed(c){if(RC)return censusRC(c).nu;const k='nu'+c.idx;const v=famCount(c,f=>isSub(f)||f.st==='pending');if(RC)RC.set(k,v);return v;}
+function netUsed(c){if(RC)return censusRC(c).nu;
+  // dentro do dia: contagem guardada mais as vendas feitas depois dela (CSIG)
+  if(TM){const m=TM.nu||(TM.nu=new Map());const v=m.get(c);if(v)return v.n+(csig(c)-v.sig);const n=famCount(c,f=>isSub(f)||f.st==='pending');m.set(c,{n,sig:csig(c)});return n;}
+  const k='nu'+c.idx;const v=famCount(c,f=>isSub(f)||f.st==='pending');if(RC)RC.set(k,v);return v;}
 const netFull=c=>{if(TM){const m=TM.nf||(TM.nf=new Map());let v=m.get(c);if(v===undefined)m.set(c,v=netUsed(c)>=netCap(c));return v;}return netUsed(c)>=netCap(c);};
 function saleBlock(c){return signupBlock(c)||(needsBlocks(c)?'quadras':null)||(needIlink(c)?'ilink':null)||(netFull(c)?'rede':null);}
 function ipStr(c,off){return `10.${c.idx+1}.${off>>8}.${off&255}`;}
@@ -2716,7 +2723,7 @@ function shortN(v){v=Math.round(+v||0);const a=Math.abs(v);if(a<100000)return v.
   for(const [d,u] of [[1e15,' qua'],[1e12,' tri'],[1e9,' bi'],[1e6,' mi'],[1e3,' mil']])if(a>=d){const x=v/d;return x.toLocaleString('pt-BR',{maximumFractionDigits:Math.abs(x)<100?1:0})+u;}return String(v);}
 /* Números do topo: uma passada pela base guarda clientes, rádio/fibra e uso do link por 1,5 s ou até a próxima venda. */
 let HUDC=null;
-function hudCensus(){const now=performance.now();if(HUDC&&HUDC.signed===S.signed&&HUDC.ci===S.cities.length&&now-HUDC.at<1500)return HUDC;
+function hudCensus(){const now=performance.now();if(HUDC&&HUDC.ci===S.cities.length&&now-HUDC.at<(HUDC.cl>50000?4000:HUDC.signed===S.signed?1500:600))return HUDC;
   let r=0,f=0;if(RC)for(const c of S.cities){const x=censusRC(c).rf;r+=x.r;f+=x.f;}else for(const c of S.cities)for(const l of famsOf(c))if(isSub(l)){if(l.tech==='fiber')f++;else r++;}
   return HUDC={at:now,signed:S.signed,ci:S.cities.length,cl:r+f,rf:{r,f},lu:trafficGbps()/linkNow().g};}
 function renderTop(){
@@ -3498,7 +3505,8 @@ function refreshPanel(){if(!PANEL)return;const b=document.getElementById('panelB
 /* Avisos de equipe: o prédio avisa quando falta gente num setor */
 /* Os avisos de equipe contam a base inteira: são lembrados até o próximo dia de jogo ou a próxima mudança salva. */
 let SA_KEY='',SA_VAL=null;
-function staffAlerts(){const k=S.day+':'+S.savedAt;if(SA_VAL&&SA_KEY===k)return SA_VAL;SA_KEY=k;return SA_VAL=staffAlerts0();}
+let SA_AT=0;
+function staffAlerts(){const k=S.day+':'+S.savedAt,now=performance.now();if(SA_VAL&&(SA_KEY===k||now-SA_AT<3000))return SA_VAL;SA_KEY=k;SA_AT=now;return SA_VAL=staffAlerts0();}
 function staffAlerts0(){
   if(!S||S.phase!=='play')return [];
   const out=[],add=(key,id,msg)=>out.push({key,id,msg});
@@ -5079,7 +5087,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v98';
+const APP_V='v99';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
