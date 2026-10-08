@@ -2159,6 +2159,7 @@ function tick0(){
   S.seenAt=Date.now();
   S.day++;
   infraDay();
+  mgmtCheck();
   for(const d of DOCS){const st=S.docs[d.id];if(st&&!st.done&&st.until<=S.day){st.done=true;addXp(15);log(`${d.name}: pronto.`);event(`${d.name} pronto`);toast(`${d.name} pronto!`);save(true);}}
   for(const c of S.cities)for(const l of famsOf(c)){if(l.st==='refused'&&l.until<=S.day)l.st='none';if(l.st==='cancelReq'&&l.reqUntil<=S.day)cancelClient(c,l,REASONS[l.reason]||'pedido não atendido');}
   if(S.day%4===0)for(const b of bldgs()){if(!bHas(b,'comercial'))continue;const v=bCap(b,'comercial');if(!(v>0))continue;const V={only:servesOf(b,'comercial'),flow:flowOn('comercial')};for(let i=0;i<v;i++)vendorAttempt(V);}
@@ -3233,8 +3234,11 @@ function mgmtServed(b,id){if(RULE_SECTORS.some(x=>x[0]===id))return servesOf(b,i
 function cityStat(c){const m=TM&&(TM.cs||(TM.cs=new Map()));let v=m&&m.get(c);if(v)return v;v={sub:0,debt:0,req:0,cpe:0};
   for(const l of famsOf(c)){const st=l.st;if(st==='client'||st==='late'||st==='suspended'||st==='cancelReq')v.sub++;if((st==='late'||st==='suspended')&&l.debt>0)v.debt++;if(st==='cancelReq')v.req++;if(l.cpe)v.cpe++;}
   if(m)m.set(c,v);return v;}
-function mgmtNeed(b,id){const sv=mgmtServed(b,id),cs=S.cities.filter(c=>sv.has(c.idx)),cnt=k=>cs.reduce((t,c)=>t+cityStat(c)[k],0);
-  if(id==='callcenter')return Math.ceil(cnt('sub')/CAP_VOZ*1.05);
+function mgmtNeed(b,id){const v=mgmtNeed0(b,id);return v==null?null:Math.ceil(v*MGMT_SLACK);}
+/* Folga para a base que cresce entre uma revisão e outra. */
+let MGMT_SLACK=1.1;
+function mgmtNeed0(b,id){const sv=mgmtServed(b,id),cs=S.cities.filter(c=>sv.has(c.idx)),cnt=k=>cs.reduce((t,c)=>t+cityStat(c)[k],0);
+  if(id==='callcenter')return Math.ceil(cnt('sub')/CAP_VOZ);
   if(id==='recuperacao')return Math.ceil(cnt('debt')/CAP_REC);
   if(id==='retencao')return Math.ceil(Math.max(cnt('req'),cnt('sub')*0.02)/CAP_RET);
   if(id==='logistica')return Math.ceil(cnt('cpe')/CAP_LOG);
@@ -3244,16 +3248,17 @@ function mgmtNeed(b,id){const sv=mgmtServed(b,id),cs=S.cities.filter(c=>sv.has(c
   if(id==='garagem'){const f=fleetOf();return Math.max(1,Math.ceil((f.vans+f.picapes+f.trucks+f.motos)/CAP_MEC));}
   return null;}
 function mgmtRun(b,id,quiet){return inB(b.fl,()=>{if(!built(id))return null;const f=FLOORS.find(x=>x.id===id),t=team(id),cc=id==='callcenter',opK=cc?'voz':'op';
-  const cap=sectorCap(),need=mgmtNeed(b,id);let hired=0,fired=0,prom=0;
+  const cap=mgmtOn(b.key,id)?Infinity:sectorCap(),need=mgmtNeed(b,id);let hired=0,fired=0,prom=0;
   const ops=()=>cc?(t.voz||0)+(t.texto||0):(t.op||0);
   // operadores alvo (cabe na vaga junto com supervisores, gerente e N2)
   let want=need==null?ops():need;want=Math.max(cc||need!=null?1:0,want);
-  const fit=w=>{const sup=w>3?Math.ceil(w/5):0,n2=cc?Math.ceil(w/10):0,ger=(w+sup+n2)>=8?1:0;return w+sup+n2+ger<=cap;};
+  if(need!=null&&cap===Infinity){const e=effOf(id);if(e>0&&e<1)want=Math.ceil(want/Math.max(0.6,e));}
+  const fit=w=>{const n2=cc?Math.ceil(w/10):0,sup=w+n2>3?Math.ceil((w+n2)/5):0,ger=(w+sup+n2)>=8?1:0;return w+sup+n2+ger<=cap;};
   // maior quantidade que cabe na vaga (busca binária: com base grande a necessidade passa de milhares e descer de 1 em 1 pesava)
   if(want>1&&!fit(want)){let lo=1,hi=want;while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(fit(mid))lo=mid;else hi=mid-1;}want=lo;}
   while(ops()<want){if(S.money<hireCost())break;S.money-=hireCost();t[opK]=(t[opK]||0)+1;hired++;}
   while(ops()>want){if(cc&&(t.texto||0)>0)t.texto--;else t[opK]--;fired++;}
-  const o=ops(),supW=o>3?Math.ceil(o/5):0,n2W=cc?Math.ceil(o/10):0;
+  const o=ops(),n2W=cc?Math.ceil(o/10):0,supW=o+n2W>3?Math.ceil((o+n2W)/5):0;
   const adj=(k,w)=>{while((t[k]||0)<w&&headcount(id)<cap&&S.money>=hireCost()){S.money-=hireCost();t[k]=(t[k]||0)+1;hired++;}while((t[k]||0)>w){t[k]--;fired++;}};
   adj('sup',supW);if(cc)adj('n2',n2W);adj('ger',headcount(id)>=8?1:0);
   b.fl[id].team=t;normCareer(id);
@@ -3271,7 +3276,11 @@ function mgmtAutoMonth(){const m=monthOf(S.day),A=S.mgmtAuto||{};S.mgmt=S.mgmt||
     S.coins-=price;const prev=S.mgmt[k]||{};S.mgmt[k]={since:m,until:m+MGMT_MONTHS-1,paid:price,auto:prev.auto};log(`Consultoria de gestão renovada automaticamente: ${label} (${price.toLocaleString('pt-BR')} selos).`);return true;};
   for(const b of bldgs()){if(b.key==='out')continue;for(const id of MGMT_SECTORS){if(!bHas(b,id))continue;const k=b.key+':'+id,v=S.mgmt[k],label=b.name+' · '+FLOORS.find(x=>x.id===id).name;
     if(v&&v.until>=m)continue;if((v&&v.auto)||A[b.key])buy(k,label);}}}
+function mgmtCheck(){if(!S.mgmt||S.day%5||S.day%30===0)return;const m=monthOf(S.day);let h=0,f=0;
+  for(const [k,v] of Object.entries(S.mgmt)){if(v.until<m)continue;const [bk,id]=k.split(':'),b=bldgs().find(x=>x.key===bk);if(!b)continue;const r=mgmtRun(b,id,true)||{};h+=r.hired||0;f+=r.fired||0;}
+  if(h||f){S.cur.mgmtH=(S.cur.mgmtH||0)+h;S.cur.mgmtF=(S.cur.mgmtF||0)+f;}}
 function mgmtMonth(){if(levelOf(S.xp)>=MGMT_LEVEL)mgmtAutoMonth();if(!S.mgmt)return;const m=monthOf(S.day);
+  if(S.cur.mgmtH||S.cur.mgmtF)log(`Consultoria de gestão nas revisões do mês: ${S.cur.mgmtH||0} contratado(s), ${S.cur.mgmtF||0} dispensado(s).`);
   for(const [k,v] of Object.entries(S.mgmt)){if(v.until<m){if(!v.warned){v.warned=1;log(`Contrato da consultoria de gestão terminou (${k.split(':')[1]}). Renove em Terceirizadas e consultorias.`);}continue;}
     const [bk,id]=k.split(':'),b=bldgs().find(x=>x.key===bk);if(b)mgmtRun(b,id);}}
 function mgmtHtml(){const lvl=levelOf(S.xp);if(lvl<MGMT_LEVEL)return `<h3 style="margin:14px 0 6px">Consultoria de gestão</h3><div class="notice">Libera no nível ${MGMT_LEVEL}: a consultoria administra um setor (contrata, promove e mantém a equipe no tamanho certo), paga em selos.</div>`;
@@ -4034,13 +4043,13 @@ function openTeamIn(id,hqc){
   const rows=Object.entries(R).map(([k,r])=>`<div class="role-row"><div><b>${r.t}</b><small>${brl0(r.sal)}/mês · ${k==='op'?ROLE_HINT[id]:ROLE_HINT[k]}</small></div><div class="role-ctl"><button class="btn small ghost" data-rm="${k}" ${(t[k]||0)>0?'':'disabled'} aria-label="Dispensar ${r.t}">−</button><b>${t[k]||0}</b><button class="btn small signal" data-add="${k}" ${hc>=capN?'disabled':''} aria-label="Contratar ${r.t}">+ ${brl0(hireCost())}</button></div></div>`).join('');
   const partners=id==='rh'?`<h3 style="font-size:15px;margin:14px 0 8px">Sócios</h3><div class="role-row"><div><b>Sócio</b><small>Entra com ${brl0(PARTNER_CASH)} de capital, recebe ${brl0(PARTNER_PAY)}/mês de pró-labore e dá +5% de eficiência a todos os setores. Para sair, a empresa devolve o capital.</small></div><div class="role-ctl"><button class="btn small ghost" data-prm ${S.partners?'':'disabled'}>−</button><b>${S.partners||0}</b><button class="btn small primary" data-padd ${(S.partners||0)>=2?'disabled':''}>+</button></div></div>`:'';
   const FLD=BCTX;
-  openModal(head(`${f.annex?'Galpão':floorLabel(f)} · ${f.name}${hqc?(hqc.hq?' · regional ':' · filial ')+esc(hqc.name):''}`,'Equipe')+`<div class="kpis"><div class="kpi"><span>Pessoas</span><b>${hc}/${capN}</b></div><div class="kpi"><span>Eficiência</span><b>${hc?Math.round(e*100)+'%':'—'}</b></div><div class="kpi"><span>Folha</span><b>${brl0(rolesSum(f))}</b></div></div>
+  openModal(head(`${f.annex?'Galpão':floorLabel(f)} · ${f.name}${hqc?(hqc.hq?' · regional ':' · filial ')+esc(hqc.name):''}`,'Equipe')+`<div class="kpis"><div class="kpi"><span>Pessoas</span><b>${hc}/${mgmtOn(bkeyNow(),id)?'∞':capN}</b></div><div class="kpi"><span>Eficiência</span><b>${hc?Math.round(e*100)+'%':'—'}</b></div><div class="kpi"><span>Folha</span><b>${brl0(rolesSum(f))}</b></div></div>
     ${iss.length?`<div class="notice warn">Falta gente na liderança: ${iss.join(' e ')}. A eficiência do setor cai.</div>`:''}
     ${hc>=capN?`<div class="notice bad">Limite de ${capN} pessoas por setor. ${built('rh')?'Contrate mais analistas de RH para abrir vagas.':'Monte o RH para abrir mais vagas.'}</div>`:''}
     ${id==='comercial'?salesTechHtml()+promoHtml():''}${id==='recuperacao'?graceHtml():''}${rows}${partners}${careerHtml(id)}
     <p class="muted" style="font-size:12.5px;margin-top:8px">Regras: 1 supervisor para cada 5 operadores; com 8 pessoas ou mais, o setor precisa de um gerente. Todo mês alguém pode pedir demissão, menos com RH. Cada contratação fica mais cara conforme a empresa cresce.</p>`,m=>{
     m.querySelectorAll('[data-stech]').forEach(b=>b.onclick=()=>{S.salesTech=b.dataset.stech;log(`Comercial passa a vender ${STECH[S.salesTech].toLowerCase()}.`);save(true);openTeam(id);});
-    m.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{if(headcount(id)>=sectorCap())return;const k=b.dataset.add;if(!spend(hireCost()))return;t[k]=(t[k]||0)+1;(BCTX||S.floors)[id].team=t;if(id==='retencao'&&k==='op'){S.retCap=(S.retCap||0)+5;S.retExtra=(S.retExtra||0)+5;}log(`Contratou ${R[k].t} no ${f.name}.`);event(`Contratou ${R[k].t} (${f.name})`);save(true);openTeam(id);});
+    m.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{if(headcount(id)>=sectorCap()&&!mgmtOn(bkeyNow(),id))return;const k=b.dataset.add;if(!spend(hireCost()))return;t[k]=(t[k]||0)+1;(BCTX||S.floors)[id].team=t;if(id==='retencao'&&k==='op'){S.retCap=(S.retCap||0)+5;S.retExtra=(S.retExtra||0)+5;}log(`Contratou ${R[k].t} no ${f.name}.`);event(`Contratou ${R[k].t} (${f.name})`);save(true);openTeam(id);});
     const con=m.querySelector('#carOn');if(con)con.onclick=()=>{if(!spend(CAREER_COST))return;S.career={on:true};log('Plano de carreira implantado no RH.');event('Plano de carreira implantado');checkMissions();save(true);openTeam(id);};
     m.querySelectorAll('[data-promo]').forEach(b=>b.onclick=()=>{const fl=(BCTX||S.floors)[id];if(!fl)return;fl.car=fl.car||{pl:0,sr:0};const o=opsOf(id),k=b.dataset.promo;
       if(k==='pl'&&o-fl.car.pl-fl.car.sr<=0)return;if(k==='sr'&&(fl.car.pl<=0||fl.car.sr>=Math.ceil(o/3)))return;if(!spend(PROMO_COST))return;
@@ -5065,7 +5074,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v94';
+const APP_V='v95';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
@@ -5340,7 +5349,7 @@ const CFGS=[
   ['IPV6_LEVEL','Níveis','IPv6'],['IPV6_COST','Preços','IPv6: implantação (R$)'],['IPV6_OFF','Links','IPv6: fração do tráfego por peering (0,2 = 20%)'],
   ['LOGIN_DIAMONDS','Selos e diamantes','Diamantes por entrar na conta (uma vez)'],['RIVAL_ONLINE_H','Níveis','Concorrência: horas sem jogar até parar de disputar'],
   ['CAP_INFRA','Capacidade','CTOs consertadas por cabista/mês'],['INFRA_OBRAS','Capacidade','Obras de fibra com desconto por cabista/mês'],['INFRA_DISC','Preços','Desconto das obras feitas pela Infra (0,3 = 30%)'],['CTO_FAIL','Capacidade','Chance de uma CTO parar por dia (0,0006)'],['CTO_THIRD','Preços','Conserto de CTO pela empreiteira (R$)'],['CTO_THIRD_DAYS','Duração','Dias até a empreiteira consertar a CTO'],['CAP_MEC','Capacidade','Veículos por mecânico'],['GARAGE_BONUS','Capacidade','Bônus da garagem no Técnico/Infra/Logística (0,1 = 10%)'],
-  ['RULES_MIN_CITIES','Níveis','Regras de negócio: cidades mínimas (1 = sempre)'],['MENU_CONN','Menu','Mostrar "Testar conexões" para os jogadores (1 = sim, 0 = só administrador)'],['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
+  ['RULES_MIN_CITIES','Níveis','Regras de negócio: cidades mínimas (1 = sempre)'],['MENU_CONN','Menu','Mostrar "Testar conexões" para os jogadores (1 = sim, 0 = só administrador)'],['MGMT_SLACK','Capacidade','Consultoria de gestão: folga sobre a demanda (1,1 = 10%)'],['MGMT_BASE','Selos e diamantes','Consultoria de gestão: selos (base)'],['MGMT_MONTHS','Duração','Consultoria de gestão (meses)'],['SHIELDS#nat.cost','Selos e diamantes','Proteção contra desastres (selos)'],['SHIELDS#geo.cost','Selos e diamantes','Proteção geopolítica (selos)'],['CEO_DIAMONDS','Selos e diamantes','CEO: diamantes por hora'],
   ['DOCS#contrato.days','Duração','Contrato social (dias)'],['DOCS#cnpj.days','Duração','CNPJ (dias)'],['DOCS#alvara.days','Duração','Alvará (dias)'],['DOCS#contrato.cost','Preços','Contrato social (R$)'],['DOCS#alvara.cost','Preços','Alvará (R$)'],
   ['TRAININGS#b.months','Duração','Treinamento básico (meses)'],['TRAININGS#a.months','Duração','Treinamento avançado (meses)'],['TRAININGS#l.months','Duração','Liderança e gestão (meses)'],['CEO_MAX_H','Duração','CEO: horas máximas'],
   ['BONUS_PER_LEVEL','Economia','Bônus por nível (R$ × nível)'],['BONUS_CAP','Economia','Bônus máximo por nível (R$)'],['OFFLINE_CAP','Economia','Ganho offline máximo (R$)'],['OFFLINE_RATE','Economia','Ganho offline por hora (fração do saldo)'],
