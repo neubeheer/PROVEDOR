@@ -1190,7 +1190,7 @@ let PROMO_LEVEL=100;
    sobre os salários; consultorias treinam a equipe de um setor e sobem a eficiência por alguns meses.
    Nível 200: planos corporativos com link dedicado, vendidos por executivos de contas para as empresas da cidade (precisa de fibra). */
 let OUTS_LEVEL=150,CORP_LEVEL=200;
-const OUT_SECTORS=['callcenter','comercial','tecnico','retencao','recuperacao','logistica','ouvidoria','migracao','marketing'];
+const OUT_SECTORS=['callcenter','comercial','tecnico','retencao','recuperacao','logistica','ouvidoria','migracao','marketing','infra','garagem','noc','rh'];
 const OUT_PACKS=[{id:'p',name:'Pequena',ops:5,sup:1,ger:0},{id:'m',name:'Média',ops:15,sup:3,ger:1},{id:'g',name:'Grande',ops:40,sup:8,ger:1}];
 let OUT_FEE=0.45;
 const TRAININGS=[{id:'b',name:'Treinamento básico',bonus:.08,months:6,per:600},{id:'a',name:'Treinamento avançado',bonus:.15,months:6,per:1500},{id:'l',name:'Liderança e gestão',bonus:.22,months:12,per:3500}];
@@ -3224,7 +3224,7 @@ let PANEL_B=null;
    atende, contrata ou dispensa, ajusta supervisores e gerente e promove (pleno e sênior) se houver plano de carreira.
    Salários, contratações e promoções saem do caixa, como se fosse o jogador. Contratos em S.mgmt["prédio:setor"]. */
 let MGMT_LEVEL=160,MGMT_BASE=10000,MGMT_MONTHS=12;
-const MGMT_SECTORS=['callcenter','comercial','tecnico','retencao','recuperacao','logistica','ouvidoria','migracao','marketing','noc','rh'];
+const MGMT_SECTORS=['callcenter','comercial','tecnico','retencao','recuperacao','logistica','ouvidoria','migracao','marketing','noc','rh','infra','garagem'];
 const mgmtActive=()=>Object.entries(S.mgmt||{}).filter(([k,v])=>v.until>=monthOf(S.day));
 const mgmtPrice=()=>MGMT_BASE*(mgmtActive().length+1);
 const mgmtOn=(bk,id)=>{const v=(S.mgmt||{})[bk+':'+id];return !!(v&&v.until>=monthOf(S.day));};
@@ -3398,7 +3398,7 @@ function openOuts(){const lvl=levelOf(S.xp);if(lvl<OUTS_LEVEL){toast(`Libera no 
         <div class="ou-packs">${OUT_PACKS.map(p=>{const on=cur&&cur.pack===p.id;return `<button type="button" class="ou-pack${on?' on':''}" data-out="${id}" data-pk="${p.id}"><b>${on?'✓ ':''}${p.name}</b><small>${p.ops} op · ${p.sup} sup${p.ger?' · 1 ger':''}</small><span>${brl0(outMonthly(id,p.id))}<small>/mês</small></span></button>`;}).join('')}</div>
         ${cur?`<div class="ou-foot"><small>Desde o mês ${cur.since||'-'}</small><button type="button" class="ou-end" data-out="${id}" data-pk="">Encerrar contrato</button></div>`:''}</div>`;}).join('')}</div>`;
   }else if(OUTS_TAB==='train'){
-    const ids=OUT_SECTORS.concat(['rh','noc','infra']).filter(id=>FLOORS.find(x=>x.id===id)&&headcount(id)>0);
+    const ids=OUT_SECTORS.filter(id=>FLOORS.find(x=>x.id===id)&&headcount(id)>0);
     body=`<p class="muted ou-intro">O preço é por pessoa do setor (equipe própria e terceirizada). A eficiência sobe enquanto durar o treinamento; um curso mais forte substitui o mais fraco.</p>${ids.length?`<div class="ou-grid">${ids.map(id=>{
       const f=FLOORS.find(x=>x.id===id),hc=headcount(id),cur=S.train[id],on=cur&&cur.until>=m,e=effOf(id),lk=look(id),tr=on&&TRAININGS.find(t=>t.id===cur.id);
       return `<div class="ou-card"><div class="ou-head"><span class="ou-ico" style="background:${lk[1]}">${lk[0]}</span><div><b>${f.name}</b><small>${hc.toLocaleString('pt-BR')} pessoa(s)</small></div></div>
@@ -3512,7 +3512,7 @@ function staffAlerts0(){
   if(built('ouvidoria')&&S.ouv){const k=capOf('ouvidoria',CAP_OUV);if((S.ouv.total||0)>k)add('ouv','ouvidoria',`Ouvidoria: ${S.ouv.total} manifestações e a equipe trata ${k} por mês.`);}
   for(const f of FLOORS){if(f.id==='recepcao'||!built(f.id))continue;
     if(!headcount(f.id))add('zero-'+f.id,f.id,`${f.name}: setor sem ninguém trabalhando.`);
-    else for(const i of effIssues(f.id))add('lid-'+f.id+i,f.id,`${f.name}: ${i}.`);}
+    else{const B=bldgs().filter(b=>b.key!=='out'&&bHas(b,f.id)&&!mgmtOn(b.key,f.id));for(const b of B)for(const i of inB(b.fl,()=>effIssues(f.id)))add('lid-'+b.key+f.id+i,f.id,`${f.name}${b.key!=='sede'?' ('+b.name+')':''}: ${i}.`);}}
   return out;
 }
 let ALERT_KEYS=null;
@@ -5074,7 +5074,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v95';
+const APP_V='v96';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
