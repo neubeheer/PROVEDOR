@@ -1342,20 +1342,34 @@ function studyFor(pop){return Math.round(clamp(1500+pop*0.06,2500,40000)/100)*10
    então o save guarda só a semente (fk) e o perfil é refeito ao carregar. */
 function famKey(c,l,i){return c.name+':'+(l.id!=null?'q'+l.id:l.x+':'+l.y)+':'+i;}
 function hydrateFams(st){
-  for(const c of st.cities)for(const q of [...(c.blocks||[]),...(c.lots||[])])for(const f of (q.fams||[])){
+  for(const c of st.cities)for(const q of [...(c.blocks||[]),...(c.lots||[])]){const L=q.fams||[];for(let ix=0;ix<L.length;ix++){const f=L[ix];
+    if(f.x===undefined&&q.x!==undefined)f.x=q.x;if(f.y===undefined&&q.y!==undefined)f.y=q.y;if(f.b===undefined&&q.b!=null)f.b=q.b;if(f.i===undefined)f.i=ix;
+    if(!f.combo)f.combo=[];if(f.tid===undefined)f.tid=null;if(!f.fk&&!f.fam)f.fk=famKey(c,q,f.i);
     if(!f.fam&&f.fk)f.fam=makeFam(rng(hash(f.fk)));
     else if(f.fam&&!f.fk){const k=famKey(c,q,f.i),g=makeFam(rng(hash(k)));if(g.name===f.fam.name&&g.budget===f.fam.budget)f.fk=k;}
     if(!f.fam)f.fam=makeFam(rng(hash(c.name+':'+f.x+':'+f.y+':'+f.i)));
-  }
+  }}
 }
 /* JSON enviado para a nuvem: sem os perfis que a semente refaz e sem a lista de cidades vizinhas (recalculada). */
-function saveRep(k,v){if(k==='fam'&&v&&v.need&&this.fk)return undefined;if(k==='near')return undefined;return v;}
+/* As famílias guardam só o que difere da quadra: posição, bairro, índice e chave saem quando são os da quadra (refeitos no
+   hydrateFams), assim como combo vazio e torre nula. Com 500 mil clientes o save caiu pela metade (era 80 MB, 5 MB comprimido). */
+let SAVE_C=null;
+function famPack(c,q,f,i){const o={};for(const k in f){const v=f[k];
+    if(k==='fam'){if(f.fk)continue;}
+    else if(k==='x'){if(v===q.x)continue;}else if(k==='y'){if(v===q.y)continue;}else if(k==='b'){if(v===q.b)continue;}else if(k==='i'){if(v===i)continue;}
+    else if(k==='fk'){if(v===famKey(c,q,f.i))continue;}else if(k==='combo'){if(Array.isArray(v)&&!v.length)continue;}else if(k==='tid'){if(v==null)continue;}
+    o[k]=v;}
+  if(f.fk&&o.fk===undefined&&f.i!==i)o.i=f.i;return o;}
+function saveRep(k,v){if(k==='near')return undefined;
+  if(v&&typeof v==='object'&&!Array.isArray(v)&&Array.isArray(v.towers)&&v.geo!==undefined)SAVE_C=v;
+  if(k==='fams'&&Array.isArray(v)&&SAVE_C)return v.map((f,i)=>famPack(SAVE_C,this,f,i));
+  if(k==='fam'&&v&&v.need&&this.fk)return undefined;return v;}
 function saveJson(){return JSON.stringify(S,saveRep);}
 /* Mesmo resultado do saveJson, mas montado em pedaços (as quadras de 200 em 200), devolvendo a vez para a tela entre eles.
    Enquanto monta, o relógio do jogo espera (cloud.ser), para o save sair consistente. */
 async function saveJsonAsync(){
   const y=()=>new Promise(r=>setTimeout(r,0)),obj=async o=>{const out=[];for(const k of Object.keys(o)){const v=o[k];if(k==='near')continue;let js;
-      if(k==='cities'&&o===S){const cs=[];for(const c of v){cs.push(await obj(c));await y();}js='['+cs.join(',')+']';}
+      if(k==='cities'&&o===S){const cs=[];for(const c of v){SAVE_C=c;cs.push(await obj(c));await y();}js='['+cs.join(',')+']';}
       else if((k==='blocks'||k==='lots')&&Array.isArray(v)&&v.length>200){const parts=[];for(let i=0;i<v.length;i+=200){parts.push(v.slice(i,i+200).map(x=>JSON.stringify(x,saveRep)).join(','));await y();}js='['+parts.join(',')+']';}
       else js=JSON.stringify(v,saveRep);
       if(js!==undefined)out.push(JSON.stringify(k)+':'+js);}
@@ -1569,16 +1583,18 @@ function b64Of(buf){const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;
 function bytesOf(b64){const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
 async function packSave(json){if(!window.CompressionStream)return json;try{const buf=await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();return '{"gz":"'+b64Of(buf)+'"}';}catch(e){return json;}}
 async function unpackSave(data){if(data&&typeof data.gz==='string')return await new Response(new Blob([bytesOf(data.gz)]).stream().pipeThrough(new DecompressionStream('gzip'))).text();return JSON.stringify(data);}
+/* Tempo máximo do envio: 30 s mais 25 s por MB (um save de 3 MB pode levar 1 min e meio). */
+const upMs=n=>Math.round(30000+n/1048576*25000);
 function sbSaveRef(){
   const uid=SB.session.user.id;
   return {
     async get(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=data,saved_at`);if(!r.ok)throw new Error('http '+r.status);const rows=await r.json();const json=rows.length?await unpackSave(rows[0].data):null;return {exists:rows.length>0,data:()=>({json})};},
     async set(o){const meta=(cloud.meta2&&S?`${cloud.meta3?`"avatar":${myAvatar()|0},`:''}${cloud.meta4?`"player":${JSON.stringify(playerName())},"news":${prefNews()},"login_alert":${prefAlert()},`:''}"email":${JSON.stringify((SB.session.user||{}).email||'')},"level":${levelOf(S.xp)},"clients":${allClients()},"coins":${S.coins|0},"diamonds":${S.diamonds|0},"cities":${S.cities.length},`:'')+`"company":${JSON.stringify(o.company||'')},"month":${o.month|0},"saved_at":${JSON.stringify(new Date(o.savedAt||Date.now()).toISOString())},"updated_at":${JSON.stringify(new Date().toISOString())},"data":${await packSave(o.json)}`;
       // com a trava ligada e a linha criada, só grava se a sessão ainda for deste aparelho (senão outro aparelho assumiu)
-      if(cloud.lock==='on'&&cloud.hasRow){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&sess=eq.${MYSESS}&select=user_id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:'{'+meta+'}'},true,30000);
+      if(cloud.lock==='on'&&cloud.hasRow){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&sess=eq.${MYSESS}&select=user_id`,{method:'PATCH',headers:{Prefer:'return=representation'},body:'{'+meta+'}'},true,upMs(meta.length));
         if(!r.ok)throw new Error('http '+r.status);const rows=await r.json().catch(()=>null);if(Array.isArray(rows)&&!rows.length){const e=new Error('outro aparelho');e.takeover=true;throw e;}return;}
       const body=`{"user_id":${JSON.stringify(uid)},${cloud.lock==='on'?`"sess":${JSON.stringify(MYSESS)},`:''}${meta}}`;
-      const r=await sbFetch('/rest/v1/saves',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body},true,30000);if(!r.ok)throw new Error('http '+r.status);cloud.hasRow=true;},
+      const r=await sbFetch('/rest/v1/saves',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body},true,upMs(body.length));if(!r.ok)throw new Error('http '+r.status);cloud.hasRow=true;},
     patch:true,
     async claim(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({sess:MYSESS})});cloud.lock=r.ok?'on':'off';},
     async owner(){const r=await sbFetch(`/rest/v1/saves?user_id=eq.${uid}&select=sess`);if(!r.ok)return null;const rows=await r.json();return rows.length?rows[0].sess:null;},
@@ -1754,10 +1770,15 @@ async function flushCloud(){
   if(cloud.busy){scheduleCloud(2000);return;}
   cloud.busy=true;cloud.dirty=false;cloud.lastTry=Date.now();
   try{let json;if(cloud.sync||!cloud.ref.patch)json=saveJson();else{cloud.ser=true;try{json=await saveJsonAsync();}finally{cloud.ser=false;}}cloud.sync=false;
-    await cloud.ref.set({json,savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';cloud.fails=0;try{localStorage.removeItem(SAVE_KEY);}catch(e){}driveRegions();syncRivals();}
-  catch(e){if(e&&e.takeover){cloud.busy=false;takeover();return;}cloud.dirty=true;cloud.status='erro';cloud.fails=(cloud.fails||0)+1;scheduleCloud(cloudBackoff());}
+    const t0=Date.now();await cloud.ref.set({json,savedAt:S.savedAt,company:S.company,month:monthOf(S.day)});cloud.last=Date.now();cloud.status='cloud';
+    if(cloud.fails>=2)toast('☁️ Voltou a salvar na sua conta.');cloud.fails=0;if(!cloud.guest)perfNet('save',true,`${(json.length/1048576).toFixed(1)} MB em ${((Date.now()-t0)/1000).toFixed(1)} s`);try{localStorage.removeItem(SAVE_KEY);}catch(e){}driveRegions();syncRivals();}
+  catch(e){if(e&&e.takeover){cloud.busy=false;takeover();return;}cloud.dirty=true;cloud.status='erro';cloud.fails=(cloud.fails||0)+1;
+    const why=e&&e.name==='AbortError'?'o envio passou do tempo (internet lenta ou save grande)':!navigator.onLine?'sem internet':String(e&&e.message||e).slice(0,120);
+    if(!cloud.guest)perfNet('save',false,'não salvou',why);if(cloud.fails===2||cloud.fails%5===0)toast(`⚠️ Não está salvando na sua conta: ${why}. Não recarregue a página; o jogo tenta de novo sozinho.`);
+    scheduleCloud(cloudBackoff());}
   cloud.busy=false;renderSaveDot();
 }
+window.addEventListener('beforeunload',e=>{if(!S||!cloud.ref||cloud.guest)return;const stale=Date.now()-(cloud.last||0)>90000;if(cloud.status==='erro'||(cloud.dirty&&stale)){e.preventDefault();e.returnValue='Seu progresso ainda não foi salvo na conta.';return e.returnValue;}});
 function validSave(d){return !!(d&&d.v===2&&Array.isArray(d.cities)&&d.cities.length>0&&typeof d.money==='number');}
 /* Jogo sem conta: o progresso fica no IndexedDB deste aparelho (comprimido como o da nuvem). Ao entrar numa conta,
    um progresso de convidado mais novo que o da conta sobe para ela e sai do aparelho. */
@@ -5087,7 +5108,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v99';
+const APP_V='v100';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
