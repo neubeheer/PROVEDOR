@@ -299,6 +299,19 @@ div.lot{cursor:default}
 .notice.warn{background:var(--gold-soft);color:#6b4906}
 .choice-list{display:flex;flex-direction:column;gap:8px}
 .m-sec{margin-top:14px}
+.ru-tabs{margin:0 0 10px;flex-wrap:wrap}.ru-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:6px;border:1.5px solid #fff}.ru-dot.ok{background:#3fae5a}.ru-dot.warn{background:#e5a21e}.ru-dot.bad{background:#cf3b3b}
+.ru-flow{margin-bottom:12px}.ru-h{margin:12px 0 6px;font-size:15px}.ru-note{font-size:12.5px;margin:0 0 8px}
+.ru-cov{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.ru-city{background:#fff;border:2px solid var(--line);border-radius:14px;padding:9px 11px;display:flex;flex-direction:column;gap:5px}.ru-city small{color:#5a6a88;font-size:12px}
+.ru-ct{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.ru-bar{display:block;height:10px;border-radius:99px;background:#e6ebf2;border:1.5px solid var(--navy);overflow:hidden}.ru-bar em{display:block;height:100%}.ru-bar em.ok{background:#3fae5a}.ru-bar em.warn{background:#e5a21e}.ru-bar em.bad{background:#cf3b3b}
+.ru-wrap{overflow-x:auto;border:2px solid var(--line);border-radius:14px;background:#fff}
+.ru-tab{border-collapse:collapse;width:100%;font-size:13px}.ru-tab th,.ru-tab td{padding:7px 8px;border-bottom:1px solid #eee3cc;text-align:center;white-space:nowrap}
+.ru-tab thead th{background:#f6e9cc;color:var(--navy);font-weight:800;font-size:12.5px}
+.ru-tab tbody th{text-align:left;display:flex;flex-direction:column;gap:2px;min-width:170px}.ru-tab tbody th small{color:#5a6a88;font-weight:600}.ru-tab tbody th a{color:#1f6cc0}
+.ru-tab tr:last-child th,.ru-tab tr:last-child td{border-bottom:0}
+.ru-cell{width:36px;height:32px;border-radius:9px;border:2px solid #c9d1de;background:#f7f9fc;cursor:pointer;font:800 16px/1 var(--display);color:#fff}
+.ru-cell.on{background:var(--go);border-color:var(--go-dark);box-shadow:0 2px 0 var(--go-dark)}.ru-cell[disabled]{cursor:default;background:#fff8ea;border-color:var(--line);color:inherit;font-size:15px}
 .ou-sum{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.ou-sum span{background:#fff;border:2px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px}
 .ou-tabs{margin:0 0 10px;flex-wrap:wrap}.ou-tabs i{font-style:normal;background:var(--signal);color:#fff;border-radius:999px;padding:0 7px;font-size:12px;margin-left:4px}
 .ou-intro{margin:0 0 10px;font-size:13px}
@@ -3305,18 +3318,29 @@ function retTake(c){const R=S.retB;if(!R){if(S.retCap>0){S.retCap--;return true;
   const B=bldgs().filter(b=>(R[b.key]||0)>0),own=B.find(b=>servesOf(b,'retencao').has(c.idx))||(flowOn('retencao')?B[0]:null);
   if(own){R[own.key]--;S.retCap=Math.max(0,(S.retCap||0)-1);return true;}
   if(S.retExtra>0){S.retExtra--;S.retCap=Math.max(0,(S.retCap||0)-1);return true;}return false;}
-function openRules(){if(!rulesOn()){toast(`As regras de negócio liberam com ${RULES_MIN_CITIES} cidades.`);return;}const pc=v=>Math.round(v*100)+'%',cn=i=>esc((S.cities[i]||{}).name||'?');
-  const secs=RULE_SECTORS.map(([id,name,unit])=>{const B=bldgs().filter(b=>bHas(b,id));
-    const dem=id==='callcenter'?demClients():id==='recuperacao'?demLate():null,al=dem?allocSector(id,dem):null;
-    const rows=B.map(b=>{const sv=servesOf(b,id),cap=bCap(b,id),custom=!!rulesOf().serve[b.key+':'+id];
-      const chips=S.cities.map(c=>{const on=sv.has(c.idx),fixed=c.idx===b.ci;return `<button class="chip ${on?'ok':''}" data-serve="${b.key}:${id}" data-ci="${c.idx}" ${fixed?'disabled title="Cidade do próprio prédio"':''} style="cursor:pointer">${on?'✓ ':''}${esc(c.name)}</button>`;}).join(' ');
-      return `<div class="rule-row"><div><b>${esc(b.name)}</b><small>Capacidade: ${Math.round(cap).toLocaleString('pt-BR')} ${unit}/mês${custom?` · <a href="#" data-rreset="${b.key}:${id}">voltar ao padrão</a>`:' · padrão'}</small></div><div class="rule-chips">${chips}</div></div>`;}).join('');
-    const cov=al?`<div class="choice-list" style="margin-top:6px">${S.cities.map(c=>{const d=al.dem[c.idx],g=al.got[c.idx],r=d?g/d:1;return `<div class="choice"><div><b>${cn(c.idx)}</b><small>${Math.round(d).toLocaleString('pt-BR')} ${unit} · atendidos ${Math.round(g).toLocaleString('pt-BR')}</small></div><span class="chip ${r>=0.999?'ok':r>=0.7?'warn':'bad'}">${d?pc(r):'—'}</span></div>`;}).join('')}</div>`:'';
-    return `<div class="card" style="margin:10px 0;padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">${name}</h3>
-      <div class="seg"><button data-flow="${id}" data-v="1" aria-pressed="${flowOn(id)}">Transbordo ligado</button><button data-flow="${id}" data-v="0" aria-pressed="${!flowOn(id)}">Cada um na sua</button></div></div>
-      <p class="muted" style="font-size:12.5px;margin:6px 0">${flowOn(id)?'Quando um prédio passa de 100% da capacidade, o que sobra em outro prédio cobre a falta.':'Cada prédio atende só as cidades marcadas; cidade sem cobertura fica descoberta.'} Toque nas cidades para marcar quem cada prédio atende.</p>
-      ${rows||`<div class="notice">Nenhum prédio tem ${name} montado.</div>`}${cov}</div>`;}).join('');
-  openModal(head('Gestão','Regras de negócio')+`<p class="muted" style="margin-top:0">Decida qual prédio atende cada cidade. A sede (e a terceirizada) cobre por padrão as cidades sem equipe própria; sedes regionais e filiais atendem a própria cidade e as que você marcar. Cidade mal atendida perde clientes. A logística segue o galpão de cada cidade.</p>${secs}<div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
+let RULES_TAB='callcenter';
+function openRules(){if(!rulesOn()){toast(`As regras de negócio liberam com ${RULES_MIN_CITIES} cidades.`);return;}
+  const look=id=>(typeof FLOOR_LOOK!=='undefined'&&FLOOR_LOOK[id])||['🏢','#2a83d8'];
+  const cov=id=>{const dem=id==='callcenter'?demClients():id==='recuperacao'?demLate():null;return dem?allocSector(id,dem):null;};
+  const worst=al=>{if(!al)return null;let w=1;S.cities.forEach(c=>{const d=al.dem[c.idx];if(d)w=Math.min(w,al.got[c.idx]/d);});return w;};
+  const tone=r=>r>=0.999?'ok':r>=0.7?'warn':'bad';
+  if(!RULE_SECTORS.some(x=>x[0]===RULES_TAB))RULES_TAB=RULE_SECTORS[0][0];
+  const tabs=RULE_SECTORS.map(([id,name])=>{const w=worst(cov(id));return `<button type="button" data-rtab="${id}" aria-pressed="${RULES_TAB===id}">${look(id)[0]} ${name}${w!=null?`<i class="ru-dot ${tone(w)}"></i>`:''}</button>`;}).join('');
+  const [id,name,unit]=RULE_SECTORS.find(x=>x[0]===RULES_TAB),B=bldgs().filter(bd=>bHas(bd,id)),al=cov(id),flow=flowOn(id);
+  const covHtml=al?`<h3 class="ru-h">Cobertura por cidade</h3><div class="ru-cov">${S.cities.map(c=>{const d=al.dem[c.idx],g=al.got[c.idx],r=d?Math.min(1,g/d):1;
+      return `<div class="ru-city"><div class="ru-ct"><b>${esc(c.name)}</b><span class="chip ${d?tone(r):''}">${d?Math.round(r*100)+'%':'—'}</span></div><i class="ru-bar"><em class="${tone(r)}" style="width:${Math.round(r*100)}%"></em></i><small>${d?`${Math.round(g).toLocaleString('pt-BR')} de ${Math.round(d).toLocaleString('pt-BR')} ${unit} atendidos`:`Sem ${unit} agora`}</small></div>`;}).join('')}</div>`:'';
+  const table=B.length?`<h3 class="ru-h">Quem atende quem</h3><p class="muted ru-note">Toque numa célula para ligar ou desligar. 🏠 = cidade do próprio prédio (sempre atendida).</p>
+    <div class="ru-wrap"><table class="ru-tab"><thead><tr><th>Prédio</th>${S.cities.map(c=>`<th>${esc(c.name)}</th>`).join('')}</tr></thead><tbody>${B.map(bd=>{const sv=servesOf(bd,id),cap=bCap(bd,id),custom=!!rulesOf().serve[bd.key+':'+id];
+      return `<tr><th><b>${esc(bd.name)}</b><small>${Math.round(cap).toLocaleString('pt-BR')} ${unit}/mês${custom?` · <a href="#" data-rreset="${bd.key}:${id}" title="Voltar ao padrão">↺ padrão</a>`:''}</small></th>${S.cities.map(c=>{const on=sv.has(c.idx),fixed=c.idx===bd.ci;
+        return `<td><button type="button" class="ru-cell${on?' on':''}" data-serve="${bd.key}:${id}" data-ci="${c.idx}" ${fixed?'disabled title="Cidade do próprio prédio"':`title="${on?'Deixar de atender':'Passar a atender'} ${esc(c.name)}"`}>${fixed?'🏠':on?'✓':''}</button></td>`;}).join('')}</tr>`;}).join('')}</tbody></table></div>`
+    :`<div class="notice">Nenhum prédio tem ${name} montado.</div>`;
+  openModal(head('Gestão','Regras de negócio')+`<div class="seg ru-tabs">${tabs}</div>
+    <label class="acc-sw ru-flow"><span><b>Transbordo ${flow?'ligado':'desligado'}</b><small>${flow?'Quando um prédio passa da capacidade, a sobra de outro prédio cobre a falta.':'Cada prédio atende só as cidades marcadas; o que passar fica descoberto.'}</small></span><input type="checkbox" data-flowsw="${id}" ${flow?'checked':''}><i aria-hidden="true"></i></label>
+    ${covHtml}${table}
+    <p class="muted ru-note">Padrão: a sede (e a terceirizada) cobre as cidades sem equipe própria; sedes regionais e filiais atendem a própria cidade e as que você marcar. Cidade mal atendida perde clientes. A logística segue o galpão de cada cidade.</p>
+    <div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`,md=>{
+    md.querySelectorAll('[data-rtab]').forEach(x=>x.onclick=()=>{RULES_TAB=x.dataset.rtab;openRules();md.scrollTop=0;});
+    const sw=md.querySelector('[data-flowsw]');if(sw)sw.onchange=()=>{rulesOf().flow[sw.dataset.flowsw]=sw.checked;save(true);openRules();};});}
 document.addEventListener('click',e=>{if(!S)return;
   const f=e.target.closest('[data-flow]');if(f){rulesOf().flow[f.dataset.flow]=f.dataset.v==='1';save(true);openRules();return;}
   const r=e.target.closest('[data-rreset]');if(r){e.preventDefault();delete rulesOf().serve[r.dataset.rreset];save(true);openRules();return;}
@@ -5027,7 +5051,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v92';
+const APP_V='v93';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
