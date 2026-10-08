@@ -299,6 +299,22 @@ div.lot{cursor:default}
 .notice.warn{background:var(--gold-soft);color:#6b4906}
 .choice-list{display:flex;flex-direction:column;gap:8px}
 .m-sec{margin-top:14px}
+.ou-sum{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.ou-sum span{background:#fff;border:2px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px}
+.ou-tabs{margin:0 0 10px;flex-wrap:wrap}.ou-tabs i{font-style:normal;background:var(--signal);color:#fff;border-radius:999px;padding:0 7px;font-size:12px;margin-left:4px}
+.ou-intro{margin:0 0 10px;font-size:13px}
+@media (max-height:520px){.ou-sum span{font-size:11.5px;padding:3px 9px}.ou-intro{font-size:12px}}
+.ou-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.ou-card{background:#fff;border:2px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.ou-head{display:flex;align-items:center;gap:10px}.ou-head>div{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}.ou-head b{font-size:16px}.ou-head small{color:#5a6a88}
+.ou-ico{flex:0 0 auto;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:21px;border:2px solid var(--navy);box-shadow:0 2px 0 var(--navy)}
+.ou-packs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ou-pack{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:2px solid var(--line);border-radius:12px;background:#f7f9fc;cursor:pointer;font:inherit;color:var(--navy);text-align:center}
+.ou-pack b{font-size:13.5px}.ou-pack small{font-size:11px;color:#5a6a88}.ou-pack span{font-weight:800;font-size:13px;margin-top:2px}.ou-pack span small{font-weight:600}
+.ou-pack:hover:not([disabled]){border-color:#9fb3cf}.ou-pack.on{border-color:var(--go-dark);background:#e3f7ec;box-shadow:inset 0 0 0 1px var(--go)}.ou-pack[disabled]{opacity:.45;cursor:default}
+.ou-foot{display:flex;justify-content:space-between;align-items:center}.ou-foot small{color:#5a6a88}
+.ou-end{background:none;border:0;color:#a61e2d;font-weight:800;font-size:13px;cursor:pointer;text-decoration:underline;padding:2px}
+.ou-eff{display:flex;align-items:center;gap:8px;font-size:13px}.ou-eff i{flex:1;height:10px;border-radius:99px;background:#e6ebf2;overflow:hidden;border:1.5px solid var(--navy)}.ou-eff em{display:block;height:100%}
+.ou-badge{background:#effaf6;border:2px solid var(--signal);border-radius:10px;padding:5px 10px;font-size:13px;font-weight:700;color:#0b6d63}
 .sv-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:10px 0}
 .sv-card{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fff}.sv-card.rec{border-color:var(--signal);background:#effaf6}
 .sv-top{display:flex;align-items:center;gap:6px;font-size:13px}.sv-top em{margin-left:auto;font-style:normal;font-size:11px;font-weight:800;color:#fff;background:var(--signal);border-radius:999px;padding:2px 8px}
@@ -3319,19 +3335,35 @@ function outTeam(id,pk){const p=OUT_PACKS.find(x=>x.id===pk);return id==='callce
 function teamSal(id,t){const R=rolesOf(FLOORS.find(f=>f.id===id));let s=0;for(const k in t)s+=(t[k]||0)*((R[k]||{}).sal||0);return s;}
 const outMonthly=(id,pk)=>Math.round(teamSal(id,outTeam(id,pk))*(1+OUT_FEE));
 function outsFeeNow(){let s=0;for(const [id,f] of Object.entries(S.outs||{}))s+=Math.round(teamSal(id,f.team)*OUT_FEE);return s;}
+let OUTS_TAB='out';
 function openOuts(){const lvl=levelOf(S.xp);if(lvl<OUTS_LEVEL){toast(`Libera no nível ${OUTS_LEVEL}.`);return;}
   S.outs=S.outs||{};S.train=S.train||{};const m=monthOf(S.day);
-  const rows=OUT_SECTORS.map(id=>{const f=FLOORS.find(x=>x.id===id),cur=S.outs[id];
-    return `<div class="choice"><div><b>${f.name}</b><small>${cur?`Contrato ${OUT_PACKS.find(p=>p.id===cur.pack).name} · ${Object.values(cur.team).reduce((a,b)=>a+b,0)} pessoas · ${brl0(outMonthly(id,cur.pack))}/mês`:built(id)?'Equipe própria':'Setor não montado: a terceirizada assume o setor inteiro'}</small></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${OUT_PACKS.map(p=>`<button class="btn small ${cur&&cur.pack===p.id?'primary':''}" data-out="${id}" data-pk="${p.id}" title="${p.ops} operadores, ${p.sup} supervisor(es)${p.ger?', 1 gerente':''}">${p.name} · ${brl0(outMonthly(id,p.id))}</button>`).join('')}${cur?`<button class="btn small ghost" data-out="${id}" data-pk="">Encerrar</button>`:''}</div></div>`;}).join('');
-  const trRows=OUT_SECTORS.concat(['rh','noc']).filter(id=>headcount(id)>0).map(id=>{const f=FLOORS.find(x=>x.id===id),hc=headcount(id),cur=S.train[id],on=cur&&cur.until>=m;
-    return `<div class="choice"><div><b>${f.name}</b><small>${hc} pessoa(s) · eficiência ${Math.round(effOf(id)*100)}%${on?` · <b style="color:var(--signal)">${TRAININGS.find(t=>t.id===cur.id).name} +${Math.round(cur.b*100)}% até o mês ${cur.until}</b>`:''}</small></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${TRAININGS.map(t=>`<button class="btn small" data-train="${id}" data-t="${t.id}" ${on&&cur.b>=t.bonus?'disabled':''} title="+${Math.round(t.bonus*100)}% de eficiência por ${t.months} meses">${t.name} · ${brl0(t.per*hc)}</button>`).join('')}</div></div>`;}).join('');
-  openModal(head('Gestão','Terceirizadas e consultorias')+`<p class="muted" style="margin-top:0">A terceirizada traz a equipe pronta (operadores, supervisores e gerente), soma na capacidade do setor e não pede demissão. Cobra os salários mais ${Math.round(OUT_FEE*100)}% de taxa por mês; a contratação custa um mês adiantado.</p>
-    <h3 style="margin:8px 0 6px">Empresas terceirizadas</h3><div class="choice-list">${rows}</div>
-    ${mgmtHtml()}
-    <h3 style="margin:14px 0 6px">Consultorias de treinamento</h3><p class="muted" style="margin:0 0 6px;font-size:13px">O preço é por pessoa do setor (equipe própria e terceirizada). Sobe a eficiência enquanto durar.</p><div class="choice-list">${trRows||'<p class="muted">Monte ou terceirize um setor para treinar a equipe.</p>'}</div>
-    <div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`);}
+  const look=id=>(typeof FLOOR_LOOK!=='undefined'&&FLOOR_LOOK[id])||['🏢','#2a83d8'];
+  const actOut=Object.keys(S.outs).filter(id=>S.outs[id]&&S.outs[id].pack),monthly=actOut.reduce((t,id)=>t+outMonthly(id,S.outs[id].pack),0);
+  const trOn=Object.values(S.train).filter(t=>t&&t.until>=m).length,mgOn=lvl>=MGMT_LEVEL?mgmtActive().length:0;
+  const tab=(k,ico,lab,n)=>`<button type="button" data-otab="${k}" aria-pressed="${OUTS_TAB===k}">${ico} ${lab}${n?` <i>${n}</i>`:''}</button>`;
+  let body='';
+  if(OUTS_TAB==='out'){
+    body=`<p class="muted ou-intro">A terceirizada traz a equipe pronta (operadores, supervisores e gerente), soma na capacidade do setor e não pede demissão. Cobra os salários mais ${Math.round(OUT_FEE*100)}% de taxa por mês; a contratação custa um mês adiantado.</p><div class="ou-grid">${OUT_SECTORS.map(id=>{
+      const f=FLOORS.find(x=>x.id===id),cur=S.outs[id],lk=look(id),pk=cur&&OUT_PACKS.find(p=>p.id===cur.pack),own=allFloors().some(fl=>fl!==S.outs&&fl[id]&&fl[id].built);
+      const st=((cur?`<span class="chip ok">Terceirizada ${pk.name} · ${Object.values(cur.team).reduce((x,y)=>x+y,0)} pessoas</span>`:'')+(own?'<span class="chip">Equipe própria</span>':''))||'<span class="chip warn">Setor não montado: a terceirizada assume tudo</span>';
+      return `<div class="ou-card"><div class="ou-head"><span class="ou-ico" style="background:${lk[1]}">${lk[0]}</span><div><b>${f.name}</b>${st}</div></div>
+        <div class="ou-packs">${OUT_PACKS.map(p=>{const on=cur&&cur.pack===p.id;return `<button type="button" class="ou-pack${on?' on':''}" data-out="${id}" data-pk="${p.id}"><b>${on?'✓ ':''}${p.name}</b><small>${p.ops} op · ${p.sup} sup${p.ger?' · 1 ger':''}</small><span>${brl0(outMonthly(id,p.id))}<small>/mês</small></span></button>`;}).join('')}</div>
+        ${cur?`<div class="ou-foot"><small>Desde o mês ${cur.since||'-'}</small><button type="button" class="ou-end" data-out="${id}" data-pk="">Encerrar contrato</button></div>`:''}</div>`;}).join('')}</div>`;
+  }else if(OUTS_TAB==='train'){
+    const ids=OUT_SECTORS.concat(['rh','noc','infra']).filter(id=>FLOORS.find(x=>x.id===id)&&headcount(id)>0);
+    body=`<p class="muted ou-intro">O preço é por pessoa do setor (equipe própria e terceirizada). A eficiência sobe enquanto durar o treinamento; um curso mais forte substitui o mais fraco.</p>${ids.length?`<div class="ou-grid">${ids.map(id=>{
+      const f=FLOORS.find(x=>x.id===id),hc=headcount(id),cur=S.train[id],on=cur&&cur.until>=m,e=effOf(id),lk=look(id),tr=on&&TRAININGS.find(t=>t.id===cur.id);
+      return `<div class="ou-card"><div class="ou-head"><span class="ou-ico" style="background:${lk[1]}">${lk[0]}</span><div><b>${f.name}</b><small>${hc.toLocaleString('pt-BR')} pessoa(s)</small></div></div>
+        <div class="ou-eff"><span>Eficiência <b>${Math.round(e*100)}%</b></span><i><em style="width:${Math.min(100,e/1.45*100)}%;background:${e<0.9?'#e5a21e':'var(--go)'}"></em></i></div>
+        ${on?`<div class="ou-badge">🎓 ${tr?tr.name:'Treinamento'} · +${Math.round(cur.b*100)}% · faltam ${cur.until-m+1} mês(es)</div>`:''}
+        <div class="ou-packs">${TRAININGS.map(t=>{const dis=on&&cur.b>=t.bonus;return `<button type="button" class="ou-pack${on&&cur.id===t.id?' on':''}" data-train="${id}" data-t="${t.id}" ${dis?'disabled':''}><b>${cap1(t.name.replace('Treinamento ',''))}</b><small>+${Math.round(t.bonus*100)}% · ${t.months} meses</small><span>${brl0(t.per*hc)}</span></button>`;}).join('')}</div></div>`;}).join('')}</div>`:'<div class="notice">Monte ou terceirize um setor para treinar a equipe.</div>'}`;
+  }else body=mgmtHtml().replace(/^<h3[^>]*>[^<]*<\/h3>/,'');
+  openModal(head('Gestão','Terceirizadas e consultorias')+`
+    <div class="ou-sum"><span>🏢 <b>${actOut.length}</b> terceirizada(s) · ${brl0(monthly)}/mês</span><span>🎓 <b>${trOn}</b> treinamento(s) ativo(s)</span>${lvl>=MGMT_LEVEL?`<span>📋 <b>${mgOn}</b> contrato(s) de gestão · ${(S.coins||0).toLocaleString('pt-BR')} selos</span>`:''}</div>
+    <div class="seg ou-tabs">${tab('out','🏢','Terceirizadas',actOut.length)}${tab('train','🎓','Treinamentos',trOn)}${tab('mgmt','📋','Gestão (selos)',mgOn)}</div>
+    ${body}
+    <div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`,md=>{md.querySelectorAll('[data-otab]').forEach(x=>x.onclick=()=>{OUTS_TAB=x.dataset.otab;openOuts();md.scrollTop=0;});});}
 document.addEventListener('click',e=>{if(!S)return;
   const o=e.target.closest('[data-out]');if(o){const id=o.dataset.out,pk=o.dataset.pk,f=FLOORS.find(x=>x.id===id);S.outs=S.outs||{};
     if(!pk){delete S.outs[id];log(`Contrato da terceirizada do ${f.name} encerrado.`);save(true);renderAll();openOuts();return;}
@@ -4995,7 +5027,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v91';
+const APP_V='v92';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
@@ -5144,7 +5176,7 @@ function coachTick(){const T=COACH.tour;if(!T||!S){coachEnd();return;}const st=T
   if(COACH.shown!==COACH.i){COACH.shown=COACH.i;const n=T.steps.length;
     bub.innerHTML=`<div class="c-head"><span>${T.title} · ${COACH.i+1}/${n}</span><button class="c-skip" data-coach="skip">Pular tutorial</button></div><p>${st.text}</p>${st.info?'<div class="c-foot"><button class="btn small primary" data-coach="next">Entendi</button></div>':''}`;}
   // com outra janela aberta e o alvo fora dela, o tutorial espera sem bloquear
-  let el=coachFind(st);if(el&&modalOpen&&!document.getElementById("modalWrap").contains(el))el=null;COACH.el=el;const W=innerWidth,H=innerHeight;
+  let el=coachFind(st);if(modalOpen&&!PANEL&&!(el&&document.getElementById("modalWrap").contains(el))&&!st.free){r.hidden=true;COACH.el=null;return;}r.hidden=false;COACH.el=el;const W=innerWidth,H=innerHeight;
   if(!el){for(const x of [t,b,l,rt])x.style.display='none';ring.style.display=hand.style.display='none';
     Object.assign(bub.style,{left:'50%',top:'auto',bottom:'calc(var(--dockH) + 30px + var(--sB))',transform:'translateX(-50%)'});return;}
   if(!COACH.scrolled){COACH.scrolled=true;try{el.scrollIntoView({block:'center',inline:'nearest'});}catch(e){}}
