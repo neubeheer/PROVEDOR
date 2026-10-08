@@ -3615,7 +3615,7 @@ function openMenu(){
   openModal(head('Jogo','Menu')+`<div class="notice ${cloud.status==='cloud'?'ok':'warn'}" style="margin-bottom:4px">${st}</div>
     ${sec('Jogo',[T('ranking','🏆','Ranking','Provedores com mais assinantes e quem está online.'),T('levels','⭐','Níveis e XP','O que cada nível libera.'),T('tours','👆','Tutorial guiado','Ligar, desligar ou rever.')])}
     ${sec('Conta',[sbOn()?T('login',logged?'👤':'🔑',logged?'Minha conta':'Entrar',logged?esc(SB.session.user.email||''):'Salve online e jogue em outro aparelho.',logged?'':'hl'):'',T('avatar','🙂','Avatar','Aparece no topo e no ranking.'),T('policy','📜','Política do jogo','Dados, convivência e seus direitos.')])}
-    ${sec('Aparelho',[T('fx','🔊','Som e animações','Música, efeitos e movimento no mapa.'),deferredInstall?T('#mInstall','📲','Instalar como app','Abre em tela cheia.','hl'):'',document.fullscreenEnabled?T('fullscreen','⛶','Tela cheia','Esconde a barra do navegador (Android).'):''])}
+    ${sec('Aparelho',[T('fx','🔊','Som, animações e mapa','Música, efeitos, movimento e números das quadras.'),deferredInstall?T('#mInstall','📲','Instalar como app','Abre em tela cheia.','hl'):'',document.fullscreenEnabled?T('fullscreen','⛶','Tela cheia','Esconde a barra do navegador (Android).'):''])}
     ${sec('Suporte',[T('perf','📊','Relatório de desempenho','Onde o jogo demora, para mandar ao suporte.'),connOn()?T('connTest','🔌','Testar conexões','Login e banco de quadras.'):''])}
     ${isAdmin()?sec('Administrador',[T('admin','🛠️','Administração','Regras, valores e jogadores.','adm')]):''}
     <section class="m-sec"><h3>Progresso</h3><div class="m-grid">${T('#mReset','🗑️','Recomeçar do zero','Apaga a empresa salva.','danger')}</div></section>
@@ -4851,7 +4851,7 @@ function drawQuadras(c,overT){
 function qnRefresh(){if(!LM||!S)return;
   if(!LQN){LQN=L.layerGroup().addTo(LM);LM.on('moveend',qnRefresh);}
   if(!LM._loaded)return; // antes do mapa ter centro e zoom não há área visível (o moveend chama de novo)
-  const c=city();if(LM.getZoom()<15||!hasBlocks(c)||!QP.looks.length){if(QN.size){LQN.clearLayers();QN.clear();}return;}
+  const c=city();if(!FXS.qnum||LM.getZoom()<15||!hasBlocks(c)||!QP.looks.length){if(QN.size){LQN.clearLayers();QN.clear();}return;}
   const b=LM.getBounds().pad(0.15),want=new Map();
   for(let i=0;i<c.blocks.length&&want.size<500;i++){const lk=QP.looks[i];if(!lk||!lk.n)continue;const ce=qCenter(c.blocks[i]);if(!b.contains(ce))continue;
     want.set(i,`<span class="qn-tag${lk.fib?' fib':''}" title="${lk.n} de ${lk.dom} moradores">${lk.n}</span>`);}
@@ -5074,7 +5074,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v96';
+const APP_V='v97';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
@@ -5118,7 +5118,7 @@ function openPerf(){const txt=perfText();openModal(head('Suporte','Relatório de
    Efeitos: sintetizados (Web Audio), com intervalo mínimo por tipo. O navegador só libera som depois do primeiro toque.
    Animações: uma camada <canvas> sobre o mapa real com carros (saem do prédio da cidade e seguem as ruas do OpenStreetMap)
    e pessoas andando em volta das quadras com clientes. Desenha a até 30 quadros/s e para quando não há nada para mostrar. */
-const FXS=(()=>{const d={music:true,sfx:true,anim:true,vol:0.6};try{return Object.assign(d,JSON.parse(localStorage.getItem('pt-fx')||'{}'));}catch(e){return d;}})();
+const FXS=(()=>{const d={music:true,sfx:true,anim:true,qnum:true,vol:0.6};try{return Object.assign(d,JSON.parse(localStorage.getItem('pt-fx')||'{}'));}catch(e){return d;}})();
 function fxSave(){try{localStorage.setItem('pt-fx',JSON.stringify(FXS));}catch(e){}}
 const MUSIC=['audio/happy-adventure.mp3','audio/summer-park.mp3'];
 let musicEl=null,musicI=0,audioOn=false,actx=null;
@@ -5137,11 +5137,11 @@ function sfx(kind){if(!FXS.sfx||!audioOn||document.visibilityState!=='visible'||
   for(const [f,st,du,type] of SFX[kind]){const o=actx.createOscillator(),e=actx.createGain();o.type=type;o.frequency.value=f;e.gain.setValueAtTime(0.0001,t0+st);e.gain.exponentialRampToValueAtTime(1,t0+st+0.01);e.gain.exponentialRampToValueAtTime(0.0001,t0+st+du);o.connect(e);e.connect(g);o.start(t0+st);o.stop(t0+st+du+0.03);}}
 document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.btn,.tabs button,.hs-btn,.pill-plus,.hud-gear,.fab-expand,.chip'))sfx('click');},true);
 function openFx(){const row=(k,t,d)=>`<div class="choice"><div><b>${t}</b><small>${d}</small></div><div class="seg"><button data-fx="${k}" data-v="1" aria-pressed="${!!FXS[k]}">Ligado</button><button data-fx="${k}" data-v="0" aria-pressed="${!FXS[k]}">Desligado</button></div></div>`;
-  openModal(head('Configuração','Som e animações')+`<div class="choice-list">${row('music','Música','Trilha de fundo (faixas livres, CC0).')}${row('sfx','Efeitos sonoros','Venda, instalação, cancelamento, nível e cliques.')}${row('anim','Carros e pessoas no mapa','Técnicos, vendedores e logística saindo da sede ou filial. Desligue em celulares mais fracos.')}
+  openModal(head('Configuração','Som, animações e mapa')+`<div class="choice-list">${row('music','Música','Trilha de fundo (faixas livres, CC0).')}${row('sfx','Efeitos sonoros','Venda, instalação, cancelamento, nível e cliques.')}${row('qnum','Assinantes por quadra no mapa','O número de clientes em cada quarteirão (a partir do zoom 15). Desligue se o mapa ficar pesado em cidades grandes.')}${row('anim','Carros e pessoas no mapa','Técnicos, vendedores e logística saindo da sede ou filial. Desligue em celulares mais fracos.')}
     <div class="choice"><div><b>Volume</b><small>Música e efeitos.</small></div><input type="range" id="fxVol" min="0" max="1" step="0.05" value="${FXS.vol}" style="width:160px"></div></div>
     <p class="muted" style="font-size:12px">Músicas: "Happy Adventure Loop" (tinyworlds) e "Summer Park 8bit Tune Loop" (scribe), OpenGameArt.org, domínio público (CC0). O som começa depois do primeiro toque na tela.</p>
     <div class="foot"><span></span><button class="btn" data-close>Fechar</button></div>`,m=>{m.querySelector('#fxVol').oninput=e=>{FXS.vol=+e.target.value;fxSave();musicSync();};m.querySelector('#fxVol').onchange=()=>sfx('sale');});}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-fx]');if(!b)return;FXS[b.dataset.fx]=b.dataset.v==='1';fxSave();musicSync();if(b.dataset.fx==='anim')aniReset();openFx();});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-fx]');if(!b)return;FXS[b.dataset.fx]=b.dataset.v==='1';fxSave();musicSync();if(b.dataset.fx==='anim')aniReset();if(b.dataset.fx==='qnum')qnRefresh();openFx();});
 
 const ANI={cv:null,ctx:null,ents:[],people:[],raf:0,last:0,ci:-1,roads:new Map(),zoom:false};
 const ANI_ICON={tec:'🚐',pap:'🛵',log:'🚚'},ANI_DONE={tec:'✅',pap:'🤝',log:'📦'},ANI_MAX=14;
