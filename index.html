@@ -299,6 +299,12 @@ div.lot{cursor:default}
 .notice.warn{background:var(--gold-soft);color:#6b4906}
 .choice-list{display:flex;flex-direction:column;gap:8px}
 .m-sec{margin-top:14px}
+.sv-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:10px 0}
+.sv-card{border:2px solid var(--line);border-radius:16px;padding:12px;background:#fff}.sv-card.rec{border-color:var(--signal);background:#effaf6}
+.sv-top{display:flex;align-items:center;gap:6px;font-size:13px}.sv-top em{margin-left:auto;font-style:normal;font-size:11px;font-weight:800;color:#fff;background:var(--signal);border-radius:999px;padding:2px 8px}
+.sv-name{font:700 19px/1.2 var(--display);color:var(--navy);margin:6px 0}
+.sv-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:14px;margin-bottom:6px}.sv-card small{color:#5a6a88}
+.btn.danger{background:linear-gradient(180deg,#ff8a7a,#cf3b3b);color:#fff;text-shadow:0 1.5px 0 #8a1f1f}
 .modal.f3d-modal{width:min(96vw,1180px);max-width:none}
 .f3d-wrap{position:relative;border:3px solid var(--navy);border-radius:16px;overflow:hidden;background:#9fd8f7}
 #f3d{height:min(64vh,620px);min-height:240px}
@@ -1742,6 +1748,21 @@ setInterval(()=>{if(S)grantsApply();},120000);
 function acctBonus(){if(!S||cloud.guest||!cloud.ref||!SB.session||!SB.session.user)return;const u=SB.session.user.id;if(S.acctBonus===u)return;
   S.acctBonus=u;S.diamonds=(S.diamonds||0)+LOGIN_DIAMONDS;log(`Conta conectada: +${LOGIN_DIAMONDS} diamantes de boas-vindas.`);toast(`💎 +${LOGIN_DIAMONDS} diamantes por entrar na conta!`);sfx('level');save(true);renderAll();}
 setInterval(acctBonus,3000);
+/* Resumo de um jogo salvo (empresa, nível, clientes, cidades, mês e data) para a escolha entre aparelho e conta. */
+function saveSummary(st){let cl=0;for(const c of st.cities||[])for(const q of (c.blocks&&c.blocks.length?c.blocks:(c.lots||[])))for(const f of q.fams||[])if(isSub(f))cl++;
+  return {company:st.company||'Sem nome',level:levelOf(st.xp||0),clients:cl,cities:(st.cities||[]).length,month:monthOf(st.day||0),at:st.savedAt||0};}
+function askSaveConflict(local,remote){return new Promise(res=>{const a=saveSummary(local),b=saveSummary(remote);
+  const when=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+  const card=(x,ttl,ico,rec)=>`<div class="sv-card${rec?' rec':''}"><div class="sv-top"><span>${ico}</span><b>${ttl}</b>${rec?'<em>Recomendado</em>':''}</div><div class="sv-name">${esc(x.company)}</div>
+    <div class="sv-grid"><span>Nível <b>${x.level}</b></span><span><b>${x.clients.toLocaleString('pt-BR')}</b> clientes</span><span><b>${x.cities}</b> cidade(s)</span><span>Mês <b>${x.month}</b></span></div><small>Salvo em ${when(x.at)}</small></div>`;
+  const ask=()=>openModal(head('Conta','Você já tem um jogo salvo',false)+`<p style="margin-top:0">Encontramos uma empresa na sua conta e outra jogada neste aparelho sem entrar. Qual você quer continuar?</p>
+    <div class="sv-two">${card(b,'Na sua conta','☁️',true)}${card(a,'Neste aparelho','📱',false)}</div>
+    <p class="muted" style="font-size:12.5px">O jogo que não for escolhido é descartado.</p>
+    <div class="foot" style="flex-wrap:wrap;gap:8px"><button class="btn" id="svLocal">Usar o deste aparelho</button><button class="btn primary" id="svCloud">Continuar o da conta</button></div>`,m=>{
+    m.querySelector('#svCloud').onclick=()=>res('cloud');
+    m.querySelector('#svLocal').onclick=()=>openModal(head('Conta','Substituir o jogo da conta?',false)+`<div class="notice bad">A empresa <b>${esc(b.company)}</b> (nível ${b.level}, ${b.clients.toLocaleString('pt-BR')} clientes) que está na sua conta será <b>apagada</b> e trocada pela <b>${esc(a.company)}</b> deste aparelho. Não dá para desfazer.</div>
+      <div class="foot" style="flex-wrap:wrap;gap:8px"><button class="btn" id="svBack">Voltar</button><button class="btn danger" id="svYes">Sim, substituir</button></div>`,m2=>{m2.querySelector('#svBack').onclick=ask;m2.querySelector('#svYes').onclick=()=>res('local');});});
+  ask();});}
 async function initCloud(){
   try{
     if(sbOn()&&SB.session&&SB.session.user){cloud.ref=sbSaveRef();cloud.guest=false;}
@@ -1757,6 +1778,12 @@ async function initCloud(){
     if(cloud.ref.claim){try{await cloud.ref.claim();}catch(e){cloud.lock='off';}}
     let st=null;
     if(snap.exists){try{st=JSON.parse(snap.data().json);}catch(e){}}
+    // jogo no aparelho e jogo diferente na conta: o jogador escolhe (o da conta é o recomendado)
+    if(validSave(st)&&S&&(S.savedAt||0)!==(st.savedAt||0)){
+      const pick=await askSaveConflict(S,st);
+      if(pick==='local'){cloud.dirty=true;await flushCloud();toast('O jogo deste aparelho agora é o da sua conta.');renderSaveDot();return true;}
+      S=null;
+    }
     if(validSave(st)&&(!S||(st.savedAt||0)>(S.savedAt||0))){
       const wasStart=!S;S=migrate(st);
       if(wasStart&&modalOpen)closeModal();
@@ -4965,7 +4992,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v89';
+const APP_V='v90';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
@@ -5350,7 +5377,7 @@ async function bootCloud(){
   let legacy=loadLocal(),guestAt=null;try{const g=await guestRef().get();if(g.exists){const st=JSON.parse(g.data().json);if(validSave(st)&&(!legacy||(st.savedAt||0)>(legacy.savedAt||0))){legacy=st;guestAt=st.savedAt||0;}}}catch(e){}
   S=legacy?migrate(legacy):null;cloud.guest=false;
   const ok=await initCloud();
-  if(ok&&guestAt!=null&&S&&(S.savedAt||0)===guestAt){await guestRef().clear();toast('Seu progresso deste aparelho foi para a sua conta.');}
+  if(ok&&guestAt!=null){const up=S&&(S.savedAt||0)===guestAt;try{await guestRef().clear();}catch(e){}if(up)toast('Seu progresso deste aparelho foi para a sua conta.');}
   if(ok){try{localStorage.removeItem('pt-guest');}catch(e){}}
   if(!ok){S=null;bootFail('Não deu para carregar a sua conta agora.');return;}
   try{const q=await sbFetch('/rest/v1/saves?select=level&limit=1');cloud.meta2=q.ok;const q3=await sbFetch('/rest/v1/saves?select=avatar&limit=1');cloud.meta3=q3.ok;const q4=await sbFetch('/rest/v1/saves?select=player,news,login_alert&limit=1');cloud.meta4=q4.ok;}catch(e){}

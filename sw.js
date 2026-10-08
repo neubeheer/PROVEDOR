@@ -1,6 +1,6 @@
 /* Service worker do Provedor Tycoon: deixa o jogo abrir sem internet.
    Ao publicar uma versão nova, aumente o número em VERSION para os jogadores receberem a atualização. */
-const VERSION = 'v89';
+const VERSION = 'v90';
 const APP_CACHE = `provedor-app-${VERSION}`;
 const FONT_CACHE = 'provedor-fonts';
 const APP_FILES = [
