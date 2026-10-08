@@ -3029,7 +3029,7 @@ async function loadBlocks(c){
   const st0=BSTAT.get(c);if(st0)clearTimeout(st0.t);
   blockBusy.add(c);c.geoStep='Desenhando as quadras pelas ruas…';renderMap();
   try{
-    const R=Math.round(clamp(c.geo.side*0.6,2000,c.pop>200000?2500:4000));
+    const R=blocksR(c);
     const kx=mPerLon(c.geo.lat);
     let raw=await driveGetFaces(c),src='cache';
     if(!raw){
@@ -4816,7 +4816,12 @@ function ibgeSamples(c){
     if(!pts.length)pts.push(geoToGrid(c.geo,b.c[0],b.c[1]));return {b,pts};});
   SAMPLE_CACHE.set(key,out);return out;
 }
-function inArea(c,gp){const m=hasBlocks(c)?2:0;return (gp.x>=-m&&gp.x<=9+m&&gp.y>=-m&&gp.y<=9+m)||(c.areas||[]).some(a=>a.n>0&&Math.hypot(gp.x-a.gx,gp.y-a.gy)<=a.rg);}
+/* Raio (m) em que as quadras da cidade foram desenhadas. Em cidade grande ele fica menor que o quadrado do mapa:
+   fora dele a cidade é atendida por filiais de área (antes o quadrado inteiro contava como área e o toque oferecia torre). */
+const blocksR=c=>Math.round(clamp(c.geo.side*0.6,2000,c.pop>200000?2500:4000));
+function inMain(c,gp){const m=hasBlocks(c)?2:0;if(!(gp.x>=-m&&gp.x<=9+m&&gp.y>=-m&&gp.y<=9+m))return false;
+  if(!hasBlocks(c))return true;const R=blocksR(c);if(R>=c.geo.side*0.6)return true;const lm=c.geo.side/9;return Math.hypot(gp.x-4.5,gp.y-4.5)<=R*1.08/lm;}
+function inArea(c,gp){return inMain(c,gp)||(c.areas||[]).some(a=>a.n>0&&Math.hypot(gp.x-a.gx,gp.y-a.gy)<=a.rg);}
 function coveredAt(c,gx,gy){return c.towers.some(t=>!t.off&&inSector(t,gx,gy));}
 function draftCoverage(c,d){
   const t={gx:d.gx,gy:d.gy,az:d.az,beam:d.beam,range:d.rangeLots};let houses=0,fresh=0;
@@ -5074,7 +5079,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v97';
+const APP_V='v98';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
