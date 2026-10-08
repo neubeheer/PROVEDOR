@@ -4553,6 +4553,7 @@ const BEAMS=[60,90,120];
 const COMPASS=['N','NE','L','SE','S','SO','O','NO'];
 let mapView=(()=>{try{return localStorage.getItem('pt-view')||'real';}catch(e){return 'real';}})();
 let LDrawAt=0,LDrawT=null;
+let LFitKey='';
 let QREND=null,LM=null,LLayers=null,LDraft=null,LSig='',meMarker=null,geoBusy=new Set(),draft=null,sedePick=null,sedeMk=null,lastClick=null,bldTimer=null;
 async function fetchJson(url,opts={},ms=25000){
   const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
@@ -4881,7 +4882,9 @@ function renderReal(){blkNote(S&&city());
   initLeaflet();
   if(LM.getSize().x===0){LSig='';return;}
   const sig=JSON.stringify([RIVAL.at,c.idx,c.geo.loadedAt,c.towers.map(t=>[t.id,t.off,towerLoad(c,t)]),c.fiber.ctos,Object.keys(c.fiber.down||{}).join(),c.store,S.sede,c.bairros,famHash(c,true),c.lots.map(l=>l.t[0]).join(''),S.phase,c.blocksAt||0]);
-  if(sig!==LSig){const first=!LSig||!LSig.includes(','+c.idx+','+c.geo.loadedAt+',');const wait=(TICKR?5000:1500)-(Date.now()-LDrawAt);
+  // o mapa só se reenquadra quando muda a cidade (ou o mapa dela é recarregado); redesenhos por outros motivos mantêm o zoom e a posição do jogador
+  const fk=c.idx+':'+c.geo.loadedAt,first=fk!==LFitKey;
+  if(sig!==LSig||first){if(first)LFitKey=fk;const wait=(TICKR?5000:1500)-(Date.now()-LDrawAt);
     if(first||wait<=0){clearTimeout(LDrawT);LDrawT=null;LSig=sig;LDrawAt=Date.now();drawReal(c,first);}else if(!LDrawT||!TICKR){clearTimeout(LDrawT);LDrawT=setTimeout(()=>{LDrawT=null;renderReal();},wait);}}
   if(!$('#draftPanel')||tools.dataset.phase!==S.phase){
     tools.dataset.phase=S.phase;
@@ -4992,7 +4995,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
    mostra, copia ou baixa o texto para mandar ao suporte. */
 const PERF={stats:{},ev:[],calls:[],since:Date.now(),last:performance.now(),stack:[]};
 /* Versão do jogo (suba junto com VERSION do sw.js): as medidas recomeçam a cada versão, para o relatório mostrar só a atual. */
-const APP_V='v90';
+const APP_V='v91';
 PERF.net=[];
 try{const o=JSON.parse(localStorage.getItem('pt-perf')||'null');if(o&&o.stats){PERF.net=o.net||[];if(o.v===APP_V){PERF.stats=o.stats;PERF.ev=o.ev||[];PERF.since=o.since||Date.now();}}}catch(e){}
 /* Pedidos ao servidor de e-mail (Apps Script): o que foi pedido, a resposta e o motivo da falha. */
